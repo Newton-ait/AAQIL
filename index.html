@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NDU AI — Widget Test Playground</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      transition: background 0.3s ease;
+    }
+
+    body.dark-mode {
+      background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+    }
+
+    .test-container {
+      max-width: 800px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 32px;
+      padding: 40px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    body.dark-mode .test-container {
+      background: rgba(30, 41, 59, 0.95);
+      color: #E2E8F0;
+    }
+
+    h1 {
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #0066FF, #00C2FF);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 18px;
+      color: #64748B;
+      margin-bottom: 32px;
+    }
+
+    body.dark-mode .subtitle {
+      color: #94A3B8;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 8px 20px;
+      border-radius: 40px;
+      font-weight: 600;
+      margin-bottom: 32px;
+      background: #F0F9FF;
+      color: #0066FF;
+      border: 1px solid rgba(0, 102, 255, 0.2);
+    }
+
+    body.dark-mode .status-badge {
+      background: #1E293B;
+      color: #38BDF8;
+    }
+
+    .status-badge.active {
+      background: #22C55E;
+      color: white;
+    }
+
+    .instruction-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .instruction-card {
+      background: #F8FAFC;
+      padding: 20px;
+      border-radius: 16px;
+      border: 1px solid rgba(0, 102, 255, 0.1);
+    }
+
+    body.dark-mode .instruction-card {
+      background: #0F172A;
+      border-color: #334155;
+    }
+
+    .instruction-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+    }
+
+    .instruction-title {
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #1A1A2E;
+    }
+
+    body.dark-mode .instruction-title {
+      color: #E2E8F0;
+    }
+
+    .instruction-text {
+      font-size: 14px;
+      color: #64748B;
+    }
+
+    body.dark-mode .instruction-text {
+      color: #94A3B8;
+    }
+
+    .test-section {
+      margin-top: 32px;
+      padding-top: 32px;
+      border-top: 1px solid rgba(0, 102, 255, 0.1);
+    }
+
+    .test-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #64748B;
+      margin-bottom: 20px;
+    }
+
+    .sample-text {
+      background: #F8FAFC;
+      padding: 20px;
+      border-radius: 16px;
+      margin-bottom: 20px;
+      font-style: italic;
+      color: #1A1A2E;
+      border: 1px solid rgba(0, 102, 255, 0.1);
+    }
+
+    body.dark-mode .sample-text {
+      background: #0F172A;
+      color: #E2E8F0;
+      border-color: #334155;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 14px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0066FF, #00C2FF);
+      color: white;
+      box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
+    }
+
+    .btn-secondary {
+      background: #334155;
+      color: white;
+    }
+
+    .btn-success {
+      background: #22C55E;
+      color: white;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .footer {
+      margin-top: 32px;
+      font-size: 12px;
+      color: #94A3B8;
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #EF4444;
+      animation: pulse-red 2s infinite;
+    }
+
+    .status-dot.connected {
+      background: #22C55E;
+      animation: pulse-green 2s infinite;
+    }
+
+    @keyframes pulse-green {
+      0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+
+    @keyframes pulse-red {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+
+    .log-panel {
+      background: #1A1A2E;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 24px;
+      text-align: left;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .log-title {
+      color: #10B981;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .log-content {
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 11px;
+      color: #10B981;
+      line-height: 1.6;
+    }
+
+    .log-content .error { color: #EF4444; }
+    .log-content .success { color: #22C55E; }
+    .log-content .warn { color: #F59E0B; }
+  </style>
+</head>
+<body>
+  <div class="test-container">
+    <h1>
+      <span>NDU</span>
+      <span class="gradient-text">AI</span>
+    </h1>
+    
+    <div class="connection-status">
+      <span class="status-dot" id="connectionDot"></span>
+      <span id="connectionText">Checking extension connection...</span>
+    </div>
+    
+    <div class="status-badge" id="widgetStatusBadge">
+      ⚪ Widget Not Detected
+    </div>
+    
+    <p class="subtitle">
+      Look for the 🤖 widget in the bottom-right corner!
+    </p>
+
+    <div class="instruction-grid">
+      <div class="instruction-card">
+        <div class="instruction-icon">🔽</div>
+        <div class="instruction-title">Long Press</div>
+        <div class="instruction-text">Hold the widget for menu — Transcribe, Chat, Notes, Dark Mode</div>
+      </div>
+      <div class="instruction-card">
+        <div class="instruction-icon">👆</div>
+        <div class="instruction-title">Click</div>
+        <div class="instruction-text">Tap the widget to open the full expanded view</div>
+      </div>
+      <div class="instruction-card">
+        <div class="instruction-icon">🎙️</div>
+        <div class="instruction-title">Record</div>
+        <div class="instruction-text">Click Record to start capturing and transcribing audio</div>
+      </div>
+      <div class="instruction-card">
+        <div class="instruction-icon">💬</div>
+        <div class="instruction-title">Chat with AI</div>
+        <div class="instruction-text">Ask questions about your transcript or anything else</div>
+      </div>
+    </div>
+
+    <div class="test-section">
+      <div class="test-title">📋 Sample Content for AI Testing</div>
+      <div class="sample-text" id="sampleText">
+        "Artificial intelligence is transforming how we learn. Machine learning models can now understand speech, generate text, and even create images. The future of education is personalized, adaptive, and accessible to everyone."
+      </div>
+      <div class="button-group">
+        <button class="btn btn-primary" id="useSampleText">📝 Use as Transcript</button>
+        <button class="btn btn-secondary" id="simulateRecording">🎙️ Simulate Recording</button>
+        <button class="btn btn-success" id="testBackendConnection">🔗 Test Backend</button>
+      </div>
+    </div>
+
+    <div class="log-panel">
+      <div class="log-title">📋 Activity Log</div>
+      <div class="log-content" id="activityLog">
+        [INFO] Page loaded. Waiting for widget...<br>
+      </div>
+    </div>
+
+    <div class="footer">
+      <strong>NDU Session Guard</strong> · ndu-session-guard.onrender.com<br>
+      Open the extension popup and click "Activate Widget" if it doesn't appear
+    </div>
+  </div>
+
+  <script>
+    // Activity logging
+    const activityLog = document.getElementById('activityLog');
+    
+    function log(message, type = 'INFO') {
+      const time = new Date().toLocaleTimeString();
+      const className = type.toLowerCase();
+      activityLog.innerHTML += `<span class="${className}">[${type}] ${time}: ${message}</span><br>`;
+      activityLog.scrollTop = activityLog.scrollHeight;
+      console.log(`[NDU Test] ${message}`);
+    }
+
+    function logError(message) { log(message, 'ERROR'); }
+    function logSuccess(message) { log(message, 'SUCCESS'); }
+    function logWarn(message) { log(message, 'WARN'); }
+
+    // Connection status
+    const connectionDot = document.getElementById('connectionDot');
+    const connectionText = document.getElementById('connectionText');
+    const widgetStatusBadge = document.getElementById('widgetStatusBadge');
+
+    // Check if extension is installed and content script is ready
+    function checkExtensionConnection() {
+      log('Checking extension connection...');
+      
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({ type: 'PING' }, (response) => {
+          if (chrome.runtime.lastError) {
+            logError('Extension not reachable: ' + chrome.runtime.lastError.message);
+            connectionDot.className = 'status-dot';
+            connectionText.textContent = 'Extension not detected — make sure it\'s installed';
+            widgetStatusBadge.textContent = '❌ Extension Not Found';
+            widgetStatusBadge.style.background = '#EF4444';
+            widgetStatusBadge.style.color = 'white';
+          } else if (response && response.pong) {
+            logSuccess('Extension is connected!');
+            connectionDot.className = 'status-dot connected';
+            connectionText.textContent = '✅ Extension Connected';
+            
+            // Check if widget is active
+            chrome.runtime.sendMessage({ type: 'GET_STATE' }, (stateResponse) => {
+              if (stateResponse && stateResponse.active) {
+                widgetStatusBadge.textContent = '🟢 Widget Active';
+                widgetStatusBadge.className = 'status-badge active';
+                logSuccess('Widget is ACTIVE — should be visible!');
+              } else {
+                widgetStatusBadge.textContent = '⚪ Widget Inactive — Click Activate in Popup';
+                logWarn('Widget is inactive. Open extension popup and click Activate.');
+              }
+            });
+          }
+        });
+      } else {
+        logError('Chrome extension API not available');
+        connectionText.textContent = 'Extension API not detected';
+      }
+    }
+
+    // Listen for messages from content script
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.type === 'WIDGET_READY') {
+          logSuccess('🎉 Widget is ready on this page!');
+          widgetStatusBadge.textContent = '🟢 Widget Active';
+          widgetStatusBadge.className = 'status-badge active';
+        }
+        if (message.type === 'TRANSCRIPT_UPDATED') {
+          log('Transcript updated: ' + message.text.substring(0, 50) + '...');
+        }
+        if (message.type === 'AI_RESPONSE') {
+          logSuccess('AI Response received');
+        }
+      });
+    }
+
+    // Test backend connection
+    document.getElementById('testBackendConnection').addEventListener('click', async () => {
+      log('Testing backend connection...');
+      try {
+        const response = await fetch('https://ndu-session-guard.onrender.com/ping');
+        const data = await response.json();
+        logSuccess('Backend is online: ' + JSON.stringify(data));
+      } catch (e) {
+        logError('Backend unreachable: ' + e.message);
+      }
+    });
+
+    // Use sample text as transcript
+    document.getElementById('useSampleText').addEventListener('click', () => {
+      const sampleText = document.getElementById('sampleText').textContent;
+      log('Using sample text as transcript');
+      
+      // Store in localStorage for widget to pick up
+      localStorage.setItem('ndu_sample_transcript', sampleText);
+      logSuccess('Sample text saved! Use Summarize or Quiz in the widget.');
+    });
+
+    // Simulate recording
+    document.getElementById('simulateRecording').addEventListener('click', () => {
+      log('Simulating recording...');
+      
+      const phrases = [
+        "Welcome to this lecture on artificial intelligence.",
+        "Today we'll discuss machine learning and neural networks.",
+        "Deep learning has revolutionized computer vision.",
+        "Natural language processing enables chatbots like me.",
+        "Any questions before we continue?"
+      ];
+      
+      let index = 0;
+      const interval = setInterval(() => {
+        if (index < phrases.length) {
+          log('📝 Transcribed: "' + phrases[index] + '"');
+          
+          // Dispatch event that widget might listen to
+          window.dispatchEvent(new CustomEvent('ndu:transcription', {
+            detail: { text: phrases[index], isFinal: true }
+          }));
+          
+          index++;
+        } else {
+          clearInterval(interval);
+          logSuccess('Recording simulation complete!');
+        }
+      }, 2000);
+    });
+
+    // Check connection on load
+    setTimeout(checkExtensionConnection, 500);
+    
+    // Also check when page gets focus
+    window.addEventListener('focus', () => {
+      setTimeout(checkExtensionConnection, 200);
+    });
+
+    log('Test page loaded!');
+    log('Look for the 🤖 widget in the bottom-right corner');
+    log('If widget doesn\'t appear, click the extension icon and Activate');
+  </script>
+</body>
+</html>
