@@ -3,588 +3,589 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surf AI — Complete Functional Test Suite</title>
+    <title>Surf AI — Voice Conversation (FIXED)</title>
     <style>
-        * { box-sizing: border-box; }
-        body { 
-            font-family: 'Segoe UI', 'Fira Code', monospace; 
-            background: #0b0e0b; 
-            color: #cfc; 
-            padding: 24px;
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', 'Fira Code', monospace;
+            background: linear-gradient(135deg, #0a0f0a 0%, #0c120c 100%);
+            color: #cfc;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
         }
-        h1 { border-left: 5px solid #0f0; padding-left: 20px; margin-top: 0; }
-        h3 { margin: 0 0 10px 0; }
-        button { 
-            margin: 5px; 
-            padding: 8px 16px; 
-            background: #111; 
-            color: #0f0; 
-            border: 1px solid #2ea82e; 
-            cursor: pointer;
-            border-radius: 40px;
-            transition: 0.1s;
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            width: 100%;
         }
-        button:hover:not(:disabled) { background: #0f0; color: #0a0a0a; transform: scale(0.98); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-        input, select { 
-            padding: 8px 14px; 
-            background: #0f120f; 
-            color: #0f0; 
-            border: 1px solid #2f8f2f; 
-            border-radius: 28px;
-            margin: 5px;
-        }
-        pre { 
-            background: #0c100c; 
-            padding: 14px; 
-            border: 1px solid #2a6a2a; 
-            max-height: 180px; 
-            overflow: auto; 
-            border-radius: 14px;
-            font-size: 11px;
-            margin: 10px 0 0 0;
-        }
-        .section { 
-            border: 1px solid #2f8f2f; 
-            padding: 20px; 
-            margin: 20px 0; 
-            border-radius: 28px;
-            background: #0c100c;
-        }
-        #logContainer { 
-            background: #0a0f0a; 
-            border: 2px solid #1f9f1f; 
-            padding: 12px; 
-            max-height: 280px; 
-            overflow-y: auto; 
-            border-radius: 20px;
+        h1 {
+            font-size: 2rem;
+            border-left: 5px solid #0f0;
+            padding-left: 20px;
             margin-bottom: 20px;
-            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
-        .log-line { border-bottom: 1px solid #2a4a2a; padding: 4px; font-family: monospace; }
-        .error { color: #ff9494; }
-        .success { color: #a8ffa8; }
-        .info { color: #b3ffb3; }
-        .badge {
+        .status-badge {
             background: #1f3a1f;
             color: #8eff8e;
-            padding: 2px 10px;
-            border-radius: 20px;
+            padding: 5px 15px;
+            border-radius: 40px;
+            font-size: 0.9rem;
+        }
+        .conversation-container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+        .chat-panel {
+            background: #0c100c;
+            border: 1px solid #2f8f2f;
+            border-radius: 28px;
+            padding: 20px;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 400px;
+            padding-right: 10px;
+        }
+        .message {
+            margin-bottom: 16px;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .message-user {
+            text-align: right;
+        }
+        .message-user .bubble {
+            background: #1a3a1a;
+            color: #a8ffa8;
+            display: inline-block;
+            padding: 12px 18px;
+            border-radius: 24px 24px 4px 24px;
+            max-width: 80%;
+        }
+        .message-agent {
+            text-align: left;
+        }
+        .message-agent .bubble {
+            background: #0f1a2a;
+            color: #a8d4ff;
+            display: inline-block;
+            padding: 12px 18px;
+            border-radius: 24px 24px 24px 4px;
+            max-width: 80%;
+        }
+        .message-time {
             font-size: 0.7rem;
-            margin-left: 10px;
+            color: #5a8a5a;
+            margin-top: 4px;
         }
-        .flex-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
-        .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
-        .dot-working { background: #0f0; box-shadow: 0 0 5px #0f0; }
-        .dot-pending { background: #ff0; }
-        hr { border-color: #2a6f2a; }
+        .log-panel {
+            background: #0a0f0a;
+            border: 2px solid #1f9f1f;
+            border-radius: 20px;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+        }
+        .log-panel h3 {
+            margin-bottom: 10px;
+            color: #8eff8e;
+        }
+        .log-entry {
+            font-family: 'Fira Code', monospace;
+            font-size: 11px;
+            padding: 4px 0;
+            border-bottom: 1px solid #2a4a2a;
+            color: #b3ffb3;
+        }
+        .log-time { color: #5a8a5a; }
+        .log-info { color: #8eff8e; }
+        .log-success { color: #a8ffa8; }
+        .log-error { color: #ff9494; }
+        .log-ai { color: #a8d4ff; }
+        .log-user { color: #c5ffc5; }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 12px 24px;
+            background: #111;
+            color: #0f0;
+            border: 1px solid #2ea82e;
+            cursor: pointer;
+            font-weight: 600;
+            border-radius: 40px;
+            transition: all 0.15s ease;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        button:hover:not(:disabled) {
+            background: #0f0;
+            color: #0a0a0a;
+            box-shadow: 0 0 12px #0f0;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        button.recording {
+            background: #f00;
+            color: #fff;
+            border-color: #f00;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        input {
+            padding: 12px 18px;
+            background: #0f120f;
+            color: #0f0;
+            border: 1px solid #2f8f2f;
+            border-radius: 40px;
+            font-family: monospace;
+            font-size: 14px;
+            flex: 1;
+            min-width: 250px;
+        }
+        .voice-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #0f0;
+        }
+        .dot.listening {
+            background: #0f0;
+            animation: pulse 1s infinite;
+        }
+        .dot.speaking {
+            background: #f0f;
+            animation: pulse 0.5s infinite;
+        }
+        .auth-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .auth-section input {
+            min-width: 180px;
+        }
+        #authStatus {
+            background: #1a2a1a;
+            padding: 8px 16px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+        }
+        audio {
+            display: none;
+        }
     </style>
-    <script type="importmap">
-        {
-            "imports": {
-                "livekit-client": "https://cdn.jsdelivr.net/npm/livekit-client@2/+esm"
-            }
-        }
-    </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <h1>🏄‍♂️ Surf AI — Complete Functional Test <span class="badge">ALL FEATURES</span></h1>
-    
-    <!-- LOGS -->
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <strong>📋 LIVE LOGS</strong>
-        <button id="clearLogsBtn" style="padding: 4px 12px;">🗑️ Clear</button>
-    </div>
-    <div id="logContainer"></div>
-    
-    <!-- ============================================================ -->
-    <!-- SECTION 1: AUTHENTICATION -->
-    <!-- ============================================================ -->
-    <div class="section">
-        <h3>🔐 1. AUTHENTICATION <span class="badge">Supabase</span></h3>
-        <div class="flex-row">
+    <div class="container">
+        <h1>
+            🏄‍♂️ Surf AI — Voice Conversation
+            <span class="status-badge" id="connectionStatus">⚪ Offline</span>
+        </h1>
+        
+        <!-- Auth -->
+        <div class="auth-section">
             <input type="email" id="email" placeholder="Email" value="surf@testuser.com">
             <input type="password" id="password" placeholder="Password" value="Test1234!">
-            <button id="signUpBtn">📝 Sign Up</button>
-            <button id="signInBtn">🔑 Sign In</button>
+            <button id="signInBtn">🔐 Sign In</button>
             <button id="signOutBtn">🚪 Sign Out</button>
-            <span id="authStatus" style="background:#1a2a1a; padding:5px 15px; border-radius:40px;">⚡ Not signed in</span>
+            <span id="authStatus">Not signed in</span>
         </div>
-        <div class="flex-row">
-            <button id="checkSessionBtn">🔍 Check Session</button>
+        
+        <div class="conversation-container">
+            <!-- Chat Panel -->
+            <div class="chat-panel">
+                <h3 style="margin-bottom: 15px; color: #8eff8e;">💬 Conversation</h3>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message message-agent">
+                        <div class="bubble">Hi! I'm Surf AI. Click "Start Talking" and speak to me!</div>
+                        <div class="message-time">Just now</div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button id="talkBtn">🎤 Start Talking</button>
+                    <button id="stopBtn" disabled>⏹️ Stop</button>
+                    <div class="voice-indicator">
+                        <span class="dot" id="voiceDot"></span>
+                        <span id="voiceStatus">Ready</span>
+                    </div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <input type="text" id="textInput" placeholder="Or type a message...">
+                    <button id="sendTextBtn" style="margin-left: 10px;">📤 Send</button>
+                </div>
+                <audio id="ttsAudio"></audio>
+            </div>
+            
+            <!-- Log Panel -->
+            <div class="log-panel">
+                <h3>📋 Live Logs</h3>
+                <div id="logContainer"></div>
+            </div>
         </div>
-    </div>
-    
-    <!-- ============================================================ -->
-    <!-- SECTION 2: VOICE PREFERENCES -->
-    <!-- ============================================================ -->
-    <div class="section">
-        <h3>🎤 2. VOICE PREFERENCES <span class="badge">User Settings</span></h3>
-        <div class="flex-row">
-            <select id="voiceSelect">
-                <option value="en-US-JennyNeural">Jenny (US Neural)</option>
-                <option value="en-US-GuyNeural">Guy (US Neural)</option>
-                <option value="en-GB-SoniaNeural">Sonia (UK Neural)</option>
-                <option value="en-AU-NatashaNeural">Natasha (AU Neural)</option>
-            </select>
-            <button id="listVoicesBtn">📢 List Available Voices</button>
-            <button id="saveVoiceBtn">💾 Save My Voice</button>
-            <button id="getVoiceBtn">🔊 Get My Voice</button>
-        </div>
-    </div>
-    
-    <!-- ============================================================ -->
-    <!-- SECTION 3: SPEECH-TO-TEXT (Transcribe) -->
-    <!-- ============================================================ -->
-    <div class="section">
-        <h3>📝 3. SPEECH-TO-TEXT <span class="badge">Whisper / Groq</span></h3>
-        <div class="flex-row">
-            <button id="recordBtn">🎙️ Record (3s)</button>
-            <button id="transcribeBtn" disabled>📄 Transcribe</button>
-            <span id="recordStatus"></span>
-        </div>
-        <pre id="transcriptResult">⚡ Click "Record 3s", speak, then transcribe</pre>
-    </div>
-    
-    <!-- ============================================================ -->
-    <!-- SECTION 4: TEXT-TO-SPEECH -->
-    <!-- ============================================================ -->
-    <div class="section">
-        <h3>🔊 4. TEXT-TO-SPEECH <span class="badge">Edge TTS</span></h3>
-        <div class="flex-row">
-            <input type="text" id="ttsText" value="Hello! Surf AI is now fully operational and ready to assist you." size="60">
-            <button id="ttsBtn">🔊 Generate & Play</button>
-        </div>
-        <audio id="ttsAudio" controls style="width: 100%; margin-top: 10px;"></audio>
-    </div>
-    
-    <!-- ============================================================ -->
-    <!-- SECTION 5: LIVEKIT VOICE AGENT -->
-    <!-- ============================================================ -->
-    <div class="section">
-        <h3>🎙️ 5. LIVEKIT VOICE AGENT <span class="badge">WebRTC Real-time</span></h3>
-        <div class="flex-row">
-            <input type="text" id="roomName" placeholder="Room name" value="test-room-123">
-            <button id="getTokenBtn">🎫 1. Get Token</button>
-            <button id="connectLiveKitBtn">🔌 2. Connect & Publish Mic</button>
-            <button id="disconnectLiveKitBtn">⏹️ 3. Disconnect</button>
-        </div>
-        <pre id="livekitStatus">⚪ Not connected</pre>
-        <div class="flex-row">
-            <span id="agentStatus"></span>
-        </div>
-    </div>
-    
-    <!-- ============================================================ -->
-    <!-- SECTION 6: AI CHAT (Groq) -->
-    <!-- ============================================================ -->
-    <div class="section">
-        <h3>💬 6. AI CHAT <span class="badge">Groq LLM</span></h3>
-        <div class="flex-row">
-            <input type="text" id="chatMsg" placeholder="Ask anything..." size="55" value="What makes Surf AI unique?">
-            <button id="chatBtn">✨ Send Message</button>
-        </div>
-        <pre id="chatResult"></pre>
-    </div>
-    
-    <!-- ============================================================ -->
-    <!-- SECTION 7: SYNC & SESSIONS -->
-    <!-- ============================================================ -->
-    <div class="section">
-        <h3>💾 7. SYNC & SESSIONS <span class="badge">PostgreSQL</span></h3>
-        <div class="flex-row">
-            <button id="getSessionsBtn">📂 Get My Sessions</button>
-            <button id="saveSessionBtn">💿 Save Test Session</button>
-            <button id="getStatsBtn">📊 Get Stats</button>
-        </div>
-        <pre id="syncResult">No data yet</pre>
-    </div>
-    
-    <!-- ============================================================ -->
-    <!-- SECTION 8: HEALTH CHECK -->
-    <!-- ============================================================ -->
-    <div class="section">
-        <h3>🏥 8. SYSTEM HEALTH <span class="badge">Diagnostics</span></h3>
-        <div class="flex-row">
-            <button id="healthCheckBtn">🩺 Check All Services</button>
-            <button id="testAllBtn">🚀 RUN ALL TESTS</button>
-        </div>
-        <pre id="healthResult">Click "Check All Services" to verify everything</pre>
     </div>
 
     <script type="module">
-        // ============================================================
-        // IMPORTS & CONFIGURATION
-        // ============================================================
-        import { Room, RoomEvent, createLocalAudioTrack } from 'livekit-client';
+        import { Room, RoomEvent, LocalAudioTrack, createLocalAudioTrack, RemoteAudioTrack } from 'https://cdn.jsdelivr.net/npm/livekit-client@2/+esm';
         
         const GATEWAY = 'https://surf-gateway.onrender.com';
         const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
         
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
-        // Global state
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let recordedBlob = null;
         let liveKitRoom = null;
         let liveKitToken = null;
+        let localAudioTrack = null;
+        let isRecording = false;
         
-        // ============================================================
-        // LOGGING
-        // ============================================================
-        function addLog(message, type = 'info') {
-            const container = document.getElementById('logContainer');
-            if (!container) return;
-            const div = document.createElement('div');
-            div.className = `log-line ${type}`;
-            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
+        const talkBtn = document.getElementById('talkBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const voiceDot = document.getElementById('voiceDot');
+        const voiceStatus = document.getElementById('voiceStatus');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const chatMessages = document.getElementById('chatMessages');
+        const logContainer = document.getElementById('logContainer');
+        const ttsAudio = document.getElementById('ttsAudio');
+        
+        // Audio recording for transcription
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let audioStream = null;
+        
+        function addLog(msg, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${msg}</span>`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[${type}]`, msg);
+        }
+        
+        function addMessage(text, sender) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message message-${sender}`;
+            msgDiv.innerHTML = `
+                <div class="bubble">${text}</div>
+                <div class="message-time">${new Date().toLocaleTimeString()}</div>
+            `;
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
         
         async function getAuthHeader() {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                addLog('❌ Not authenticated - please sign in', 'error');
-                return null;
-            }
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) return null;
             return { 'Authorization': `Bearer ${session.access_token}` };
         }
         
-        async function updateAuthUI() {
-            const { data: { session } } = await supabase.auth.getSession();
-            const span = document.getElementById('authStatus');
-            if (session) {
-                span.innerHTML = `✅ ${session.user.email}`;
-                span.style.background = '#1f3a1f';
-            } else {
-                span.innerHTML = '⚠️ Not signed in';
-                span.style.background = '#3a1f1f';
+        // ✅ FIXED: AI Chat with proper request format
+        async function getAIResponse(message) {
+            const headers = await getAuthHeader();
+            if (!headers) throw new Error('Not authenticated');
+            
+            addLog(`Sending to AI: "${message}"`, 'info');
+            
+            const r = await fetch(`${GATEWAY}/ai/chat`, {
+                method: 'POST',
+                headers: { 
+                    ...headers, 
+                    'Content-Type': 'application/json',
+                    'x-pin': 'ndu2026'  // Fallback PIN if auth fails
+                },
+                body: JSON.stringify({ 
+                    messages: [{ role: 'user', content: message }],
+                    sessionToken: 'voice-chat-' + Date.now()
+                })
+            });
+            
+            const data = await r.json();
+            addLog(`AI raw response: ${JSON.stringify(data).slice(0, 200)}`, 'info');
+            
+            // Handle different response formats
+            let reply = data.result || data.response || data.message || data.content;
+            if (!reply && data.choices && data.choices[0]) {
+                reply = data.choices[0].message?.content;
+            }
+            if (!reply && data.error) {
+                throw new Error(data.error);
+            }
+            
+            return reply || "I heard you, but I'm not sure how to respond.";
+        }
+        
+        // ✅ FIXED: TTS with proper FormData
+        async function speakText(text) {
+            const headers = await getAuthHeader();
+            if (!headers) return;
+            
+            const formData = new FormData();
+            formData.append('text', text);
+            formData.append('voice', 'en-US-JennyNeural');
+            
+            try {
+                const r = await fetch(`${GATEWAY}/tts`, {
+                    method: 'POST',
+                    headers: { 'Authorization': headers.Authorization },
+                    body: formData
+                });
+                
+                if (r.ok) {
+                    const blob = await r.blob();
+                    ttsAudio.src = URL.createObjectURL(blob);
+                    ttsAudio.play();
+                    addLog('🔊 Speaking response...', 'success');
+                } else {
+                    addLog(`TTS error: HTTP ${r.status}`, 'error');
+                }
+            } catch (err) {
+                addLog(`TTS failed: ${err.message}`, 'error');
             }
         }
         
-        // ============================================================
-        // 1. AUTHENTICATION
-        // ============================================================
-        document.getElementById('signUpBtn').onclick = async () => {
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-            const { data, error } = await supabase.auth.signUp({ email, password });
-            if (error) addLog(`Sign up failed: ${error.message}`, 'error');
-            else addLog(`✅ Signed up: ${email}`, 'success');
-            await updateAuthUI();
-        };
-        
-        document.getElementById('signInBtn').onclick = async () => {
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-            if (error) addLog(`Sign in failed: ${error.message}`, 'error');
-            else addLog(`✅ Signed in: ${email}`, 'success');
-            await updateAuthUI();
-        };
-        
-        document.getElementById('signOutBtn').onclick = async () => {
-            await supabase.auth.signOut();
-            addLog('Signed out', 'success');
-            await updateAuthUI();
-            if (liveKitRoom) { liveKitRoom.disconnect(); liveKitRoom = null; }
-        };
-        
-        document.getElementById('checkSessionBtn').onclick = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) addLog(`Session active: ${session.user.email}`, 'success');
-            else addLog('No active session', 'info');
-        };
-        
-        // ============================================================
-        // 2. VOICE PREFERENCES
-        // ============================================================
-        document.getElementById('listVoicesBtn').onclick = async () => {
+        // ✅ FIXED: Transcription using gateway
+        async function transcribeAudio(audioBlob) {
             const headers = await getAuthHeader();
-            if (!headers) return;
-            const r = await fetch(`${GATEWAY}/voices`, { headers });
-            const data = await r.json();
-            const voices = data.voices || data;
-            addLog(`📢 ${voices.length} voices available`, 'success');
-        };
-        
-        document.getElementById('saveVoiceBtn').onclick = async () => {
-            const headers = await getAuthHeader();
-            if (!headers) return;
-            const voice = document.getElementById('voiceSelect').value;
-            const r = await fetch(`${GATEWAY}/voice/set`, {
-                method: 'POST',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ voice })
-            });
-            const data = await r.json();
-            addLog(`💾 Voice saved: ${data.voice_name}`, 'success');
-        };
-        
-        document.getElementById('getVoiceBtn').onclick = async () => {
-            const headers = await getAuthHeader();
-            if (!headers) return;
-            const r = await fetch(`${GATEWAY}/voice/get`, { headers });
-            const data = await r.json();
-            addLog(`🔊 Your voice: ${data.voice_name}`, 'success');
-        };
-        
-        // ============================================================
-        // 3. SPEECH-TO-TEXT
-        // ============================================================
-        document.getElementById('recordBtn').onclick = async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
-                mediaRecorder.ondataavailable = e => { if (e.data.size) audioChunks.push(e.data); };
-                mediaRecorder.onstop = () => {
-                    recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    document.getElementById('transcribeBtn').disabled = false;
-                    addLog(`🎙️ Recorded: ${(recordedBlob.size/1024).toFixed(1)} KB`, 'success');
-                    stream.getTracks().forEach(t => t.stop());
-                };
-                mediaRecorder.start();
-                addLog('🔴 Recording 3 seconds...', 'info');
-                document.getElementById('recordBtn').disabled = true;
-                document.getElementById('recordBtn').innerHTML = '🔴 Recording...';
-                setTimeout(() => {
-                    if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
-                    document.getElementById('recordBtn').disabled = false;
-                    document.getElementById('recordBtn').innerHTML = '🎙️ Record (3s)';
-                }, 3000);
-            } catch (e) { addLog(`Mic error: ${e.message}`, 'error'); }
-        };
-        
-        document.getElementById('transcribeBtn').onclick = async () => {
-            if (!recordedBlob) { addLog('No audio recorded', 'error'); return; }
-            const headers = await getAuthHeader();
-            if (!headers) return;
-            const fd = new FormData();
-            fd.append('audio', recordedBlob, 'speech.webm');
-            addLog('📝 Transcribing...', 'info');
+            if (!headers) throw new Error('Not authenticated');
+            
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'recording.webm');
+            
+            addLog('Transcribing audio...', 'info');
+            
             const r = await fetch(`${GATEWAY}/transcribe`, {
                 method: 'POST',
                 headers: { 'Authorization': headers.Authorization },
-                body: fd
+                body: formData
             });
+            
             const data = await r.json();
-            const text = data.text || data.transcript || '(no speech)';
-            document.getElementById('transcriptResult').innerHTML = `<strong>📝 Transcript:</strong><br>${text}`;
-            addLog(`📄 "${text.slice(0, 80)}"`, 'success');
-        };
+            const transcript = data.text || data.transcript || data.result;
+            
+            if (!transcript) throw new Error('No transcript returned');
+            
+            return transcript;
+        }
         
-        // ============================================================
-        // 4. TEXT-TO-SPEECH
-        // ============================================================
-        document.getElementById('ttsBtn').onclick = async () => {
-            const headers = await getAuthHeader();
-            if (!headers) return;
-            const text = document.getElementById('ttsText').value;
-            const voice = document.getElementById('voiceSelect').value;
-            const fd = new FormData();
-            fd.append('text', text);
-            fd.append('voice', voice);
-            addLog(`🔊 Generating TTS...`, 'info');
-            const r = await fetch(`${GATEWAY}/tts`, {
-                method: 'POST',
-                headers: { 'Authorization': headers.Authorization },
-                body: fd
-            });
-            if (r.ok) {
-                const blob = await r.blob();
-                const audio = document.getElementById('ttsAudio');
-                audio.src = URL.createObjectURL(blob);
-                await audio.play();
-                addLog(`✅ TTS playing`, 'success');
-            } else { addLog(`TTS failed`, 'error'); }
-        };
-        
-        // ============================================================
-        // 5. LIVEKIT VOICE AGENT
-        // ============================================================
-        document.getElementById('getTokenBtn').onclick = async () => {
-            const headers = await getAuthHeader();
-            if (!headers) return;
-            const room = document.getElementById('roomName').value;
-            const r = await fetch(`${GATEWAY}/livekit/token`, {
-                method: 'POST',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room })
-            });
-            const data = await r.json();
-            liveKitToken = data.token;
-            addLog(`✅ Token obtained for room: ${room}`, 'success');
-            document.getElementById('livekitStatus').innerHTML = `🔑 Token ready`;
-        };
-        
-        document.getElementById('connectLiveKitBtn').onclick = async () => {
-            if (!liveKitToken) { addLog('Get token first', 'error'); return; }
+        // Start recording for transcription
+        async function startRecording() {
             try {
+                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(audioStream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    
+                    try {
+                        const transcript = await transcribeAudio(audioBlob);
+                        addLog(`📝 Transcript: "${transcript}"`, 'success');
+                        addMessage(transcript, 'user');
+                        
+                        const reply = await getAIResponse(transcript);
+                        addMessage(reply, 'agent');
+                        addLog(`🤖 AI: ${reply}`, 'ai');
+                        
+                        await speakText(reply);
+                        
+                    } catch (err) {
+                        addLog(`Error: ${err.message}`, 'error');
+                    }
+                    
+                    voiceDot.className = 'dot';
+                    voiceStatus.textContent = 'Ready';
+                    talkBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    talkBtn.classList.remove('recording');
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                
+            } catch (err) {
+                addLog(`Mic error: ${err.message}`, 'error');
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                audioStream?.getTracks().forEach(t => t.stop());
+            }
+            isRecording = false;
+        }
+        
+        document.getElementById('signInBtn').onclick = async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (error) {
+                addLog(`Sign in failed: ${error.message}`, 'error');
+            } else {
+                addLog(`✅ Signed in as ${data.user.email}`, 'success');
+                document.getElementById('authStatus').textContent = `✅ ${data.user.email}`;
+                await connectToLiveKit();
+            }
+        };
+        
+        document.getElementById('signOutBtn').onclick = async () => {
+            await supabaseClient.auth.signOut();
+            addLog('Signed out', 'success');
+            document.getElementById('authStatus').textContent = 'Not signed in';
+            if (liveKitRoom) {
+                liveKitRoom.disconnect();
+                liveKitRoom = null;
+            }
+            connectionStatus.textContent = '⚪ Offline';
+        };
+        
+        async function connectToLiveKit() {
+            try {
+                addLog('Getting LiveKit token...', 'info');
+                const headers = await getAuthHeader();
+                if (!headers) throw new Error('Not authenticated');
+                
+                const r = await fetch(`${GATEWAY}/livekit/token`, {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room: 'voice-conversation' })
+                });
+                const data = await r.json();
+                liveKitToken = data.token;
+                addLog('✅ Token obtained', 'success');
+                
                 liveKitRoom = new Room();
+                
                 liveKitRoom.on(RoomEvent.Connected, () => {
-                    addLog('✅ LiveKit Connected!', 'success');
-                    document.getElementById('livekitStatus').innerHTML = '✅ Connected + Mic Publishing';
+                    addLog('✅ Connected to LiveKit', 'success');
+                    connectionStatus.textContent = '🟢 Connected';
+                    talkBtn.disabled = false;
                 });
+                
                 liveKitRoom.on(RoomEvent.Disconnected, () => {
-                    addLog('Disconnected', 'info');
-                    document.getElementById('livekitStatus').innerHTML = '⚪ Disconnected';
+                    addLog('Disconnected from LiveKit', 'info');
+                    connectionStatus.textContent = '⚪ Offline';
                 });
-                liveKitRoom.on(RoomEvent.ParticipantConnected, (p) => {
-                    addLog(`👤 Agent ${p.identity} joined`, 'success');
-                    document.getElementById('agentStatus').innerHTML = `🤖 Agent: ${p.identity}`;
+                
+                liveKitRoom.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
+                    if (track instanceof RemoteAudioTrack && participant.identity.includes('agent')) {
+                        addLog(`🎤 Agent speaking...`, 'success');
+                        voiceDot.className = 'dot speaking';
+                        
+                        const audioEl = new Audio();
+                        track.attach(audioEl);
+                        audioEl.play();
+                        
+                        audioEl.onended = () => {
+                            voiceDot.className = 'dot';
+                        };
+                    }
                 });
+                
                 await liveKitRoom.connect('wss://surf-ai-k6d840vq.livekit.cloud', liveKitToken);
-                const track = await createLocalAudioTrack();
-                await liveKitRoom.localParticipant.publishTrack(track);
-                addLog('🎤 Microphone published - agent can hear you!', 'success');
-                document.getElementById('livekitStatus').innerHTML = '🎙️ Connected + Streaming';
-            } catch (e) { addLog(`LiveKit error: ${e.message}`, 'error'); }
-        };
+                
+                localAudioTrack = await createLocalAudioTrack();
+                await liveKitRoom.localParticipant.publishTrack(localAudioTrack);
+                addLog('🎤 Microphone ready', 'success');
+                
+            } catch (err) {
+                addLog(`Connection error: ${err.message}`, 'error');
+            }
+        }
         
-        document.getElementById('disconnectLiveKitBtn').onclick = () => {
-            if (liveKitRoom) { liveKitRoom.disconnect(); liveKitRoom = null; addLog('Disconnected', 'info'); }
-            document.getElementById('livekitStatus').innerHTML = '⚪ Disconnected';
-            document.getElementById('agentStatus').innerHTML = '';
-        };
-        
-        // ============================================================
-        // 6. AI CHAT
-        // ============================================================
-        document.getElementById('chatBtn').onclick = async () => {
-            const headers = await getAuthHeader();
-            if (!headers) return;
-            const msg = document.getElementById('chatMsg').value;
-            addLog(`💬 Sending: "${msg.slice(0, 50)}..."`, 'info');
-            const r = await fetch(`${GATEWAY}/ai/chat`, {
-                method: 'POST',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: [{ role: 'user', content: msg }] })
-            });
-            const data = await r.json();
-            const reply = data.result || data.response || data.message || 'No response';
-            document.getElementById('chatResult').innerHTML = `<strong>🤖 AI:</strong><br>${reply}`;
-            addLog(`🤖 Response received`, 'success');
-        };
-        
-        // ============================================================
-        // 7. SYNC & SESSIONS
-        // ============================================================
-        document.getElementById('getSessionsBtn').onclick = async () => {
-            const headers = await getAuthHeader();
-            if (!headers) return;
-            const r = await fetch(`${GATEWAY}/sync/sessions`, { headers });
-            const data = await r.json();
-            document.getElementById('syncResult').innerText = JSON.stringify(data, null, 2);
-            addLog(`📁 ${data.sessions?.length || 0} sessions`, 'success');
-        };
-        
-        document.getElementById('saveSessionBtn').onclick = async () => {
-            const headers = await getAuthHeader();
-            if (!headers) return;
-            const r = await fetch(`${GATEWAY}/sync/session`, {
-                method: 'POST',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room_name: 'test-session', title: 'Test Session', duration_seconds: 120 })
-            });
-            const data = await r.json();
-            addLog(`💾 Session saved`, 'success');
-            await document.getElementById('getSessionsBtn').onclick();
-        };
-        
-        document.getElementById('getStatsBtn').onclick = async () => {
-            const headers = await getAuthHeader();
-            if (!headers) return;
-            const r = await fetch(`${GATEWAY}/sync/stats`, { headers });
-            const data = await r.json();
-            document.getElementById('syncResult').innerText = JSON.stringify(data, null, 2);
-            addLog(`📊 Stats: ${data.stats?.total_sessions || 0} total sessions`, 'success');
-        };
-        
-        // ============================================================
-        // 8. HEALTH CHECK
-        // ============================================================
-        document.getElementById('healthCheckBtn').onclick = async () => {
-            const headers = await getAuthHeader();
-            if (!headers) return;
-            const results = [];
+        talkBtn.onclick = async () => {
+            if (!liveKitRoom) {
+                addLog('Connecting...', 'info');
+                await connectToLiveKit();
+            }
             
-            // Test /voices
+            talkBtn.disabled = true;
+            stopBtn.disabled = false;
+            talkBtn.classList.add('recording');
+            voiceDot.className = 'dot listening';
+            voiceStatus.textContent = '🎤 Recording... Speak!';
+            
+            await startRecording();
+            
+            // Auto-stop after 5 seconds of silence (simplified)
+            setTimeout(() => {
+                if (isRecording) {
+                    stopRecording();
+                    addLog('⏹️ Auto-stopped', 'info');
+                }
+            }, 5000);
+        };
+        
+        stopBtn.onclick = () => {
+            stopRecording();
+            addLog('⏹️ Stopped recording', 'info');
+        };
+        
+        document.getElementById('sendTextBtn').onclick = async () => {
+            const text = document.getElementById('textInput').value.trim();
+            if (!text) return;
+            
+            addMessage(text, 'user');
+            addLog(`💬 You: ${text}`, 'user');
+            document.getElementById('textInput').value = '';
+            
             try {
-                const r = await fetch(`${GATEWAY}/voices`, { headers });
-                results.push(`/voices: ${r.status === 200 ? '✅' : '❌'}`);
-            } catch(e) { results.push(`/voices: ❌ ${e.message}`); }
-            
-            // Test /ping
-            try {
-                const r = await fetch(`${GATEWAY}/ping`);
-                results.push(`/ping: ${r.status === 200 ? '✅' : '❌'}`);
-            } catch(e) { results.push(`/ping: ❌`); }
-            
-            // Test /sync/stats
-            try {
-                const r = await fetch(`${GATEWAY}/sync/stats`, { headers });
-                results.push(`/sync/stats: ${r.status === 200 ? '✅' : '❌'}`);
-            } catch(e) { results.push(`/sync/stats: ❌`); }
-            
-            document.getElementById('healthResult').innerHTML = results.join('\n');
-            addLog('🏥 Health check complete', 'success');
+                const reply = await getAIResponse(text);
+                addMessage(reply, 'agent');
+                addLog(`🤖 AI: ${reply}`, 'ai');
+                await speakText(reply);
+            } catch (err) {
+                addLog(`Error: ${err.message}`, 'error');
+            }
         };
         
-        // ============================================================
-        // RUN ALL TESTS
-        // ============================================================
-        document.getElementById('testAllBtn').onclick = async () => {
-            addLog('🚀 RUNNING ALL TESTS...', 'info');
-            // Check auth
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) { addLog('❌ Please sign in first', 'error'); return; }
-            addLog('✅ 1. Auth OK', 'success');
-            
-            // Test voices
-            const v = await fetch(`${GATEWAY}/voices`, { headers: await getAuthHeader() });
-            addLog(`✅ 2. Voices: ${v.status === 200 ? 'OK' : 'FAIL'}`, v.status === 200 ? 'success' : 'error');
-            
-            // Test TTS
-            addLog('✅ 3. TTS ready (use button to test)', 'info');
-            
-            // Test LiveKit token
-            const tk = await fetch(`${GATEWAY}/livekit/token`, {
-                method: 'POST',
-                headers: { ...await getAuthHeader(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room: 'test-all' })
-            });
-            addLog(`✅ 4. LiveKit token: ${tk.status === 200 ? 'OK' : 'FAIL'}`, tk.status === 200 ? 'success' : 'error');
-            
-            // Test chat
-            const ch = await fetch(`${GATEWAY}/ai/chat`, {
-                method: 'POST',
-                headers: { ...await getAuthHeader(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: [{ role: 'user', content: 'Say OK' }] })
-            });
-            addLog(`✅ 5. AI Chat: ${ch.status === 200 ? 'OK' : 'FAIL'}`, ch.status === 200 ? 'success' : 'error');
-            
-            addLog('🎉 All tests complete! Use individual buttons for detailed testing.', 'success');
-        };
-        
-        document.getElementById('clearLogsBtn').onclick = () => {
-            document.getElementById('logContainer').innerHTML = '';
-            addLog('Logs cleared', 'info');
-        };
-        
-        // ============================================================
-        // INIT
-        // ============================================================
-        await updateAuthUI();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) addLog(`✅ Welcome back, ${session.user.email}`, 'success');
-        else addLog('👋 Sign in to test all features', 'info');
-        
-        addLog('✅ All 8 modules ready!', 'success');
+        // Init
+        (async () => {
+            const { data } = await supabaseClient.auth.getSession();
+            if (data.session) {
+                addLog(`Session restored: ${data.session.user.email}`, 'success');
+                document.getElementById('authStatus').textContent = `✅ ${data.session.user.email}`;
+                await connectToLiveKit();
+            } else {
+                addLog('👋 Sign in to start', 'info');
+            }
+            addLog('✅ Ready!', 'success');
+        })();
     </script>
 </body>
 </html>
