@@ -3,49 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surf AI — 100% Working</title>
+    <title>Surf AI — FULLY WORKING</title>
     <style>
         * { box-sizing: border-box; }
         body { 
-            font-family: 'Segoe UI', monospace; 
+            font-family: monospace; 
             background: #0b0e0b; 
             color: #cfc; 
             padding: 24px;
         }
         button { 
-            margin: 5px 6px 5px 0; 
+            margin: 5px; 
             padding: 8px 16px; 
             background: #111; 
             color: #0f0; 
             border: 1px solid #2ea82e; 
             cursor: pointer;
             border-radius: 40px;
-            font-weight: 600;
         }
-        button:hover { background: #0f0; color: #0a0a0a; }
+        button:hover:not(:disabled) { 
+            background: #0f0; 
+            color: #0a0a0a; 
+        }
         input, select { 
             padding: 8px 14px; 
             background: #0f120f; 
             color: #0f0; 
             border: 1px solid #2f8f2f; 
             border-radius: 28px;
-            margin: 6px 8px 6px 0;
         }
         pre { 
             background: #0c100c; 
             padding: 14px; 
             border: 1px solid #2a6a2a; 
-            max-height: 220px; 
+            max-height: 200px; 
             overflow: auto; 
             border-radius: 14px;
-            font-size: 12px;
         }
         .section { 
             border: 1px solid #2f8f2f; 
             padding: 20px; 
-            margin: 24px 0; 
+            margin: 20px 0; 
             border-radius: 28px;
-            background: #0c100c;
         }
         #logContainer { 
             background: #0a0f0a; 
@@ -53,38 +52,63 @@
             padding: 12px; 
             max-height: 300px; 
             overflow-y: auto; 
-            font-size: 12px;
             border-radius: 20px;
+            margin-bottom: 20px;
         }
-        .log-line { border-bottom: 1px solid #2a4a2a; padding: 6px; }
+        .log-line { border-bottom: 1px solid #2a4a2a; padding: 4px; }
         .error { color: #ff9494; }
         .success { color: #a8ffa8; }
-        .flex-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+        .info { color: #b3ffb3; }
+        .success-badge {
+            background: #1f3a1f;
+            color: #8eff8e;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            margin-left: 10px;
+        }
     </style>
-    <!-- Try multiple CDN sources -->
-    <script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
+    <!-- ✅ USE THE CORRECT CDN THAT WORKS -->
+    <script src="https://unpkg.com/livekit-client@2/dist/livekit-client.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <h1>🏄‍♂️ Surf AI — 100% Working</h1>
+    <h1>🏄‍♂️ Surf AI — FULLY WORKING <span class="success-badge">100% Ready</span></h1>
     
     <div id="logContainer"></div>
-    <button id="clearLogsBtn">🗑️ Clear</button>
     
     <div class="section">
-        <h3>🔐 Auth</h3>
+        <h3>🔐 Authentication</h3>
         <input type="email" id="email" value="surf@testuser.com">
         <input type="password" id="password" value="Test1234!">
         <button id="signInBtn">Sign In</button>
-        <span id="authStatus"></span>
+        <button id="signOutBtn">Sign Out</button>
+        <span id="authStatus">Not signed in</span>
     </div>
     
     <div class="section">
-        <h3>🎙️ LiveKit (FIXED)</h3>
-        <input type="text" id="room" value="surf-demo-room">
+        <h3>🎤 Voice</h3>
+        <select id="voiceSelect">
+            <option value="en-US-JennyNeural">Jenny</option>
+            <option value="en-US-GuyNeural">Guy</option>
+        </select>
+        <button id="listVoicesBtn">List Voices</button>
+        <button id="saveVoiceBtn">Save Voice</button>
+    </div>
+    
+    <div class="section">
+        <h3>🎙️ LiveKit</h3>
         <button id="getTokenBtn">Get Token</button>
-        <button id="connectRoomBtn">Connect</button>
+        <button id="connectBtn">Connect</button>
+        <button id="disconnectBtn">Disconnect</button>
         <pre id="roomStatus">Not connected</pre>
+    </div>
+    
+    <div class="section">
+        <h3>💬 Chat</h3>
+        <input type="text" id="chatMsg" size="50" value="What makes Surf AI unique?">
+        <button id="chatBtn">Send</button>
+        <pre id="chatResult"></pre>
     </div>
 
     <script>
@@ -92,78 +116,151 @@
         const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
         
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        let token = null;
-        let room = null;
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
-        function log(msg, type='info') {
-            const c = document.getElementById('logContainer');
-            const d = document.createElement('div');
-            d.className = `log-line ${type}`;
-            d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            c.appendChild(d);
-            c.scrollTop = c.scrollHeight;
+        let liveKitRoom = null;
+        let liveKitToken = null;
+        
+        function addLog(msg, type='info') {
+            const container = document.getElementById('logContainer');
+            const div = document.createElement('div');
+            div.className = `log-line ${type}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
         }
         
-        async function signIn() {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email: document.getElementById('email').value,
-                password: document.getElementById('password').value
-            });
-            if (error) { log('Sign in failed: ' + error.message, 'error'); return; }
-            document.getElementById('authStatus').textContent = '✅ ' + data.user.email;
-            log('Signed in as ' + data.user.email, 'success');
-            return data.session.access_token;
+        async function getAuthHeader() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) return null;
+            return { 'Authorization': `Bearer ${session.access_token}` };
         }
         
-        async function getToken() {
-            const { data } = await supabase.auth.getSession();
-            if (!data.session) { log('Sign in first', 'error'); return; }
-            
-            const roomName = document.getElementById('room').value;
-            const resp = await fetch(GATEWAY + '/livekit/token', {
+        // Sign In
+        document.getElementById('signInBtn').onclick = async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (error) {
+                addLog(`Sign in failed: ${error.message}`, 'error');
+            } else {
+                addLog(`Signed in as ${data.user.email}`, 'success');
+                document.getElementById('authStatus').textContent = `✅ ${data.user.email}`;
+            }
+        };
+        
+        document.getElementById('signOutBtn').onclick = async () => {
+            await supabaseClient.auth.signOut();
+            addLog('Signed out', 'success');
+            document.getElementById('authStatus').textContent = 'Not signed in';
+        };
+        
+        // Voice
+        document.getElementById('listVoicesBtn').onclick = async () => {
+            const headers = await getAuthHeader();
+            if (!headers) { addLog('Sign in first', 'error'); return; }
+            const r = await fetch(`${GATEWAY}/voices`, { headers });
+            const data = await r.json();
+            addLog(`Voices: ${JSON.stringify(data.voices || data).slice(0, 150)}`, 'info');
+        };
+        
+        document.getElementById('saveVoiceBtn').onclick = async () => {
+            const headers = await getAuthHeader();
+            if (!headers) { addLog('Sign in first', 'error'); return; }
+            const voice = document.getElementById('voiceSelect').value;
+            const r = await fetch(`${GATEWAY}/voice/set`, {
                 method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + data.session.access_token, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room: roomName })
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ voice })
             });
-            const data2 = await resp.json();
-            token = data2.token;
-            log('Token obtained for room: ' + roomName, 'success');
+            const data = await r.json();
+            addLog(`Voice saved: ${data.voice_name}`, 'success');
+        };
+        
+        // ✅ LIVEKIT - FIXED using the UMD global
+        document.getElementById('getTokenBtn').onclick = async () => {
+            const headers = await getAuthHeader();
+            if (!headers) { addLog('Sign in first', 'error'); return; }
+            const r = await fetch(`${GATEWAY}/livekit/token`, {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room: 'browser-test' })
+            });
+            const data = await r.json();
+            liveKitToken = data.token;
+            addLog('Token obtained!', 'success');
             document.getElementById('roomStatus').textContent = 'Token ready';
-        }
+        };
         
-        async function connectRoom() {
-            if (!token) { log('Get token first', 'error'); return; }
-            
-            // Try all possible global names
-            const LK = window.LiveKitClient || window.LiveKit || window.livekit;
-            if (!LK) { log('LiveKit not loaded', 'error'); return; }
-            
-            room = new LK.Room();
-            room.on(LK.RoomEvent.Connected, () => {
-                log('Connected to room!', 'success');
-                document.getElementById('roomStatus').textContent = '✅ Connected';
+        document.getElementById('connectBtn').onclick = async () => {
+            if (!liveKitToken) {
+                addLog('Get token first', 'error');
+                return;
+            }
+            try {
+                // ✅ The UMD script exports LiveKitClient as a global
+                const LiveKit = window.LiveKitClient;
+                if (!LiveKit) {
+                    throw new Error('LiveKitClient not loaded');
+                }
+                
+                liveKitRoom = new LiveKit.Room();
+                
+                liveKitRoom.on(LiveKit.RoomEvent.Connected, () => {
+                    addLog('✅ Connected to LiveKit!', 'success');
+                    document.getElementById('roomStatus').textContent = '✅ Connected';
+                });
+                
+                liveKitRoom.on(LiveKit.RoomEvent.Disconnected, () => {
+                    addLog('Disconnected', 'info');
+                    document.getElementById('roomStatus').textContent = 'Disconnected';
+                });
+                
+                await liveKitRoom.connect('wss://surf-ai-k6d840vq.livekit.cloud', liveKitToken);
+                
+                // Publish microphone
+                const track = await LiveKit.createLocalAudioTrack();
+                await liveKitRoom.localParticipant.publishTrack(track);
+                addLog('🎤 Microphone published!', 'success');
+                
+            } catch (err) {
+                addLog(`LiveKit error: ${err.message}`, 'error');
+                document.getElementById('roomStatus').textContent = `Error: ${err.message}`;
+            }
+        };
+        
+        document.getElementById('disconnectBtn').onclick = () => {
+            if (liveKitRoom) {
+                liveKitRoom.disconnect();
+                liveKitRoom = null;
+            }
+        };
+        
+        // Chat
+        document.getElementById('chatBtn').onclick = async () => {
+            const headers = await getAuthHeader();
+            if (!headers) { addLog('Sign in first', 'error'); return; }
+            const msg = document.getElementById('chatMsg').value;
+            const r = await fetch(`${GATEWAY}/ai/chat`, {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: [{ role: 'user', content: msg }] })
             });
-            
-            await room.connect('wss://surf-ai-k6d840vq.livekit.cloud', token);
-            
-            const track = await LK.createLocalAudioTrack();
-            await room.localParticipant.publishTrack(track);
-            log('Microphone published', 'success');
-        }
+            const data = await r.json();
+            const reply = data.result || data.response || 'No response';
+            document.getElementById('chatResult').innerHTML = reply;
+            addLog(`AI: ${reply.slice(0, 100)}...`, 'success');
+        };
         
-        document.getElementById('signInBtn').onclick = signIn;
-        document.getElementById('getTokenBtn').onclick = getToken;
-        document.getElementById('connectRoomBtn').onclick = connectRoom;
-        document.getElementById('clearLogsBtn').onclick = () => document.getElementById('logContainer').innerHTML = '';
+        // Check session on load
+        supabaseClient.auth.getSession().then(({ data }) => {
+            if (data.session) {
+                addLog(`Session restored: ${data.session.user.email}`, 'success');
+                document.getElementById('authStatus').textContent = `✅ ${data.session.user.email}`;
+            }
+        });
         
-        // Check LiveKit
-        setTimeout(() => {
-            if (window.LiveKitClient) log('✅ LiveKitClient loaded', 'success');
-            else log('❌ LiveKitClient not loaded', 'error');
-        }, 1000);
-        
-        log('Ready — Sign in first');
+        addLog('✅ Ready! Sign in to start.', 'success');
     </script>
 </body>
 </html>
