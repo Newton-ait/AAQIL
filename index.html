@@ -220,6 +220,11 @@
             background: #0f0;
             color: #0a0a0a;
         }
+        .room-info {
+            font-size: 0.8rem;
+            color: #5a8a5a;
+            margin-top: 5px;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -263,6 +268,7 @@
                         <span id="voiceStatus">Mic off</span>
                     </div>
                 </div>
+                <div class="room-info" id="roomInfo"></div>
                 <div style="margin-top: 15px;">
                     <input type="text" id="textInput" placeholder="Or type a message...">
                     <button id="sendTextBtn" style="margin-left: 10px;">📤 Send</button>
@@ -290,8 +296,9 @@
         let liveKitRoom = null;
         let localAudioTrack = null;
         let isMicEnabled = false;
-        let currentMode = 'webrtc'; // 'webrtc' or 'walkie'
+        let currentMode = 'webrtc';
         let agentAudioElement = null;
+        let currentRoomName = null;
         
         // Walkie-talkie state
         let mediaRecorder = null;
@@ -306,6 +313,7 @@
         const connectionStatus = document.getElementById('connectionStatus');
         const chatMessages = document.getElementById('chatMessages');
         const logContainer = document.getElementById('logContainer');
+        const roomInfo = document.getElementById('roomInfo');
         
         // Helper functions
         function addLog(msg, type = 'info') {
@@ -343,7 +351,6 @@
                 currentMode = btn.dataset.mode;
                 addLog(`Mode switched to: ${currentMode}`, 'info');
                 
-                // Reset UI
                 if (currentMode === 'webrtc') {
                     voiceStatus.textContent = isMicEnabled ? '🎤 Mic live (WebRTC)' : 'Mic off';
                 } else {
@@ -352,7 +359,7 @@
             };
         });
         
-        // ✅ TRUE WEBRTC: Handle agent's audio track
+        // Handle agent's audio track
         function setupAgentAudioHandler(room) {
             room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
                 addLog(`Track subscribed: ${track.kind} from ${participant.identity}`, 'info');
@@ -360,7 +367,6 @@
                 if (track instanceof RemoteAudioTrack && participant.identity.includes('agent')) {
                     addLog('🎤 Agent audio track received!', 'success');
                     
-                    // Create audio element for agent
                     if (agentAudioElement) {
                         agentAudioElement.remove();
                     }
@@ -369,7 +375,6 @@
                     agentAudioElement.autoplay = true;
                     track.attach(agentAudioElement);
                     
-                    // Show speaking indicator when audio plays
                     agentAudioElement.onplay = () => {
                         voiceDot.className = 'dot speaking';
                         voiceStatus.textContent = '🤖 Agent speaking...';
@@ -390,7 +395,6 @@
                 }
             });
             
-            // Handle agent messages (transcripts)
             room.on(RoomEvent.DataReceived, (payload, participant) => {
                 try {
                     const data = new TextDecoder().decode(payload);
@@ -400,9 +404,6 @@
                         if (participant.identity.includes('agent')) {
                             addMessage(msg.text, 'agent');
                             addLog(`🤖 Agent: "${msg.text}"`, 'ai');
-                        } else if (participant.identity === 'local') {
-                            addMessage(msg.text, 'user');
-                            addLog(`🎤 You: "${msg.text}"`, 'user');
                         }
                     }
                 } catch (e) {
@@ -410,7 +411,6 @@
                 }
             });
             
-            // Handle participant events
             room.on(RoomEvent.ParticipantConnected, (participant) => {
                 addLog(`👤 ${participant.identity} joined`, 'info');
                 if (participant.identity.includes('agent')) {
@@ -419,23 +419,28 @@
             });
         }
         
-        // ✅ TRUE WEBRTC: Connect and enable continuous mic
+        // Enable WebRTC with unique room
         async function enableWebRTC() {
             if (isMicEnabled) return;
             
             try {
-                // Connect to LiveKit if not already
                 if (!liveKitRoom) {
                     addLog('Getting LiveKit token...', 'info');
                     const headers = await getAuthHeader();
                     if (!headers) throw new Error('Not authenticated');
                     
+                    // ✅ CREATE UNIQUE ROOM WITH 'surf-' PREFIX
+                    currentRoomName = `surf-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+                    
                     const r = await fetch(`${GATEWAY}/livekit/token`, {
                         method: 'POST',
                         headers: { ...headers, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ room: 'voice-conversation' })
+                        body: JSON.stringify({ room: currentRoomName })
                     });
                     const data = await r.json();
+                    
+                    addLog(`✅ Token obtained for room: ${currentRoomName}`, 'success');
+                    roomInfo.textContent = `📌 Room: ${currentRoomName}`;
                     
                     liveKitRoom = new Room();
                     setupAgentAudioHandler(liveKitRoom);
@@ -455,7 +460,6 @@
                     await liveKitRoom.connect('wss://surf-ai-k6d840vq.livekit.cloud', data.token);
                 }
                 
-                // Publish local audio track (continuous)
                 if (!localAudioTrack) {
                     localAudioTrack = await createLocalAudioTrack();
                     await liveKitRoom.localParticipant.publishTrack(localAudioTrack);
@@ -490,7 +494,7 @@
             stopMicBtn.disabled = !isMicEnabled;
         }
         
-        // Walkie-talkie mode (REST fallback)
+        // Walkie-talkie mode
         async function startWalkieRecording() {
             try {
                 audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -511,7 +515,6 @@
                 voiceDot.className = 'dot listening';
                 voiceStatus.textContent = '📻 Recording...';
                 
-                // Auto-stop after 5 seconds
                 setTimeout(() => {
                     if (mediaRecorder?.state === 'recording') {
                         mediaRecorder.stop();
@@ -528,7 +531,6 @@
             if (!headers) return;
             
             try {
-                // Transcribe
                 const formData = new FormData();
                 formData.append('audio', audioBlob, 'recording.webm');
                 
@@ -545,7 +547,6 @@
                     addLog(`📝 Transcript: "${transcript}"`, 'success');
                     addMessage(transcript, 'user');
                     
-                    // Get AI response
                     const aiR = await fetch(`${GATEWAY}/ai/chat`, {
                         method: 'POST',
                         headers: { ...headers, 'Content-Type': 'application/json' },
@@ -559,7 +560,6 @@
                         addMessage(reply, 'agent');
                         addLog(`🤖 AI: "${reply}"`, 'ai');
                         
-                        // TTS
                         const ttsForm = new FormData();
                         ttsForm.append('text', reply);
                         ttsForm.append('voice', 'en-US-JennyNeural');
@@ -622,6 +622,7 @@
                 liveKitRoom = null;
             }
             connectionStatus.textContent = '⚪ Offline';
+            roomInfo.textContent = '';
         };
         
         document.getElementById('sendTextBtn').onclick = async () => {
