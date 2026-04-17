@@ -1,504 +1,313 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>NDU AI — Extension Activity Monitor</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
-      min-height: 100vh;
-      padding: 20px;
-    }
-
-    .monitor-container {
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 24px;
-    }
-
-    h1 {
-      font-size: 32px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: white;
-    }
-
-    .gradient-text {
-      background: linear-gradient(135deg, #0066FF, #00C2FF);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      border-radius: 40px;
-      font-weight: 600;
-      background: #1E293B;
-      color: #94A3B8;
-      border: 1px solid #334155;
-    }
-
-    .status-badge.connected {
-      background: #065F46;
-      color: #6EE7B7;
-      border-color: #22C55E;
-    }
-
-    .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #EF4444;
-    }
-
-    .status-dot.connected {
-      background: #22C55E;
-      animation: pulse-green 2s infinite;
-    }
-
-    @keyframes pulse-green {
-      0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-      70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-    }
-
-    .info-note {
-      background: #1E293B;
-      border-left: 4px solid #0066FF;
-      padding: 16px 20px;
-      border-radius: 12px;
-      margin-bottom: 24px;
-      color: #94A3B8;
-    }
-
-    .info-note strong {
-      color: white;
-    }
-
-    .log-panel {
-      background: #0F172A;
-      border-radius: 16px;
-      border: 1px solid #334155;
-      overflow: hidden;
-    }
-
-    .log-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 20px;
-      background: #1E293B;
-      border-bottom: 1px solid #334155;
-    }
-
-    .log-title {
-      color: #10B981;
-      font-size: 14px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .log-stats {
-      display: flex;
-      gap: 16px;
-      font-size: 13px;
-      color: #64748B;
-    }
-
-    .log-stats span {
-      color: #38BDF8;
-      font-weight: 600;
-    }
-
-    .log-content {
-      padding: 20px;
-      max-height: 500px;
-      overflow-y: auto;
-      font-family: 'Monaco', 'Menlo', 'Cascadia Code', monospace;
-      font-size: 12px;
-      line-height: 1.8;
-    }
-
-    .log-entry {
-      display: flex;
-      gap: 12px;
-      padding: 4px 0;
-      border-bottom: 1px solid #1E293B;
-    }
-
-    .log-time {
-      color: #64748B;
-      flex-shrink: 0;
-      width: 80px;
-    }
-
-    .log-icon {
-      flex-shrink: 0;
-      width: 20px;
-      text-align: center;
-    }
-
-    .log-message {
-      color: #E2E8F0;
-      word-break: break-word;
-      flex: 1;
-    }
-
-    .log-entry.widget .log-icon { color: #8B5CF6; }
-    .log-entry.audio .log-icon { color: #EF4444; }
-    .log-entry.transcript .log-icon { color: #10B981; }
-    .log-entry.ai .log-icon { color: #38BDF8; }
-    .log-entry.storage .log-icon { color: #F59E0B; }
-    .log-entry.system .log-icon { color: #64748B; }
-
-    .log-message .highlight {
-      color: #38BDF8;
-      font-weight: 600;
-    }
-
-    .log-message .transcript-text {
-      color: #10B981;
-      font-style: italic;
-    }
-
-    .clear-btn {
-      background: #334155;
-      color: #94A3B8;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 12px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .clear-btn:hover {
-      background: #475569;
-      color: white;
-    }
-
-    .footer {
-      margin-top: 16px;
-      text-align: center;
-      color: #64748B;
-      font-size: 12px;
-    }
-
-    .footer a {
-      color: #38BDF8;
-      text-decoration: none;
-    }
-
-    .empty-state {
-      text-align: center;
-      color: #64748B;
-      padding: 40px;
-    }
-
-    .empty-state-icon {
-      font-size: 48px;
-      margin-bottom: 16px;
-      opacity: 0.5;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Surf AI — API Test</title>
+    <style>
+        body { font-family: monospace; background: #0a0a0a; color: #0f0; padding: 20px; }
+        button { margin: 5px; padding: 8px 12px; background: #1a1a1a; color: #0f0; border: 1px solid #0f0; cursor: pointer; }
+        button:hover { background: #0f0; color: #0a0a0a; }
+        input, select { padding: 8px; background: #1a1a1a; color: #0f0; border: 1px solid #0f0; margin: 5px; }
+        pre { background: #1a1a1a; padding: 10px; border: 1px solid #0f0; max-height: 200px; overflow: auto; margin: 10px 0; }
+        .section { border: 1px solid #0f0; padding: 15px; margin: 15px 0; }
+        #logContainer { 
+            background: #1a1a1a; 
+            border: 2px solid #0f0; 
+            padding: 15px; 
+            max-height: 300px; 
+            overflow-y: auto; 
+            font-size: 12px;
+            margin-bottom: 20px;
+        }
+        .log-line { border-bottom: 1px solid #333; padding: 3px 0; }
+        .error { color: #f00; }
+        .success { color: #0f0; }
+        .info { color: #fff; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.min.js"></script>
 </head>
 <body>
-  <div class="monitor-container">
-    <div class="header">
-      <h1>
-        <span>NDU</span>
-        <span class="gradient-text">AI</span>
-        <span style="font-size: 14px; color: #64748B; margin-left: 8px;">Activity Monitor</span>
-      </h1>
-      <div class="status-badge" id="connectionBadge">
-        <span class="status-dot" id="connectionDot"></span>
-        <span id="connectionText">Waiting for widget...</span>
-      </div>
-    </div>
-
-    <div class="info-note">
-      <strong>📡 This page monitors your NDU AI extension in real-time.</strong><br>
-      Interact with the widget (bottom-right) — all actions will be logged here.
-      <span style="display: block; margin-top: 8px; font-size: 13px;">
-        Try: Click the widget · Long press · Record audio · Summarize · Chat with AI
-      </span>
-    </div>
-
-    <div class="log-panel">
-      <div class="log-header">
-        <span class="log-title">📋 ACTIVITY LOG</span>
-        <div class="log-stats">
-          <span id="logCount">0</span> events
-          <button class="clear-btn" id="clearLogs">Clear</button>
-        </div>
-      </div>
-      <div class="log-content" id="logContent">
-        <div class="empty-state">
-          <div class="empty-state-icon">🤖</div>
-          <div>No activity yet.</div>
-          <div style="font-size: 12px; margin-top: 8px;">Interact with the NDU AI widget to see logs.</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="footer">
-      <strong>NDU Session Guard</strong> · 
-      <a href="https://ndu-session-guard.onrender.com" target="_blank">ndu-session-guard.onrender.com</a><br>
-      Open extension popup and click "Activate Widget" to start
-    </div>
-  </div>
-
-  <script>
-    const logContent = document.getElementById('logContent');
-    const logCountSpan = document.getElementById('logCount');
-    const connectionDot = document.getElementById('connectionDot');
-    const connectionText = document.getElementById('connectionText');
-    const connectionBadge = document.getElementById('connectionBadge');
+    <h1>🏄‍♂️ Surf AI — API Test</h1>
     
-    let logCount = 0;
-    let emptyStateRemoved = false;
+    <!-- LOGS AT THE TOP -->
+    <div>
+        <strong>📋 LOGS</strong>
+        <button onclick="document.getElementById('logContainer').innerHTML = ''">Clear</button>
+    </div>
+    <div id="logContainer"></div>
+    
+    <div class="section">
+        <h3>🔐 Auth</h3>
+        <input type="email" id="email" placeholder="Email" value="test@test.com">
+        <input type="password" id="password" placeholder="Password" value="123456">
+        <button onclick="signUp()">Sign Up</button>
+        <button onclick="signIn()">Sign In</button>
+        <button onclick="signOut()">Sign Out</button>
+        <span id="authStatus" style="margin-left:10px;">Not signed in</span>
+    </div>
+    
+    <div class="section">
+        <h3>🎤 Voice</h3>
+        <select id="voiceSelect">
+            <option value="jenny">Jenny (US)</option>
+            <option value="guy">Guy (US)</option>
+            <option value="sonia">Sonia (UK)</option>
+        </select>
+        <button onclick="getVoices()">List</button>
+        <button onclick="setVoice()">Save</button>
+        <button onclick="getMyVoice()">Get Mine</button>
+    </div>
+    
+    <div class="section">
+        <h3>📝 Transcribe</h3>
+        <button id="recordBtn">🎙️ Record 3s</button>
+        <button id="transcribeBtn" disabled>📝 Transcribe</button>
+        <pre id="transcriptResult" style="min-height:50px;"></pre>
+    </div>
+    
+    <div class="section">
+        <h3>🔊 TTS</h3>
+        <input type="text" id="ttsText" value="Hello world" size="40">
+        <button onclick="tts()">Speak</button>
+        <audio id="ttsAudio" controls style="display:block; margin-top:10px;"></audio>
+    </div>
+    
+    <div class="section">
+        <h3>🎙️ LiveKit</h3>
+        <input type="text" id="room" value="test-room">
+        <button onclick="getToken()">Get Token</button>
+        <button onclick="connectRoom()">Connect</button>
+        <button onclick="disconnectRoom()">Disconnect</button>
+        <pre id="roomStatus">Not connected</pre>
+    </div>
+    
+    <div class="section">
+        <h3>💬 Chat</h3>
+        <input type="text" id="chatMsg" placeholder="Message" size="40">
+        <button onclick="chat()">Send</button>
+        <pre id="chatResult"></pre>
+    </div>
+    
+    <div class="section">
+        <h3>💾 Sync</h3>
+        <button onclick="getSessions()">Get Sessions</button>
+        <button onclick="saveSession()">Save Test</button>
+        <button onclick="getStats()">Get Stats</button>
+        <pre id="syncResult"></pre>
+    </div>
 
-    function removeEmptyState() {
-      if (!emptyStateRemoved) {
-        logContent.innerHTML = '';
-        emptyStateRemoved = true;
-      }
-    }
-
-    function addLogEntry(type, icon, message, details = '') {
-      removeEmptyState();
-      
-      logCount++;
-      logCountSpan.textContent = logCount;
-      
-      const time = new Date().toLocaleTimeString();
-      const entry = document.createElement('div');
-      entry.className = `log-entry ${type}`;
-      
-      let displayMessage = message;
-      if (details) {
-        if (typeof details === 'string' && details.length > 0) {
-          displayMessage += `: <span class="transcript-text">"${details}"</span>`;
-        } else if (typeof details === 'object') {
-          displayMessage += ': ' + JSON.stringify(details).substring(0, 100);
-        }
-      }
-      
-      entry.innerHTML = `
-        <span class="log-time">${time}</span>
-        <span class="log-icon">${icon}</span>
-        <span class="log-message">${displayMessage}</span>
-      `;
-      
-      logContent.appendChild(entry);
-      logContent.scrollTop = logContent.scrollHeight;
-      
-      // Also console log for debugging
-      console.log(`[NDU Monitor] [${type.toUpperCase()}] ${message}`, details);
-    }
-
-    // Widget detection
-    function checkWidgetPresence() {
-      const widgetContainer = document.getElementById('ndu-ai-widget-container');
-      if (widgetContainer && widgetContainer.style.display !== 'none') {
-        connectionDot.className = 'status-dot connected';
-        connectionText.textContent = 'Widget Connected';
-        connectionBadge.className = 'status-badge connected';
-        addLogEntry('system', '🔌', 'Widget detected and connected');
-        return true;
-      }
-      return false;
-    }
-
-    // Watch for widget injection
-    function watchForWidget() {
-      if (checkWidgetPresence()) return;
-      
-      const observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-          if (mutation.type === 'childList') {
-            for (const node of mutation.addedNodes) {
-              if (node.nodeType === 1) {
-                if (node.id === 'ndu-ai-widget-container') {
-                  connectionDot.className = 'status-dot connected';
-                  connectionText.textContent = 'Widget Connected';
-                  connectionBadge.className = 'status-badge connected';
-                  addLogEntry('system', '🔌', 'Widget injected into page');
-                  
-                  // Start intercepting widget events
-                  interceptWidgetEvents();
-                  
-                  observer.disconnect();
-                  return;
-                }
-              }
-            }
-          }
-        }
-      });
-      
-      observer.observe(document.body, { childList: true, subtree: true });
-      
-      let attempts = 0;
-      const interval = setInterval(() => {
-        attempts++;
-        if (checkWidgetPresence() || attempts > 30) {
-          clearInterval(interval);
-          if (checkWidgetPresence()) {
-            interceptWidgetEvents();
-          }
-        }
-      }, 500);
-    }
-
-    // Intercept and log widget events
-    function interceptWidgetEvents() {
-      addLogEntry('system', '🎯', 'Started monitoring widget events');
-      
-      // Listen for custom events from widget
-      window.addEventListener('ndu:longpress', (e) => {
-        addLogEntry('widget', '🔽', 'Long press detected', 'Menu opened');
-      });
-      
-      window.addEventListener('ndu:minimized-click', (e) => {
-        addLogEntry('widget', '👆', 'Widget clicked', 'Opening full widget');
-      });
-      
-      window.addEventListener('ndu:transcribe-stop', (e) => {
-        addLogEntry('audio', '⏹️', 'Recording stopped');
-      });
-      
-      window.addEventListener('ndu:start-transcribe-only', (e) => {
-        addLogEntry('audio', '🎙️', 'Transcribe only mode started');
-      });
-      
-      window.addEventListener('ndu:transcription', (e) => {
-        if (e.detail) {
-          addLogEntry('transcript', '📝', 'Transcribed', e.detail.text);
-        }
-      });
-
-      // Intercept fetch calls to backend
-      const originalFetch = window.fetch;
-      window.fetch = async function(...args) {
-        const url = args[0];
+    <script>
+        // Config
+        const GATEWAY = 'https://surf-gateway.onrender.com';
+        const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
         
-        if (url.includes('ndu-session-guard.onrender.com')) {
-          const endpoint = url.split('/').pop() || url;
-          
-          if (url.includes('/transcribe')) {
-            addLogEntry('audio', '📤', 'Sending audio to transcription');
-          } else if (url.includes('/ai/batch')) {
-            addLogEntry('ai', '🤖', 'Requesting AI processing');
-          } else if (url.includes('/ai/chat')) {
-            addLogEntry('ai', '💬', 'Chat request sent');
-          } else if (url.includes('/register')) {
-            addLogEntry('system', '🔐', 'Session registered');
-          }
-          
-          try {
-            const response = await originalFetch.apply(this, args);
-            
-            if (url.includes('/transcribe') && response.ok) {
-              const clone = response.clone();
-              const data = await clone.json();
-              if (data.transcript) {
-                addLogEntry('transcript', '📝', 'Transcription received', data.transcript);
-              }
-            }
-            
-            if (url.includes('/ai/') && response.ok) {
-              addLogEntry('ai', '✅', 'AI response received');
-            }
-            
-            return response;
-          } catch (e) {
-            addLogEntry('system', '❌', 'API call failed', e.message);
-            throw e;
-          }
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let recorder = null, chunks = [], blob = null;
+        let liveKitRoom = null, liveKitToken = null;
+        
+        // Logging
+        function log(msg, type='info') {
+            const container = document.getElementById('logContainer');
+            const line = document.createElement('div');
+            line.className = 'log-line ' + type;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            container.appendChild(line);
+            container.scrollTop = container.scrollHeight;
+            console.log(msg);
         }
         
-        return originalFetch.apply(this, args);
-      };
-
-      // Monitor localStorage changes (notes, dark mode)
-      const originalSetItem = localStorage.setItem;
-      localStorage.setItem = function(key, value) {
-        if (key === 'ndu_notes') {
-          addLogEntry('storage', '💾', 'Note saved');
-        } else if (key === 'ndu-dark-mode') {
-          const mode = value === 'true' ? 'Dark' : 'Light';
-          addLogEntry('widget', '🎨', `Theme changed to ${mode} mode`);
-        } else if (key === 'ndu-active') {
-          addLogEntry('system', value === 'true' ? '🟢' : '🔴', `Widget ${value === 'true' ? 'activated' : 'deactivated'}`);
+        async function authHeader() {
+            const { data } = await supabase.auth.getSession();
+            if (!data.session) { log('Not authenticated — sign in first', 'error'); return null; }
+            return { 'Authorization': `Bearer ${data.session.access_token}` };
         }
-        originalSetItem.apply(this, arguments);
-      };
-
-      // Monitor DOM changes for widget state
-      const widgetObserver = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-          if (mutation.type === 'attributes') {
-            if (mutation.attributeName === 'class') {
-              const target = mutation.target;
-              if (target.classList.contains('active')) {
-                if (target.id === 'nduCaptionBar') {
-                  addLogEntry('audio', '🎙️', 'Caption bar shown');
-                } else if (target.id === 'nduExpanded') {
-                  addLogEntry('widget', '📂', 'Full widget opened');
-                } else if (target.id === 'nduChatPanel') {
-                  addLogEntry('widget', '💬', 'Chat panel opened');
-                } else if (target.id === 'nduNotesPanel') {
-                  addLogEntry('widget', '📝', 'Notes panel opened');
-                }
-              }
+        
+        async function signUp() {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            const { data, error } = await supabase.auth.signUp({ email, password: pass });
+            if (error) { log('Sign up: ' + error.message, 'error'); return; }
+            log('Signed up: ' + data.user.email, 'success');
+            document.getElementById('authStatus').textContent = data.user.email;
+        }
+        
+        async function signIn() {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+            if (error) { log('Sign in: ' + error.message, 'error'); return; }
+            log('Signed in: ' + data.user.email, 'success');
+            document.getElementById('authStatus').textContent = data.user.email;
+        }
+        
+        async function signOut() {
+            await supabase.auth.signOut();
+            document.getElementById('authStatus').textContent = 'Not signed in';
+            log('Signed out');
+        }
+        
+        async function getVoices() {
+            const h = await authHeader(); if (!h) return;
+            const r = await fetch(GATEWAY + '/voices', { headers: h });
+            const d = await r.json();
+            log('Voices: ' + JSON.stringify(d));
+        }
+        
+        async function setVoice() {
+            const h = await authHeader(); if (!h) return;
+            const voice = document.getElementById('voiceSelect').value;
+            const r = await fetch(GATEWAY + '/voice/set', {
+                method: 'POST', headers: { ...h, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ voice })
+            });
+            const d = await r.json();
+            log('Voice saved: ' + d.voice_name, 'success');
+        }
+        
+        async function getMyVoice() {
+            const h = await authHeader(); if (!h) return;
+            const r = await fetch(GATEWAY + '/voice/get', { headers: h });
+            const d = await r.json();
+            log('My voice: ' + d.voice_name, 'success');
+        }
+        
+        document.getElementById('recordBtn').onclick = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                recorder = new MediaRecorder(stream);
+                chunks = [];
+                recorder.ondataavailable = e => chunks.push(e.data);
+                recorder.onstop = () => {
+                    blob = new Blob(chunks, { type: 'audio/webm' });
+                    document.getElementById('transcribeBtn').disabled = false;
+                    log('Recorded: ' + blob.size + ' bytes', 'success');
+                    stream.getTracks().forEach(t => t.stop());
+                };
+                recorder.start();
+                log('Recording 3s...');
+                setTimeout(() => recorder.stop(), 3000);
+            } catch(e) {
+                log('Mic error: ' + e.message, 'error');
             }
-          }
+        };
+        
+        document.getElementById('transcribeBtn').onclick = async () => {
+            if (!blob) { log('No audio recorded', 'error'); return; }
+            const h = await authHeader(); if (!h) return;
+            const fd = new FormData(); fd.append('audio', blob, 'audio.webm');
+            log('Transcribing...');
+            const r = await fetch(GATEWAY + '/transcribe', { method: 'POST', headers: h, body: fd });
+            const d = await r.json();
+            const text = d.text || d.transcript || 'No result';
+            document.getElementById('transcriptResult').textContent = text;
+            log('Transcript: ' + text, 'success');
+        };
+        
+        async function tts() {
+            const h = await authHeader(); if (!h) return;
+            const text = document.getElementById('ttsText').value;
+            const voice = document.getElementById('voiceSelect').value;
+            log('Generating TTS...');
+            const r = await fetch(GATEWAY + '/tts', {
+                method: 'POST', headers: { ...h, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, voice })
+            });
+            if (r.ok) {
+                const blob = await r.blob();
+                document.getElementById('ttsAudio').src = URL.createObjectURL(blob);
+                document.getElementById('ttsAudio').play();
+                log('TTS playing', 'success');
+            } else {
+                log('TTS failed: ' + r.status, 'error');
+            }
         }
-      });
-      
-      widgetObserver.observe(document.body, {
-        attributes: true,
-        subtree: true,
-        attributeFilter: ['class']
-      });
-    }
-
-    // Clear logs
-    document.getElementById('clearLogs').addEventListener('click', () => {
-      logContent.innerHTML = '';
-      logCount = 0;
-      logCountSpan.textContent = '0';
-      emptyStateRemoved = false;
-      addLogEntry('system', '🧹', 'Logs cleared');
-    });
-
-    // Start watching
-    watchForWidget();
-    
-    // Initial log
-    console.log('NDU AI Activity Monitor ready');
-  </script>
+        
+        async function getToken() {
+            const h = await authHeader(); if (!h) return;
+            const room = document.getElementById('room').value;
+            const r = await fetch(GATEWAY + '/livekit/token', {
+                method: 'POST', headers: { ...h, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room })
+            });
+            const d = await r.json();
+            liveKitToken = d.token;
+            document.getElementById('roomStatus').textContent = 'Token: ' + d.token?.substring(0,40) + '... Voice: ' + d.voice;
+            log('Token for room: ' + room, 'success');
+        }
+        
+        async function connectRoom() {
+            if (!liveKitToken) { log('Get token first', 'error'); return; }
+            liveKitRoom = new LiveKitClient.Room();
+            liveKitRoom.on(LiveKitClient.RoomEvent.Connected, () => {
+                document.getElementById('roomStatus').textContent = '✅ Connected — agent joining...';
+                log('Connected to room', 'success');
+            });
+            liveKitRoom.on(LiveKitClient.RoomEvent.ParticipantConnected, p => {
+                log('Participant: ' + p.identity);
+            });
+            try {
+                await liveKitRoom.connect('wss://surf-ai-k6d840vq.livekit.cloud', liveKitToken);
+                const track = await LiveKitClient.createLocalAudioTrack();
+                await liveKitRoom.localParticipant.publishTrack(track);
+                log('Microphone published', 'success');
+            } catch(e) {
+                log('Connection error: ' + e.message, 'error');
+            }
+        }
+        
+        function disconnectRoom() {
+            if (liveKitRoom) { liveKitRoom.disconnect(); log('Disconnected'); }
+        }
+        
+        async function chat() {
+            const h = await authHeader(); if (!h) return;
+            const msg = document.getElementById('chatMsg').value;
+            const r = await fetch(GATEWAY + '/ai/chat', {
+                method: 'POST', headers: { ...h, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: [{ role: 'user', content: msg }] })
+            });
+            const d = await r.json();
+            document.getElementById('chatResult').textContent = d.result;
+            log('Chat: ' + d.result, 'success');
+        }
+        
+        async function getSessions() {
+            const h = await authHeader(); if (!h) return;
+            const r = await fetch(GATEWAY + '/sync/sessions', { headers: h });
+            const d = await r.json();
+            document.getElementById('syncResult').textContent = JSON.stringify(d, null, 2);
+            log('Sessions: ' + (d.sessions?.length || 0));
+        }
+        
+        async function saveSession() {
+            const h = await authHeader(); if (!h) return;
+            const r = await fetch(GATEWAY + '/sync/session', {
+                method: 'POST', headers: { ...h, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room_name: 'test', title: 'Test', duration_seconds: 60 })
+            });
+            const d = await r.json();
+            log('Session saved', 'success');
+        }
+        
+        async function getStats() {
+            const h = await authHeader(); if (!h) return;
+            const r = await fetch(GATEWAY + '/sync/stats', { headers: h });
+            const d = await r.json();
+            document.getElementById('syncResult').textContent = JSON.stringify(d, null, 2);
+            log('Stats loaded');
+        }
+        
+        // Init
+        supabase.auth.getSession().then(({ data }) => {
+            if (data.session) {
+                document.getElementById('authStatus').textContent = data.session.user.email;
+                log('Session restored: ' + data.session.user.email, 'success');
+            } else {
+                log('Ready — Sign in to test');
+            }
+        });
+    </script>
 </body>
 </html>
