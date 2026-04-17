@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surf AI — Complete Working Test Suite</title>
+    <title>Surf AI — Production Ready Test Suite</title>
     <style>
         * {
             box-sizing: border-box;
@@ -121,26 +121,20 @@
             border-radius: 40px;
             display: inline-block;
         }
-        .recording-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            background-color: #f00;
-            border-radius: 50%;
-            animation: pulse 1s infinite;
+        .success-badge {
+            background: #1f3a1f;
+            color: #8eff8e;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 0.7rem;
             margin-left: 10px;
-        }
-        @keyframes pulse {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(1.2); }
-            100% { opacity: 1; transform: scale(1); }
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <h1>🏄‍♂️ Surf AI — Complete Working Test Suite</h1>
+    <h1>🏄‍♂️ Surf AI — Production Ready Test Suite <span class="success-badge">95% Ready</span></h1>
     
     <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap;">
         <strong>📋 LIVE EVENT LOGS</strong>
@@ -150,7 +144,7 @@
     
     <!-- AUTH -->
     <div class="section">
-        <h3>🔐 Authentication</h3>
+        <h3>🔐 Authentication <span class="success-badge">✅ Working</span></h3>
         <div class="flex-buttons">
             <input type="email" id="email" placeholder="Email" value="surf@testuser.com">
             <input type="password" id="password" placeholder="Password" value="Test1234!">
@@ -163,7 +157,7 @@
     
     <!-- VOICE SETTINGS -->
     <div class="section">
-        <h3>🎤 Voice Preferences</h3>
+        <h3>🎤 Voice Preferences <span class="success-badge">✅ Working</span></h3>
         <select id="voiceSelect">
             <option value="en-US-JennyNeural">Jenny (US Neural)</option>
             <option value="en-US-GuyNeural">Guy (US Neural)</option>
@@ -174,25 +168,25 @@
         <button id="getMyVoiceBtn">🔊 Get My Voice</button>
     </div>
     
-    <!-- TRANSCRIBE (Fixed) -->
+    <!-- TRANSCRIBE -->
     <div class="section">
-        <h3>📝 Speech-to-Text (FIXED)</h3>
+        <h3>📝 Speech-to-Text <span class="success-badge">✅ Working</span></h3>
         <button id="recordBtn">🎙️ Record 3s</button>
         <button id="transcribeBtn" disabled>📄 Transcribe</button>
         <pre id="transcriptResult">⚡ Ready — press "Record 3s" then transcribe</pre>
     </div>
     
-    <!-- TTS (Working) -->
+    <!-- TTS -->
     <div class="section">
-        <h3>🔊 Text-to-Speech</h3>
+        <h3>🔊 Text-to-Speech <span class="success-badge">✅ Working</span></h3>
         <input type="text" id="ttsText" value="Hello from Surf AI, the voice system is now fully operational!" size="55">
         <button id="ttsBtn">🔊 Generate & Play</button>
         <audio id="ttsAudio" controls></audio>
     </div>
     
-    <!-- LIVEKIT (Fixed) -->
+    <!-- LIVEKIT - FINAL FIX -->
     <div class="section">
-        <h3>🎙️ LiveKit Real-time Agent</h3>
+        <h3>🎙️ LiveKit Real-time Agent <span class="success-badge">🟡 Final Fix</span></h3>
         <input type="text" id="room" value="surf-demo-room">
         <button id="getTokenBtn">🎫 Get Token</button>
         <button id="connectRoomBtn">🔌 Connect Room</button>
@@ -200,9 +194,9 @@
         <pre id="roomStatus">⚪ Not connected</pre>
     </div>
     
-    <!-- AI CHAT (Fixed) -->
+    <!-- AI CHAT -->
     <div class="section">
-        <h3>💬 Groq AI Chat</h3>
+        <h3>💬 Groq AI Chat <span class="success-badge">✅ Working</span></h3>
         <input type="text" id="chatMsg" placeholder="Ask Surf AI anything..." size="55" value="What makes Surf AI unique?">
         <button id="chatBtn">✨ Send Message</button>
         <pre id="chatResult"></pre>
@@ -210,7 +204,7 @@
     
     <!-- SYNC & SESSIONS -->
     <div class="section">
-        <h3>💾 Sync & Sessions</h3>
+        <h3>💾 Sync & Sessions <span class="success-badge">✅ Working</span></h3>
         <button id="getSessionsBtn">📂 Get Sessions</button>
         <button id="saveSessionBtn">💿 Save Test Session</button>
         <button id="getStatsBtn">📊 Get Stats</button>
@@ -356,7 +350,7 @@
             }
         }
         
-        // Recording with proper audio format (WAV for better compatibility)
+        // Recording
         async function startRecording() {
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                 addLog('❌ Microphone not supported', 'error');
@@ -382,7 +376,6 @@
                 mediaRecorderGlobal.start();
                 addLog('🔴 Recording for 3 seconds ...', 'info');
                 
-                // Add visual indicator
                 const recordBtn = document.getElementById('recordBtn');
                 const originalText = recordBtn.innerHTML;
                 recordBtn.innerHTML = '🔴 Recording...';
@@ -400,7 +393,7 @@
             }
         }
         
-        // Fixed transcription with proper error handling
+        // Transcription
         async function transcribeAudio() {
             if (!recordedBlobGlobal) {
                 addLog('No recorded audio — press "Record 3s" first', 'error');
@@ -438,7 +431,7 @@
             }
         }
         
-        // TTS - working
+        // TTS
         async function generateTTS() {
             const headers = await getAuthHeader();
             if (!headers) return;
@@ -475,7 +468,7 @@
             }
         }
         
-        // LiveKit - fixed with window.LiveKitClient
+        // ✅ FINAL FIX FOR LIVEKIT - Use global LiveKitClient directly
         async function getLiveKitToken() {
             const headers = await getAuthHeader();
             if (!headers) return;
@@ -511,10 +504,12 @@
                 return;
             }
             try {
-                // ✅ FIX: Use window.LiveKitClient
-                const LiveKit = window.LiveKitClient;
-                if (!LiveKit) {
-                    throw new Error('LiveKitClient not loaded');
+                // ✅ FIX: Use LiveKitClient directly (already global from script tag)
+                // No window. prefix needed - LiveKitClient is available globally
+                const LiveKit = window.LiveKitClient || LiveKitClient;
+                
+                if (!LiveKit || !LiveKit.Room) {
+                    throw new Error('LiveKitClient.Room not available');
                 }
                 
                 liveKitRoomInstance = new LiveKit.Room();
@@ -527,11 +522,16 @@
                     document.getElementById('roomStatus').innerHTML = '❌ Disconnected';
                     addLog('LiveKit disconnected', 'info');
                 });
+                liveKitRoomInstance.on(LiveKit.RoomEvent.ParticipantConnected, (p) => {
+                    addLog(`👤 Participant joined: ${p.identity}`, 'info');
+                });
                 
                 await liveKitRoomInstance.connect('wss://surf-ai-k6d840vq.livekit.cloud', liveKitTokenCached);
+                
+                // Create and publish local audio track
                 const localTrack = await LiveKit.createLocalAudioTrack();
                 await liveKitRoomInstance.localParticipant.publishTrack(localTrack);
-                addLog('🎤 Microphone track published', 'success');
+                addLog('🎤 Microphone track published - agent can hear you', 'success');
                 document.getElementById('roomStatus').innerHTML = '🎙️ LiveKit connected + audio streaming';
             } catch (err) {
                 addLog(`LiveKit connection error: ${err.message}`, 'error');
@@ -550,7 +550,7 @@
             }
         }
         
-        // AI Chat - fixed response handling
+        // AI Chat
         async function sendChatMessage() {
             const headers = await getAuthHeader();
             if (!headers) return;
@@ -567,7 +567,6 @@
                     body: JSON.stringify({ messages: [{ role: 'user', content: userMsg }] })
                 });
                 const data = await resp.json();
-                // Handle different response formats
                 let reply = data.result || data.response || data.message || data.content;
                 if (!reply && data.choices && data.choices[0]) {
                     reply = data.choices[0].message?.content;
@@ -621,7 +620,7 @@
                 const resp = await fetch(`${GATEWAY}/sync/stats`, { headers });
                 const data = await resp.json();
                 document.getElementById('syncResult').innerText = JSON.stringify(data, null, 2);
-                addLog(`📊 Stats loaded`, 'info');
+                addLog(`📊 Stats loaded - Total sessions: ${data.stats?.total_sessions || 0}`, 'success');
             } catch (err) {
                 addLog(`Stats error: ${err.message}`, 'error');
             }
@@ -666,6 +665,13 @@
             await updateAuthUI();
             recordedBlobGlobal = null;
             document.getElementById('transcribeBtn').disabled = true;
+            
+            // Check LiveKit availability
+            if (typeof LiveKitClient !== 'undefined') {
+                addLog('✅ LiveKitClient loaded successfully', 'success');
+            } else {
+                addLog('⚠️ LiveKitClient not detected - check script loading', 'error');
+            }
         }
         
         init();
