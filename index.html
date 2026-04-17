@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surf AI — Voice Conversation (FIXED)</title>
+    <title>Surf AI — True WebRTC Conversation</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -144,15 +144,9 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
-        button.recording {
-            background: #f00;
-            color: #fff;
-            border-color: #f00;
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
+        button.active {
+            background: #0f0;
+            color: #0a0a0a;
         }
         input {
             padding: 12px 18px;
@@ -184,6 +178,13 @@
             background: #f0f;
             animation: pulse 0.5s infinite;
         }
+        .dot.idle {
+            background: #888;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
         .auth-section {
             display: flex;
             gap: 10px;
@@ -200,8 +201,24 @@
             border-radius: 40px;
             font-size: 0.85rem;
         }
-        audio {
-            display: none;
+        .mode-toggle {
+            display: flex;
+            gap: 5px;
+            background: #0f120f;
+            padding: 5px;
+            border-radius: 40px;
+            border: 1px solid #2f8f2f;
+        }
+        .mode-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: #8f8;
+            cursor: pointer;
+        }
+        .mode-btn.active {
+            background: #0f0;
+            color: #0a0a0a;
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -209,7 +226,7 @@
 <body>
     <div class="container">
         <h1>
-            🏄‍♂️ Surf AI — Voice Conversation
+            🏄‍♂️ Surf AI — True WebRTC Conversation
             <span class="status-badge" id="connectionStatus">⚪ Offline</span>
         </h1>
         
@@ -225,26 +242,31 @@
         <div class="conversation-container">
             <!-- Chat Panel -->
             <div class="chat-panel">
-                <h3 style="margin-bottom: 15px; color: #8eff8e;">💬 Conversation</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="color: #8eff8e;">💬 Conversation</h3>
+                    <div class="mode-toggle">
+                        <button class="mode-btn active" data-mode="webrtc">🎙️ WebRTC</button>
+                        <button class="mode-btn" data-mode="walkie">📻 Walkie-Talkie</button>
+                    </div>
+                </div>
                 <div class="chat-messages" id="chatMessages">
                     <div class="message message-agent">
-                        <div class="bubble">Hi! I'm Surf AI. Click "Start Talking" and speak to me!</div>
+                        <div class="bubble">Hi! I'm Surf AI. Click the mic to start talking!</div>
                         <div class="message-time">Just now</div>
                     </div>
                 </div>
                 <div class="controls">
-                    <button id="talkBtn">🎤 Start Talking</button>
-                    <button id="stopBtn" disabled>⏹️ Stop</button>
+                    <button id="micBtn">🎤 Enable Mic</button>
+                    <button id="stopMicBtn" disabled>⏹️ Disable Mic</button>
                     <div class="voice-indicator">
-                        <span class="dot" id="voiceDot"></span>
-                        <span id="voiceStatus">Ready</span>
+                        <span class="dot idle" id="voiceDot"></span>
+                        <span id="voiceStatus">Mic off</span>
                     </div>
                 </div>
                 <div style="margin-top: 15px;">
                     <input type="text" id="textInput" placeholder="Or type a message...">
                     <button id="sendTextBtn" style="margin-left: 10px;">📤 Send</button>
                 </div>
-                <audio id="ttsAudio"></audio>
             </div>
             
             <!-- Log Panel -->
@@ -256,7 +278,7 @@
     </div>
 
     <script type="module">
-        import { Room, RoomEvent, LocalAudioTrack, createLocalAudioTrack, RemoteAudioTrack } from 'https://cdn.jsdelivr.net/npm/livekit-client@2/+esm';
+        import { Room, RoomEvent, LocalAudioTrack, createLocalAudioTrack, RemoteAudioTrack, Track } from 'https://cdn.jsdelivr.net/npm/livekit-client@2/+esm';
         
         const GATEWAY = 'https://surf-gateway.onrender.com';
         const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
@@ -264,25 +286,28 @@
         
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
+        // State
         let liveKitRoom = null;
-        let liveKitToken = null;
         let localAudioTrack = null;
-        let isRecording = false;
+        let isMicEnabled = false;
+        let currentMode = 'webrtc'; // 'webrtc' or 'walkie'
+        let agentAudioElement = null;
         
-        const talkBtn = document.getElementById('talkBtn');
-        const stopBtn = document.getElementById('stopBtn');
+        // Walkie-talkie state
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let audioStream = null;
+        
+        // DOM elements
+        const micBtn = document.getElementById('micBtn');
+        const stopMicBtn = document.getElementById('stopMicBtn');
         const voiceDot = document.getElementById('voiceDot');
         const voiceStatus = document.getElementById('voiceStatus');
         const connectionStatus = document.getElementById('connectionStatus');
         const chatMessages = document.getElementById('chatMessages');
         const logContainer = document.getElementById('logContainer');
-        const ttsAudio = document.getElementById('ttsAudio');
         
-        // Audio recording for transcription
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let audioStream = null;
-        
+        // Helper functions
         function addLog(msg, type = 'info') {
             const entry = document.createElement('div');
             entry.className = 'log-entry';
@@ -310,96 +335,163 @@
             return { 'Authorization': `Bearer ${session.access_token}` };
         }
         
-        // ✅ FIXED: AI Chat with proper request format
-        async function getAIResponse(message) {
-            const headers = await getAuthHeader();
-            if (!headers) throw new Error('Not authenticated');
-            
-            addLog(`Sending to AI: "${message}"`, 'info');
-            
-            const r = await fetch(`${GATEWAY}/ai/chat`, {
-                method: 'POST',
-                headers: { 
-                    ...headers, 
-                    'Content-Type': 'application/json',
-                    'x-pin': 'ndu2026'  // Fallback PIN if auth fails
-                },
-                body: JSON.stringify({ 
-                    messages: [{ role: 'user', content: message }],
-                    sessionToken: 'voice-chat-' + Date.now()
-                })
+        // Mode switching
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentMode = btn.dataset.mode;
+                addLog(`Mode switched to: ${currentMode}`, 'info');
+                
+                // Reset UI
+                if (currentMode === 'webrtc') {
+                    voiceStatus.textContent = isMicEnabled ? '🎤 Mic live (WebRTC)' : 'Mic off';
+                } else {
+                    voiceStatus.textContent = '📻 Walkie-Talkie mode';
+                }
+            };
+        });
+        
+        // ✅ TRUE WEBRTC: Handle agent's audio track
+        function setupAgentAudioHandler(room) {
+            room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                addLog(`Track subscribed: ${track.kind} from ${participant.identity}`, 'info');
+                
+                if (track instanceof RemoteAudioTrack && participant.identity.includes('agent')) {
+                    addLog('🎤 Agent audio track received!', 'success');
+                    
+                    // Create audio element for agent
+                    if (agentAudioElement) {
+                        agentAudioElement.remove();
+                    }
+                    
+                    agentAudioElement = new Audio();
+                    agentAudioElement.autoplay = true;
+                    track.attach(agentAudioElement);
+                    
+                    // Show speaking indicator when audio plays
+                    agentAudioElement.onplay = () => {
+                        voiceDot.className = 'dot speaking';
+                        voiceStatus.textContent = '🤖 Agent speaking...';
+                        addLog('🔊 Agent is speaking', 'ai');
+                    };
+                    
+                    agentAudioElement.onended = () => {
+                        voiceDot.className = isMicEnabled ? 'dot listening' : 'dot idle';
+                        voiceStatus.textContent = isMicEnabled ? '🎤 Listening...' : 'Mic off';
+                    };
+                    
+                    agentAudioElement.onpause = () => {
+                        voiceDot.className = isMicEnabled ? 'dot listening' : 'dot idle';
+                        voiceStatus.textContent = isMicEnabled ? '🎤 Listening...' : 'Mic off';
+                    };
+                    
+                    addLog('✅ Agent audio ready — speak naturally!', 'success');
+                }
             });
             
-            const data = await r.json();
-            addLog(`AI raw response: ${JSON.stringify(data).slice(0, 200)}`, 'info');
+            // Handle agent messages (transcripts)
+            room.on(RoomEvent.DataReceived, (payload, participant) => {
+                try {
+                    const data = new TextDecoder().decode(payload);
+                    const msg = JSON.parse(data);
+                    
+                    if (msg.type === 'transcript' && msg.text) {
+                        if (participant.identity.includes('agent')) {
+                            addMessage(msg.text, 'agent');
+                            addLog(`🤖 Agent: "${msg.text}"`, 'ai');
+                        } else if (participant.identity === 'local') {
+                            addMessage(msg.text, 'user');
+                            addLog(`🎤 You: "${msg.text}"`, 'user');
+                        }
+                    }
+                } catch (e) {
+                    // Ignore non-JSON data
+                }
+            });
             
-            // Handle different response formats
-            let reply = data.result || data.response || data.message || data.content;
-            if (!reply && data.choices && data.choices[0]) {
-                reply = data.choices[0].message?.content;
-            }
-            if (!reply && data.error) {
-                throw new Error(data.error);
-            }
-            
-            return reply || "I heard you, but I'm not sure how to respond.";
+            // Handle participant events
+            room.on(RoomEvent.ParticipantConnected, (participant) => {
+                addLog(`👤 ${participant.identity} joined`, 'info');
+                if (participant.identity.includes('agent')) {
+                    addLog('🤖 Agent joined the room!', 'success');
+                }
+            });
         }
         
-        // ✅ FIXED: TTS with proper FormData
-        async function speakText(text) {
-            const headers = await getAuthHeader();
-            if (!headers) return;
-            
-            const formData = new FormData();
-            formData.append('text', text);
-            formData.append('voice', 'en-US-JennyNeural');
+        // ✅ TRUE WEBRTC: Connect and enable continuous mic
+        async function enableWebRTC() {
+            if (isMicEnabled) return;
             
             try {
-                const r = await fetch(`${GATEWAY}/tts`, {
-                    method: 'POST',
-                    headers: { 'Authorization': headers.Authorization },
-                    body: formData
-                });
-                
-                if (r.ok) {
-                    const blob = await r.blob();
-                    ttsAudio.src = URL.createObjectURL(blob);
-                    ttsAudio.play();
-                    addLog('🔊 Speaking response...', 'success');
-                } else {
-                    addLog(`TTS error: HTTP ${r.status}`, 'error');
+                // Connect to LiveKit if not already
+                if (!liveKitRoom) {
+                    addLog('Getting LiveKit token...', 'info');
+                    const headers = await getAuthHeader();
+                    if (!headers) throw new Error('Not authenticated');
+                    
+                    const r = await fetch(`${GATEWAY}/livekit/token`, {
+                        method: 'POST',
+                        headers: { ...headers, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ room: 'voice-conversation' })
+                    });
+                    const data = await r.json();
+                    
+                    liveKitRoom = new Room();
+                    setupAgentAudioHandler(liveKitRoom);
+                    
+                    liveKitRoom.on(RoomEvent.Connected, () => {
+                        addLog('✅ Connected to LiveKit', 'success');
+                        connectionStatus.textContent = '🟢 Connected';
+                    });
+                    
+                    liveKitRoom.on(RoomEvent.Disconnected, () => {
+                        addLog('Disconnected from LiveKit', 'info');
+                        connectionStatus.textContent = '⚪ Offline';
+                        isMicEnabled = false;
+                        updateMicUI();
+                    });
+                    
+                    await liveKitRoom.connect('wss://surf-ai-k6d840vq.livekit.cloud', data.token);
                 }
+                
+                // Publish local audio track (continuous)
+                if (!localAudioTrack) {
+                    localAudioTrack = await createLocalAudioTrack();
+                    await liveKitRoom.localParticipant.publishTrack(localAudioTrack);
+                    addLog('🎤 Microphone streaming live (WebRTC)', 'success');
+                }
+                
+                isMicEnabled = true;
+                updateMicUI();
+                voiceDot.className = 'dot listening';
+                voiceStatus.textContent = '🎤 Mic live — speak naturally!';
+                
             } catch (err) {
-                addLog(`TTS failed: ${err.message}`, 'error');
+                addLog(`WebRTC error: ${err.message}`, 'error');
             }
         }
         
-        // ✅ FIXED: Transcription using gateway
-        async function transcribeAudio(audioBlob) {
-            const headers = await getAuthHeader();
-            if (!headers) throw new Error('Not authenticated');
-            
-            const formData = new FormData();
-            formData.append('audio', audioBlob, 'recording.webm');
-            
-            addLog('Transcribing audio...', 'info');
-            
-            const r = await fetch(`${GATEWAY}/transcribe`, {
-                method: 'POST',
-                headers: { 'Authorization': headers.Authorization },
-                body: formData
-            });
-            
-            const data = await r.json();
-            const transcript = data.text || data.transcript || data.result;
-            
-            if (!transcript) throw new Error('No transcript returned');
-            
-            return transcript;
+        function disableWebRTC() {
+            if (localAudioTrack) {
+                liveKitRoom?.localParticipant.unpublishTrack(localAudioTrack);
+                localAudioTrack.stop();
+                localAudioTrack = null;
+            }
+            isMicEnabled = false;
+            updateMicUI();
+            voiceDot.className = 'dot idle';
+            voiceStatus.textContent = 'Mic off';
+            addLog('🎤 Microphone disabled', 'info');
         }
         
-        // Start recording for transcription
-        async function startRecording() {
+        function updateMicUI() {
+            micBtn.disabled = isMicEnabled;
+            stopMicBtn.disabled = !isMicEnabled;
+        }
+        
+        // Walkie-talkie mode (REST fallback)
+        async function startWalkieRecording() {
             try {
                 audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaRecorder = new MediaRecorder(audioStream);
@@ -411,44 +503,102 @@
                 
                 mediaRecorder.onstop = async () => {
                     const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    
-                    try {
-                        const transcript = await transcribeAudio(audioBlob);
-                        addLog(`📝 Transcript: "${transcript}"`, 'success');
-                        addMessage(transcript, 'user');
-                        
-                        const reply = await getAIResponse(transcript);
-                        addMessage(reply, 'agent');
-                        addLog(`🤖 AI: ${reply}`, 'ai');
-                        
-                        await speakText(reply);
-                        
-                    } catch (err) {
-                        addLog(`Error: ${err.message}`, 'error');
-                    }
-                    
-                    voiceDot.className = 'dot';
-                    voiceStatus.textContent = 'Ready';
-                    talkBtn.disabled = false;
-                    stopBtn.disabled = true;
-                    talkBtn.classList.remove('recording');
+                    await processWalkieAudio(audioBlob);
+                    audioStream?.getTracks().forEach(t => t.stop());
                 };
                 
                 mediaRecorder.start();
-                isRecording = true;
+                voiceDot.className = 'dot listening';
+                voiceStatus.textContent = '📻 Recording...';
+                
+                // Auto-stop after 5 seconds
+                setTimeout(() => {
+                    if (mediaRecorder?.state === 'recording') {
+                        mediaRecorder.stop();
+                    }
+                }, 5000);
                 
             } catch (err) {
                 addLog(`Mic error: ${err.message}`, 'error');
             }
         }
         
-        function stopRecording() {
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-                audioStream?.getTracks().forEach(t => t.stop());
+        async function processWalkieAudio(audioBlob) {
+            const headers = await getAuthHeader();
+            if (!headers) return;
+            
+            try {
+                // Transcribe
+                const formData = new FormData();
+                formData.append('audio', audioBlob, 'recording.webm');
+                
+                const r = await fetch(`${GATEWAY}/transcribe`, {
+                    method: 'POST',
+                    headers: { 'Authorization': headers.Authorization },
+                    body: formData
+                });
+                
+                const data = await r.json();
+                const transcript = data.text || data.transcript;
+                
+                if (transcript) {
+                    addLog(`📝 Transcript: "${transcript}"`, 'success');
+                    addMessage(transcript, 'user');
+                    
+                    // Get AI response
+                    const aiR = await fetch(`${GATEWAY}/ai/chat`, {
+                        method: 'POST',
+                        headers: { ...headers, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ messages: [{ role: 'user', content: transcript }] })
+                    });
+                    
+                    const aiData = await aiR.json();
+                    const reply = aiData.result || aiData.choices?.[0]?.message?.content;
+                    
+                    if (reply) {
+                        addMessage(reply, 'agent');
+                        addLog(`🤖 AI: "${reply}"`, 'ai');
+                        
+                        // TTS
+                        const ttsForm = new FormData();
+                        ttsForm.append('text', reply);
+                        ttsForm.append('voice', 'en-US-JennyNeural');
+                        
+                        const ttsR = await fetch(`${GATEWAY}/tts`, {
+                            method: 'POST',
+                            headers: { 'Authorization': headers.Authorization },
+                            body: ttsForm
+                        });
+                        
+                        if (ttsR.ok) {
+                            const blob = await ttsR.blob();
+                            const audio = new Audio(URL.createObjectURL(blob));
+                            audio.play();
+                        }
+                    }
+                }
+            } catch (err) {
+                addLog(`Walkie error: ${err.message}`, 'error');
             }
-            isRecording = false;
+            
+            voiceDot.className = 'dot idle';
+            voiceStatus.textContent = '📻 Ready';
         }
+        
+        // Event handlers
+        micBtn.onclick = async () => {
+            if (currentMode === 'webrtc') {
+                await enableWebRTC();
+            } else {
+                await startWalkieRecording();
+            }
+        };
+        
+        stopMicBtn.onclick = () => {
+            if (currentMode === 'webrtc') {
+                disableWebRTC();
+            }
+        };
         
         document.getElementById('signInBtn').onclick = async () => {
             const email = document.getElementById('email').value;
@@ -459,7 +609,6 @@
             } else {
                 addLog(`✅ Signed in as ${data.user.email}`, 'success');
                 document.getElementById('authStatus').textContent = `✅ ${data.user.email}`;
-                await connectToLiveKit();
             }
         };
         
@@ -468,92 +617,11 @@
             addLog('Signed out', 'success');
             document.getElementById('authStatus').textContent = 'Not signed in';
             if (liveKitRoom) {
+                disableWebRTC();
                 liveKitRoom.disconnect();
                 liveKitRoom = null;
             }
             connectionStatus.textContent = '⚪ Offline';
-        };
-        
-        async function connectToLiveKit() {
-            try {
-                addLog('Getting LiveKit token...', 'info');
-                const headers = await getAuthHeader();
-                if (!headers) throw new Error('Not authenticated');
-                
-                const r = await fetch(`${GATEWAY}/livekit/token`, {
-                    method: 'POST',
-                    headers: { ...headers, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room: 'voice-conversation' })
-                });
-                const data = await r.json();
-                liveKitToken = data.token;
-                addLog('✅ Token obtained', 'success');
-                
-                liveKitRoom = new Room();
-                
-                liveKitRoom.on(RoomEvent.Connected, () => {
-                    addLog('✅ Connected to LiveKit', 'success');
-                    connectionStatus.textContent = '🟢 Connected';
-                    talkBtn.disabled = false;
-                });
-                
-                liveKitRoom.on(RoomEvent.Disconnected, () => {
-                    addLog('Disconnected from LiveKit', 'info');
-                    connectionStatus.textContent = '⚪ Offline';
-                });
-                
-                liveKitRoom.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
-                    if (track instanceof RemoteAudioTrack && participant.identity.includes('agent')) {
-                        addLog(`🎤 Agent speaking...`, 'success');
-                        voiceDot.className = 'dot speaking';
-                        
-                        const audioEl = new Audio();
-                        track.attach(audioEl);
-                        audioEl.play();
-                        
-                        audioEl.onended = () => {
-                            voiceDot.className = 'dot';
-                        };
-                    }
-                });
-                
-                await liveKitRoom.connect('wss://surf-ai-k6d840vq.livekit.cloud', liveKitToken);
-                
-                localAudioTrack = await createLocalAudioTrack();
-                await liveKitRoom.localParticipant.publishTrack(localAudioTrack);
-                addLog('🎤 Microphone ready', 'success');
-                
-            } catch (err) {
-                addLog(`Connection error: ${err.message}`, 'error');
-            }
-        }
-        
-        talkBtn.onclick = async () => {
-            if (!liveKitRoom) {
-                addLog('Connecting...', 'info');
-                await connectToLiveKit();
-            }
-            
-            talkBtn.disabled = true;
-            stopBtn.disabled = false;
-            talkBtn.classList.add('recording');
-            voiceDot.className = 'dot listening';
-            voiceStatus.textContent = '🎤 Recording... Speak!';
-            
-            await startRecording();
-            
-            // Auto-stop after 5 seconds of silence (simplified)
-            setTimeout(() => {
-                if (isRecording) {
-                    stopRecording();
-                    addLog('⏹️ Auto-stopped', 'info');
-                }
-            }, 5000);
-        };
-        
-        stopBtn.onclick = () => {
-            stopRecording();
-            addLog('⏹️ Stopped recording', 'info');
         };
         
         document.getElementById('sendTextBtn').onclick = async () => {
@@ -561,30 +629,40 @@
             if (!text) return;
             
             addMessage(text, 'user');
-            addLog(`💬 You: ${text}`, 'user');
             document.getElementById('textInput').value = '';
             
+            const headers = await getAuthHeader();
+            if (!headers) return;
+            
             try {
-                const reply = await getAIResponse(text);
-                addMessage(reply, 'agent');
-                addLog(`🤖 AI: ${reply}`, 'ai');
-                await speakText(reply);
+                const r = await fetch(`${GATEWAY}/ai/chat`, {
+                    method: 'POST',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages: [{ role: 'user', content: text }] })
+                });
+                
+                const data = await r.json();
+                const reply = data.result || data.choices?.[0]?.message?.content;
+                
+                if (reply) {
+                    addMessage(reply, 'agent');
+                    addLog(`🤖 AI: "${reply}"`, 'ai');
+                }
             } catch (err) {
-                addLog(`Error: ${err.message}`, 'error');
+                addLog(`Chat error: ${err.message}`, 'error');
             }
         };
         
-        // Init
+        // Initialize
         (async () => {
             const { data } = await supabaseClient.auth.getSession();
             if (data.session) {
                 addLog(`Session restored: ${data.session.user.email}`, 'success');
                 document.getElementById('authStatus').textContent = `✅ ${data.session.user.email}`;
-                await connectToLiveKit();
             } else {
                 addLog('👋 Sign in to start', 'info');
             }
-            addLog('✅ Ready!', 'success');
+            addLog('✅ Ready — True WebRTC mode enabled!', 'success');
         })();
     </script>
 </body>
