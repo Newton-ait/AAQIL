@@ -1,47 +1,70 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Surf AI — Ghostfree Test</title>
+    <title>Surf AI — Mic Test with Sign Up</title>
     <style>
         body { font-family: monospace; max-width: 800px; margin: 20px auto; padding: 20px; background: #1a1a2e; color: #eee; }
         button { padding: 12px 24px; margin: 10px; font-size: 16px; cursor: pointer; }
-        #logs { background: #0a0a15; padding: 15px; border-radius: 8px; height: 400px; overflow-y: auto; font-size: 12px; }
+        input { padding: 12px; margin: 5px; width: 250px; font-size: 14px; border-radius: 4px; border: none; }
+        #logs { background: #0a0a15; padding: 15px; border-radius: 8px; height: 300px; overflow-y: auto; font-size: 12px; margin-top: 20px; }
         .log { margin: 5px 0; border-bottom: 1px solid #333; padding: 3px 0; }
         .agent { color: #4ade80; }
         .user { color: #60a5fa; }
         .system { color: #fbbf24; }
         .error { color: #ef4444; }
+        .success { color: #4ade80; }
+        .auth-panel { background: #0f172a; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .test-panel { background: #0f172a; padding: 20px; border-radius: 8px; }
+        .divider { border-top: 1px solid #334155; margin: 20px 0; }
     </style>
 </head>
 <body>
-    <h2>🎤 Surf AI — Ghostfree Test</h2>
+    <h2>🎤 Surf AI — Sign Up & Microphone Test</h2>
     
-    <div>
-        <button id="connectBtn">🔌 Connect & Request Mic</button>
-        <button id="disconnectBtn" disabled>⏹️ Disconnect</button>
-        <button id="clearLogsBtn">🧹 Clear Logs</button>
+    <!-- Sign Up / Sign In Panel -->
+    <div class="auth-panel">
+        <h3>🔐 Account</h3>
+        <div>
+            <input type="email" id="email" placeholder="Email" value="">
+            <input type="password" id="password" placeholder="Password" value="">
+        </div>
+        <div>
+            <button id="signupBtn">📝 Sign Up</button>
+            <button id="signinBtn">🔑 Sign In</button>
+            <button id="signoutBtn" disabled>🚪 Sign Out</button>
+        </div>
+        <p>Status: <span id="authStatus">Not authenticated</span></p>
+        <p>User: <span id="userInfo">-</span></p>
     </div>
     
-    <div>
+    <!-- Microphone Test Panel -->
+    <div class="test-panel">
+        <h3>🎙️ Microphone Test</h3>
+        <div>
+            <button id="connectBtn" disabled>🔌 Connect & Request Mic</button>
+            <button id="disconnectBtn" disabled>⏹️ Disconnect</button>
+            <button id="clearLogsBtn">🧹 Clear Logs</button>
+        </div>
         <p>Status: <span id="status">Disconnected</span></p>
         <p>Room: <span id="roomInfo">-</span></p>
-        <p>User: <span id="userInfo">ghostfree@test.com</span></p>
     </div>
     
+    <!-- Logs -->
     <div id="logs"></div>
 
     <script type="module">
         import { Room, RoomEvent } from 'https://esm.sh/livekit-client@2.0.10';
         
-        // Configuration — NEW USER
+        // Configuration
         const GATEWAY_URL = 'https://surf-gateway.onrender.com';
         const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
-        const EMAIL = 'ghostfree@test.com';
-        const PASSWORD = 'NoGhost123!';
         
+        // State
         let room = null;
         let localAudioTrack = null;
+        let accessToken = null;
+        let currentUser = null;
         
         // Logging
         function log(message, type = 'system') {
@@ -60,30 +83,164 @@
             log(`Status: ${text}`, 'system');
         }
         
-        // Auth & Token
-        async function getToken() {
-            log('Authenticating as ghostfree@test.com...', 'system');
-            const auth = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-                method: 'POST',
-                headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: EMAIL, password: PASSWORD })
-            });
-            const { access_token } = await auth.json();
+        function updateAuthStatus(text, type = 'system') {
+            document.getElementById('authStatus').textContent = text;
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════
+        // SIGN UP
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        document.getElementById('signupBtn').onclick = async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
             
-            const ROOM = `ghostfree-${Date.now()}`;
+            if (!email || !password) {
+                log('❌ Email and password required', 'error');
+                return;
+            }
+            
+            try {
+                log(`📝 Signing up ${email}...`, 'system');
+                
+                const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log(`✅ Account created! Please check your email to confirm.`, 'success');
+                    updateAuthStatus('Created - check email');
+                    
+                    // Auto sign-in after signup (some Supabase projects allow this)
+                    if (data.access_token) {
+                        accessToken = data.access_token;
+                        currentUser = data.user;
+                        await onAuthenticated();
+                    }
+                } else {
+                    log(`❌ Signup failed: ${data.msg || data.message || 'Unknown error'}`, 'error');
+                }
+            } catch (e) {
+                log(`❌ Error: ${e.message}`, 'error');
+            }
+        };
+        
+        // ═══════════════════════════════════════════════════════════════════════
+        // SIGN IN
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        document.getElementById('signinBtn').onclick = async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                log('❌ Email and password required', 'error');
+                return;
+            }
+            
+            try {
+                log(`🔑 Signing in as ${email}...`, 'system');
+                
+                const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    accessToken = data.access_token;
+                    currentUser = data.user;
+                    log(`✅ Signed in as ${email}`, 'success');
+                    await onAuthenticated();
+                } else {
+                    log(`❌ Sign in failed: ${data.error_description || data.msg || 'Invalid credentials'}`, 'error');
+                }
+            } catch (e) {
+                log(`❌ Error: ${e.message}`, 'error');
+            }
+        };
+        
+        // ═══════════════════════════════════════════════════════════════════════
+        // SIGN OUT
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        document.getElementById('signoutBtn').onclick = async () => {
+            // Disconnect from room first
+            if (room) {
+                await disconnectFromRoom();
+            }
+            
+            accessToken = null;
+            currentUser = null;
+            
+            document.getElementById('signupBtn').disabled = false;
+            document.getElementById('signinBtn').disabled = false;
+            document.getElementById('signoutBtn').disabled = true;
+            document.getElementById('connectBtn').disabled = true;
+            
+            updateAuthStatus('Signed out');
+            document.getElementById('userInfo').textContent = '-';
+            log('🚪 Signed out', 'system');
+        };
+        
+        async function onAuthenticated() {
+            document.getElementById('signupBtn').disabled = true;
+            document.getElementById('signinBtn').disabled = true;
+            document.getElementById('signoutBtn').disabled = false;
+            document.getElementById('connectBtn').disabled = false;
+            
+            updateAuthStatus('Authenticated ✅');
+            document.getElementById('userInfo').textContent = currentUser?.email || 'user';
+            
+            // Fetch user profile
+            try {
+                const me = await fetch(`${GATEWAY_URL}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                if (me.ok) {
+                    const profile = await me.json();
+                    log(`📋 Profile loaded - Voice: ${profile.preferences?.voice_id || 'jenny'}`, 'system');
+                }
+            } catch (e) {}
+        }
+        
+        // ═══════════════════════════════════════════════════════════════════════
+        // LIVEKIT TOKEN
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        async function getToken() {
+            const ROOM = `mic-test-${Date.now()}`;
             document.getElementById('roomInfo').textContent = ROOM;
             
             const tk = await fetch(`${GATEWAY_URL}/livekit/token`, {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`, 
+                    'Content-Type': 'application/json' 
+                },
                 body: JSON.stringify({ room: ROOM })
             });
             const data = await tk.json();
-            log(`✅ Token obtained for room: ${ROOM}`, 'system');
+            log(`🎟️ Token obtained for room: ${ROOM}`, 'system');
             return { token: data.token, url: data.url };
         }
         
-        // Connect
+        // ═══════════════════════════════════════════════════════════════════════
+        // CONNECT TO ROOM
+        // ═══════════════════════════════════════════════════════════════════════
+        
         document.getElementById('connectBtn').onclick = async () => {
             try {
                 updateStatus('Connecting...');
@@ -117,10 +274,6 @@
                     log(`👤 ${p.identity} joined`, p.identity.includes('agent') ? 'agent' : 'user');
                 });
                 
-                room.on(RoomEvent.ParticipantDisconnected, (p) => {
-                    log(`👋 ${p.identity} left`, 'system');
-                });
-                
                 room.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
                     log(`🎵 Track subscribed: ${track.kind} from ${participant.identity}`, 
                         participant.identity.includes('agent') ? 'agent' : 'user');
@@ -129,40 +282,26 @@
                         track.attach();
                         log('🔊 Agent audio attached — you should hear it!', 'agent');
                         track.on('audioPlaybackStarted', () => log('▶️ Agent audio playback started', 'agent'));
-                        track.on('audioPlaybackFailed', (e) => log(`❌ Audio playback failed: ${e}`, 'error'));
                     }
                 });
                 
-                room.on(RoomEvent.TrackPublished, (pub, participant) => {
-                    log(`📤 Track published: ${pub.kind} by ${participant.identity}`, 'system');
-                });
-                
-                room.on(RoomEvent.TrackUnpublished, (pub, participant) => {
-                    log(`📤 Track unpublished: ${pub.kind} by ${participant.identity}`, 'system');
-                });
-                
-                room.on(RoomEvent.DataReceived, (payload, participant) => {
+                room.on(RoomEvent.DataReceived, (payload) => {
                     try {
                         const data = new TextDecoder().decode(payload);
                         const json = JSON.parse(data);
                         if (json.type === 'transcript') {
                             log(`📝 ${json.speaker}: "${json.text}"`, json.speaker === 'agent' ? 'agent' : 'user');
                         }
-                    } catch (e) {
-                        // Silent
-                    }
+                    } catch (e) {}
                 });
                 
                 await room.connect(url, token);
                 log(`📍 Connected to room: ${room.name}`, 'system');
                 
+                // Request microphone
                 updateStatus('Requesting microphone...');
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    }
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
                 });
                 localAudioTrack = stream.getAudioTracks()[0];
                 log(`🎙️ Microphone acquired: ${localAudioTrack.label}`, 'system');
@@ -177,8 +316,11 @@
             }
         };
         
-        // Disconnect
-        document.getElementById('disconnectBtn').onclick = async () => {
+        // ═══════════════════════════════════════════════════════════════════════
+        // DISCONNECT
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        async function disconnectFromRoom() {
             if (localAudioTrack) {
                 localAudioTrack.stop();
                 localAudioTrack = null;
@@ -187,17 +329,31 @@
                 await room.disconnect();
                 room = null;
             }
+        }
+        
+        document.getElementById('disconnectBtn').onclick = async () => {
+            await disconnectFromRoom();
             updateStatus('Disconnected');
         };
         
-        // Clear logs
+        // ═══════════════════════════════════════════════════════════════════════
+        // CLEAR LOGS
+        // ═══════════════════════════════════════════════════════════════════════
+        
         document.getElementById('clearLogsBtn').onclick = () => {
             document.getElementById('logs').innerHTML = '';
             log('Logs cleared', 'system');
         };
         
-        log('Page loaded — NEW USER: ghostfree@test.com', 'system');
-        log('👻 Ghost should be GONE. If you see "Thank you", it\'s server-side.', 'system');
+        // ═══════════════════════════════════════════════════════════════════════
+        // INIT
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        log('Page loaded — sign up or sign in to start', 'system');
+        
+        // Pre-fill with ghostfree credentials for quick testing
+        document.getElementById('email').value = 'ghostfree@test.com';
+        document.getElementById('password').value = 'NoGhost123!';
     </script>
 </body>
 </html>
