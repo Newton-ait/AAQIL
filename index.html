@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Surf AI — Mic Test with Logs</title>
+    <title>Surf AI — Ghostfree Test</title>
     <style>
         body { font-family: monospace; max-width: 800px; margin: 20px auto; padding: 20px; background: #1a1a2e; color: #eee; }
         button { padding: 12px 24px; margin: 10px; font-size: 16px; cursor: pointer; }
@@ -14,7 +14,7 @@
     </style>
 </head>
 <body>
-    <h2>🎤 Surf AI — Real Microphone Test</h2>
+    <h2>🎤 Surf AI — Ghostfree Test</h2>
     
     <div>
         <button id="connectBtn">🔌 Connect & Request Mic</button>
@@ -25,14 +25,15 @@
     <div>
         <p>Status: <span id="status">Disconnected</span></p>
         <p>Room: <span id="roomInfo">-</span></p>
+        <p>User: <span id="userInfo">ghostfree@test.com</span></p>
     </div>
     
     <div id="logs"></div>
 
     <script type="module">
-        import { Room, RoomEvent, Track, RemoteTrack, RemoteParticipant } from 'https://esm.sh/livekit-client@2.0.10';
+        import { Room, RoomEvent } from 'https://esm.sh/livekit-client@2.0.10';
         
-        // Configuration
+        // Configuration — NEW USER
         const GATEWAY_URL = 'https://surf-gateway.onrender.com';
         const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
@@ -41,7 +42,6 @@
         
         let room = null;
         let localAudioTrack = null;
-        let audioContext = null;
         
         // Logging
         function log(message, type = 'system') {
@@ -62,7 +62,7 @@
         
         // Auth & Token
         async function getToken() {
-            log('Authenticating...', 'system');
+            log('Authenticating as ghostfree@test.com...', 'system');
             const auth = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
                 method: 'POST',
                 headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
@@ -70,7 +70,7 @@
             });
             const { access_token } = await auth.json();
             
-            const ROOM = `mic-test-${Date.now()}`;
+            const ROOM = `ghostfree-${Date.now()}`;
             document.getElementById('roomInfo').textContent = ROOM;
             
             const tk = await fetch(`${GATEWAY_URL}/livekit/token`, {
@@ -79,7 +79,7 @@
                 body: JSON.stringify({ room: ROOM })
             });
             const data = await tk.json();
-            log(`Token obtained for room: ${ROOM}`, 'system');
+            log(`✅ Token obtained for room: ${ROOM}`, 'system');
             return { token: data.token, url: data.url };
         }
         
@@ -99,7 +99,6 @@
                     }
                 });
                 
-                // Room events
                 room.on(RoomEvent.Connected, () => {
                     updateStatus('Connected');
                     log('✅ Connected to LiveKit', 'system');
@@ -114,7 +113,6 @@
                     document.getElementById('disconnectBtn').disabled = true;
                 });
                 
-                // Participant events
                 room.on(RoomEvent.ParticipantConnected, (p) => {
                     log(`👤 ${p.identity} joined`, p.identity.includes('agent') ? 'agent' : 'user');
                 });
@@ -123,7 +121,6 @@
                     log(`👋 ${p.identity} left`, 'system');
                 });
                 
-                // Track events
                 room.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
                     log(`🎵 Track subscribed: ${track.kind} from ${participant.identity}`, 
                         participant.identity.includes('agent') ? 'agent' : 'user');
@@ -131,8 +128,6 @@
                     if (track.kind === 'audio' && participant.identity.includes('agent')) {
                         track.attach();
                         log('🔊 Agent audio attached — you should hear it!', 'agent');
-                        
-                        // Log audio stats
                         track.on('audioPlaybackStarted', () => log('▶️ Agent audio playback started', 'agent'));
                         track.on('audioPlaybackFailed', (e) => log(`❌ Audio playback failed: ${e}`, 'error'));
                     }
@@ -146,7 +141,6 @@
                     log(`📤 Track unpublished: ${pub.kind} by ${participant.identity}`, 'system');
                 });
                 
-                // Data channel
                 room.on(RoomEvent.DataReceived, (payload, participant) => {
                     try {
                         const data = new TextDecoder().decode(payload);
@@ -155,21 +149,23 @@
                             log(`📝 ${json.speaker}: "${json.text}"`, json.speaker === 'agent' ? 'agent' : 'user');
                         }
                     } catch (e) {
-                        log(`📨 Raw data from ${participant?.identity}: ${payload}`, 'system');
+                        // Silent
                     }
                 });
                 
-                // Connect
                 await room.connect(url, token);
                 log(`📍 Connected to room: ${room.name}`, 'system');
                 
-                // Request microphone
                 updateStatus('Requesting microphone...');
-                localAudioTrack = await createLocalAudioTrack({
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
                 });
+                localAudioTrack = stream.getAudioTracks()[0];
+                log(`🎙️ Microphone acquired: ${localAudioTrack.label}`, 'system');
                 
                 await room.localParticipant.publishTrack(localAudioTrack);
                 log('🎤 Microphone published — speak now!', 'user');
@@ -200,15 +196,8 @@
             log('Logs cleared', 'system');
         };
         
-        // Helper to create audio track
-        async function createLocalAudioTrack(options) {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: options });
-            const audioTrack = stream.getAudioTracks()[0];
-            log(`🎙️ Microphone acquired: ${audioTrack.label}`, 'system');
-            return audioTrack;
-        }
-        
-        log('Page loaded — click Connect to start', 'system');
+        log('Page loaded — NEW USER: ghostfree@test.com', 'system');
+        log('👻 Ghost should be GONE. If you see "Thank you", it\'s server-side.', 'system');
     </script>
 </body>
 </html>
