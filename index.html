@@ -1,670 +1,214 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surf AI — True WebRTC Conversation</title>
+    <title>Surf AI — Mic Test with Logs</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Segoe UI', 'Fira Code', monospace;
-            background: linear-gradient(135deg, #0a0f0a 0%, #0c120c 100%);
-            color: #cfc;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            width: 100%;
-        }
-        h1 {
-            font-size: 2rem;
-            border-left: 5px solid #0f0;
-            padding-left: 20px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        .status-badge {
-            background: #1f3a1f;
-            color: #8eff8e;
-            padding: 5px 15px;
-            border-radius: 40px;
-            font-size: 0.9rem;
-        }
-        .conversation-container {
-            display: grid;
-            grid-template-columns: 1fr 350px;
-            gap: 20px;
-        }
-        .chat-panel {
-            background: #0c100c;
-            border: 1px solid #2f8f2f;
-            border-radius: 28px;
-            padding: 20px;
-            min-height: 400px;
-            display: flex;
-            flex-direction: column;
-        }
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            max-height: 400px;
-            padding-right: 10px;
-        }
-        .message {
-            margin-bottom: 16px;
-            animation: fadeIn 0.3s ease;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .message-user {
-            text-align: right;
-        }
-        .message-user .bubble {
-            background: #1a3a1a;
-            color: #a8ffa8;
-            display: inline-block;
-            padding: 12px 18px;
-            border-radius: 24px 24px 4px 24px;
-            max-width: 80%;
-        }
-        .message-agent {
-            text-align: left;
-        }
-        .message-agent .bubble {
-            background: #0f1a2a;
-            color: #a8d4ff;
-            display: inline-block;
-            padding: 12px 18px;
-            border-radius: 24px 24px 24px 4px;
-            max-width: 80%;
-        }
-        .message-time {
-            font-size: 0.7rem;
-            color: #5a8a5a;
-            margin-top: 4px;
-        }
-        .log-panel {
-            background: #0a0f0a;
-            border: 2px solid #1f9f1f;
-            border-radius: 20px;
-            padding: 15px;
-            height: 400px;
-            overflow-y: auto;
-        }
-        .log-panel h3 {
-            margin-bottom: 10px;
-            color: #8eff8e;
-        }
-        .log-entry {
-            font-family: 'Fira Code', monospace;
-            font-size: 11px;
-            padding: 4px 0;
-            border-bottom: 1px solid #2a4a2a;
-            color: #b3ffb3;
-        }
-        .log-time { color: #5a8a5a; }
-        .log-info { color: #8eff8e; }
-        .log-success { color: #a8ffa8; }
-        .log-error { color: #ff9494; }
-        .log-ai { color: #a8d4ff; }
-        .log-user { color: #c5ffc5; }
-        .controls {
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        button {
-            padding: 12px 24px;
-            background: #111;
-            color: #0f0;
-            border: 1px solid #2ea82e;
-            cursor: pointer;
-            font-weight: 600;
-            border-radius: 40px;
-            transition: all 0.15s ease;
-            font-family: monospace;
-            font-size: 14px;
-        }
-        button:hover:not(:disabled) {
-            background: #0f0;
-            color: #0a0a0a;
-            box-shadow: 0 0 12px #0f0;
-        }
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        button.active {
-            background: #0f0;
-            color: #0a0a0a;
-        }
-        input {
-            padding: 12px 18px;
-            background: #0f120f;
-            color: #0f0;
-            border: 1px solid #2f8f2f;
-            border-radius: 40px;
-            font-family: monospace;
-            font-size: 14px;
-            flex: 1;
-            min-width: 250px;
-        }
-        .voice-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #0f0;
-        }
-        .dot.listening {
-            background: #0f0;
-            animation: pulse 1s infinite;
-        }
-        .dot.speaking {
-            background: #f0f;
-            animation: pulse 0.5s infinite;
-        }
-        .dot.idle {
-            background: #888;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-        .auth-section {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        .auth-section input {
-            min-width: 180px;
-        }
-        #authStatus {
-            background: #1a2a1a;
-            padding: 8px 16px;
-            border-radius: 40px;
-            font-size: 0.85rem;
-        }
-        .mode-toggle {
-            display: flex;
-            gap: 5px;
-            background: #0f120f;
-            padding: 5px;
-            border-radius: 40px;
-            border: 1px solid #2f8f2f;
-        }
-        .mode-btn {
-            padding: 8px 16px;
-            border: none;
-            background: transparent;
-            color: #8f8;
-            cursor: pointer;
-        }
-        .mode-btn.active {
-            background: #0f0;
-            color: #0a0a0a;
-        }
-        .room-info {
-            font-size: 0.8rem;
-            color: #5a8a5a;
-            margin-top: 5px;
-        }
+        body { font-family: monospace; max-width: 800px; margin: 20px auto; padding: 20px; background: #1a1a2e; color: #eee; }
+        button { padding: 12px 24px; margin: 10px; font-size: 16px; cursor: pointer; }
+        #logs { background: #0a0a15; padding: 15px; border-radius: 8px; height: 400px; overflow-y: auto; font-size: 12px; }
+        .log { margin: 5px 0; border-bottom: 1px solid #333; padding: 3px 0; }
+        .agent { color: #4ade80; }
+        .user { color: #60a5fa; }
+        .system { color: #fbbf24; }
+        .error { color: #ef4444; }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>
-            🏄‍♂️ Surf AI — True WebRTC Conversation
-            <span class="status-badge" id="connectionStatus">⚪ Offline</span>
-        </h1>
-        
-        <!-- Auth -->
-        <div class="auth-section">
-            <input type="email" id="email" placeholder="Email" value="surf@testuser.com">
-            <input type="password" id="password" placeholder="Password" value="Test1234!">
-            <button id="signInBtn">🔐 Sign In</button>
-            <button id="signOutBtn">🚪 Sign Out</button>
-            <span id="authStatus">Not signed in</span>
-        </div>
-        
-        <div class="conversation-container">
-            <!-- Chat Panel -->
-            <div class="chat-panel">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="color: #8eff8e;">💬 Conversation</h3>
-                    <div class="mode-toggle">
-                        <button class="mode-btn active" data-mode="webrtc">🎙️ WebRTC</button>
-                        <button class="mode-btn" data-mode="walkie">📻 Walkie-Talkie</button>
-                    </div>
-                </div>
-                <div class="chat-messages" id="chatMessages">
-                    <div class="message message-agent">
-                        <div class="bubble">Hi! I'm Surf AI. Click the mic to start talking!</div>
-                        <div class="message-time">Just now</div>
-                    </div>
-                </div>
-                <div class="controls">
-                    <button id="micBtn">🎤 Enable Mic</button>
-                    <button id="stopMicBtn" disabled>⏹️ Disable Mic</button>
-                    <div class="voice-indicator">
-                        <span class="dot idle" id="voiceDot"></span>
-                        <span id="voiceStatus">Mic off</span>
-                    </div>
-                </div>
-                <div class="room-info" id="roomInfo"></div>
-                <div style="margin-top: 15px;">
-                    <input type="text" id="textInput" placeholder="Or type a message...">
-                    <button id="sendTextBtn" style="margin-left: 10px;">📤 Send</button>
-                </div>
-            </div>
-            
-            <!-- Log Panel -->
-            <div class="log-panel">
-                <h3>📋 Live Logs</h3>
-                <div id="logContainer"></div>
-            </div>
-        </div>
+    <h2>🎤 Surf AI — Real Microphone Test</h2>
+    
+    <div>
+        <button id="connectBtn">🔌 Connect & Request Mic</button>
+        <button id="disconnectBtn" disabled>⏹️ Disconnect</button>
+        <button id="clearLogsBtn">🧹 Clear Logs</button>
     </div>
+    
+    <div>
+        <p>Status: <span id="status">Disconnected</span></p>
+        <p>Room: <span id="roomInfo">-</span></p>
+    </div>
+    
+    <div id="logs"></div>
 
     <script type="module">
-        import { Room, RoomEvent, LocalAudioTrack, createLocalAudioTrack, RemoteAudioTrack, Track } from 'https://cdn.jsdelivr.net/npm/livekit-client@2/+esm';
+        import { Room, RoomEvent, Track, RemoteTrack, RemoteParticipant } from 'https://esm.sh/livekit-client@2.0.10';
         
-        const GATEWAY = 'https://surf-gateway.onrender.com';
+        // Configuration
+        const GATEWAY_URL = 'https://surf-gateway.onrender.com';
         const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
+        const EMAIL = 'surf@testuser.com';
+        const PASSWORD = 'Test1234!';
         
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        
-        // State
-        let liveKitRoom = null;
+        let room = null;
         let localAudioTrack = null;
-        let isMicEnabled = false;
-        let currentMode = 'webrtc';
-        let agentAudioElement = null;
-        let currentRoomName = null;
+        let audioContext = null;
         
-        // Walkie-talkie state
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let audioStream = null;
-        
-        // DOM elements
-        const micBtn = document.getElementById('micBtn');
-        const stopMicBtn = document.getElementById('stopMicBtn');
-        const voiceDot = document.getElementById('voiceDot');
-        const voiceStatus = document.getElementById('voiceStatus');
-        const connectionStatus = document.getElementById('connectionStatus');
-        const chatMessages = document.getElementById('chatMessages');
-        const logContainer = document.getElementById('logContainer');
-        const roomInfo = document.getElementById('roomInfo');
-        
-        // Helper functions
-        function addLog(msg, type = 'info') {
-            const entry = document.createElement('div');
-            entry.className = 'log-entry';
+        // Logging
+        function log(message, type = 'system') {
+            const logsDiv = document.getElementById('logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log ${type}`;
             const time = new Date().toLocaleTimeString();
-            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${msg}</span>`;
-            logContainer.appendChild(entry);
-            logContainer.scrollTop = logContainer.scrollHeight;
-            console.log(`[${type}]`, msg);
+            logEntry.textContent = `[${time}] ${message}`;
+            logsDiv.appendChild(logEntry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            console.log(`[${type}] ${message}`);
         }
         
-        function addMessage(text, sender) {
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `message message-${sender}`;
-            msgDiv.innerHTML = `
-                <div class="bubble">${text}</div>
-                <div class="message-time">${new Date().toLocaleTimeString()}</div>
-            `;
-            chatMessages.appendChild(msgDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+        function updateStatus(text) {
+            document.getElementById('status').textContent = text;
+            log(`Status: ${text}`, 'system');
         }
         
-        async function getAuthHeader() {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) return null;
-            return { 'Authorization': `Bearer ${session.access_token}` };
-        }
-        
-        // Mode switching
-        document.querySelectorAll('.mode-btn').forEach(btn => {
-            btn.onclick = () => {
-                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentMode = btn.dataset.mode;
-                addLog(`Mode switched to: ${currentMode}`, 'info');
-                
-                if (currentMode === 'webrtc') {
-                    voiceStatus.textContent = isMicEnabled ? '🎤 Mic live (WebRTC)' : 'Mic off';
-                } else {
-                    voiceStatus.textContent = '📻 Walkie-Talkie mode';
-                }
-            };
-        });
-        
-        // Handle agent's audio track
-        function setupAgentAudioHandler(room) {
-            room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-                addLog(`Track subscribed: ${track.kind} from ${participant.identity}`, 'info');
-                
-                if (track instanceof RemoteAudioTrack && participant.identity.includes('agent')) {
-                    addLog('🎤 Agent audio track received!', 'success');
-                    
-                    if (agentAudioElement) {
-                        agentAudioElement.remove();
-                    }
-                    
-                    agentAudioElement = new Audio();
-                    agentAudioElement.autoplay = true;
-                    track.attach(agentAudioElement);
-                    
-                    agentAudioElement.onplay = () => {
-                        voiceDot.className = 'dot speaking';
-                        voiceStatus.textContent = '🤖 Agent speaking...';
-                        addLog('🔊 Agent is speaking', 'ai');
-                    };
-                    
-                    agentAudioElement.onended = () => {
-                        voiceDot.className = isMicEnabled ? 'dot listening' : 'dot idle';
-                        voiceStatus.textContent = isMicEnabled ? '🎤 Listening...' : 'Mic off';
-                    };
-                    
-                    agentAudioElement.onpause = () => {
-                        voiceDot.className = isMicEnabled ? 'dot listening' : 'dot idle';
-                        voiceStatus.textContent = isMicEnabled ? '🎤 Listening...' : 'Mic off';
-                    };
-                    
-                    addLog('✅ Agent audio ready — speak naturally!', 'success');
-                }
+        // Auth & Token
+        async function getToken() {
+            log('Authenticating...', 'system');
+            const auth = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                method: 'POST',
+                headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: EMAIL, password: PASSWORD })
             });
+            const { access_token } = await auth.json();
             
-            room.on(RoomEvent.DataReceived, (payload, participant) => {
-                try {
-                    const data = new TextDecoder().decode(payload);
-                    const msg = JSON.parse(data);
-                    
-                    if (msg.type === 'transcript' && msg.text) {
-                        if (participant.identity.includes('agent')) {
-                            addMessage(msg.text, 'agent');
-                            addLog(`🤖 Agent: "${msg.text}"`, 'ai');
-                        }
-                    }
-                } catch (e) {
-                    // Ignore non-JSON data
-                }
-            });
+            const ROOM = `mic-test-${Date.now()}`;
+            document.getElementById('roomInfo').textContent = ROOM;
             
-            room.on(RoomEvent.ParticipantConnected, (participant) => {
-                addLog(`👤 ${participant.identity} joined`, 'info');
-                if (participant.identity.includes('agent')) {
-                    addLog('🤖 Agent joined the room!', 'success');
-                }
+            const tk = await fetch(`${GATEWAY_URL}/livekit/token`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ room: ROOM })
             });
+            const data = await tk.json();
+            log(`Token obtained for room: ${ROOM}`, 'system');
+            return { token: data.token, url: data.url };
         }
         
-        // Enable WebRTC with unique room
-        async function enableWebRTC() {
-            if (isMicEnabled) return;
-            
+        // Connect
+        document.getElementById('connectBtn').onclick = async () => {
             try {
-                if (!liveKitRoom) {
-                    addLog('Getting LiveKit token...', 'info');
-                    const headers = await getAuthHeader();
-                    if (!headers) throw new Error('Not authenticated');
-                    
-                    // ✅ CREATE UNIQUE ROOM WITH 'surf-' PREFIX
-                    currentRoomName = `surf-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-                    
-                    const r = await fetch(`${GATEWAY}/livekit/token`, {
-                        method: 'POST',
-                        headers: { ...headers, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ room: currentRoomName })
-                    });
-                    const data = await r.json();
-                    
-                    addLog(`✅ Token obtained for room: ${currentRoomName}`, 'success');
-                    roomInfo.textContent = `📌 Room: ${currentRoomName}`;
-                    
-                    liveKitRoom = new Room();
-                    setupAgentAudioHandler(liveKitRoom);
-                    
-                    liveKitRoom.on(RoomEvent.Connected, () => {
-                        addLog('✅ Connected to LiveKit', 'success');
-                        connectionStatus.textContent = '🟢 Connected';
-                    });
-                    
-                    liveKitRoom.on(RoomEvent.Disconnected, () => {
-                        addLog('Disconnected from LiveKit', 'info');
-                        connectionStatus.textContent = '⚪ Offline';
-                        isMicEnabled = false;
-                        updateMicUI();
-                    });
-                    
-                    await liveKitRoom.connect('wss://surf-ai-k6d840vq.livekit.cloud', data.token);
-                }
+                updateStatus('Connecting...');
+                const { token, url } = await getToken();
                 
-                if (!localAudioTrack) {
-                    localAudioTrack = await createLocalAudioTrack();
-                    await liveKitRoom.localParticipant.publishTrack(localAudioTrack);
-                    addLog('🎤 Microphone streaming live (WebRTC)', 'success');
-                }
+                room = new Room({
+                    adaptiveStream: true,
+                    dynacast: true,
+                    audioCaptureDefaults: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
                 
-                isMicEnabled = true;
-                updateMicUI();
-                voiceDot.className = 'dot listening';
-                voiceStatus.textContent = '🎤 Mic live — speak naturally!';
+                // Room events
+                room.on(RoomEvent.Connected, () => {
+                    updateStatus('Connected');
+                    log('✅ Connected to LiveKit', 'system');
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                });
                 
-            } catch (err) {
-                addLog(`WebRTC error: ${err.message}`, 'error');
+                room.on(RoomEvent.Disconnected, () => {
+                    updateStatus('Disconnected');
+                    log('❌ Disconnected from room', 'system');
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                });
+                
+                // Participant events
+                room.on(RoomEvent.ParticipantConnected, (p) => {
+                    log(`👤 ${p.identity} joined`, p.identity.includes('agent') ? 'agent' : 'user');
+                });
+                
+                room.on(RoomEvent.ParticipantDisconnected, (p) => {
+                    log(`👋 ${p.identity} left`, 'system');
+                });
+                
+                // Track events
+                room.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
+                    log(`🎵 Track subscribed: ${track.kind} from ${participant.identity}`, 
+                        participant.identity.includes('agent') ? 'agent' : 'user');
+                    
+                    if (track.kind === 'audio' && participant.identity.includes('agent')) {
+                        track.attach();
+                        log('🔊 Agent audio attached — you should hear it!', 'agent');
+                        
+                        // Log audio stats
+                        track.on('audioPlaybackStarted', () => log('▶️ Agent audio playback started', 'agent'));
+                        track.on('audioPlaybackFailed', (e) => log(`❌ Audio playback failed: ${e}`, 'error'));
+                    }
+                });
+                
+                room.on(RoomEvent.TrackPublished, (pub, participant) => {
+                    log(`📤 Track published: ${pub.kind} by ${participant.identity}`, 'system');
+                });
+                
+                room.on(RoomEvent.TrackUnpublished, (pub, participant) => {
+                    log(`📤 Track unpublished: ${pub.kind} by ${participant.identity}`, 'system');
+                });
+                
+                // Data channel
+                room.on(RoomEvent.DataReceived, (payload, participant) => {
+                    try {
+                        const data = new TextDecoder().decode(payload);
+                        const json = JSON.parse(data);
+                        if (json.type === 'transcript') {
+                            log(`📝 ${json.speaker}: "${json.text}"`, json.speaker === 'agent' ? 'agent' : 'user');
+                        }
+                    } catch (e) {
+                        log(`📨 Raw data from ${participant?.identity}: ${payload}`, 'system');
+                    }
+                });
+                
+                // Connect
+                await room.connect(url, token);
+                log(`📍 Connected to room: ${room.name}`, 'system');
+                
+                // Request microphone
+                updateStatus('Requesting microphone...');
+                localAudioTrack = await createLocalAudioTrack({
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                });
+                
+                await room.localParticipant.publishTrack(localAudioTrack);
+                log('🎤 Microphone published — speak now!', 'user');
+                updateStatus('Ready — Speak!');
+                
+            } catch (e) {
+                log(`❌ Error: ${e.message}`, 'error');
+                updateStatus('Error');
             }
-        }
+        };
         
-        function disableWebRTC() {
+        // Disconnect
+        document.getElementById('disconnectBtn').onclick = async () => {
             if (localAudioTrack) {
-                liveKitRoom?.localParticipant.unpublishTrack(localAudioTrack);
                 localAudioTrack.stop();
                 localAudioTrack = null;
             }
-            isMicEnabled = false;
-            updateMicUI();
-            voiceDot.className = 'dot idle';
-            voiceStatus.textContent = 'Mic off';
-            addLog('🎤 Microphone disabled', 'info');
+            if (room) {
+                await room.disconnect();
+                room = null;
+            }
+            updateStatus('Disconnected');
+        };
+        
+        // Clear logs
+        document.getElementById('clearLogsBtn').onclick = () => {
+            document.getElementById('logs').innerHTML = '';
+            log('Logs cleared', 'system');
+        };
+        
+        // Helper to create audio track
+        async function createLocalAudioTrack(options) {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: options });
+            const audioTrack = stream.getAudioTracks()[0];
+            log(`🎙️ Microphone acquired: ${audioTrack.label}`, 'system');
+            return audioTrack;
         }
         
-        function updateMicUI() {
-            micBtn.disabled = isMicEnabled;
-            stopMicBtn.disabled = !isMicEnabled;
-        }
-        
-        // Walkie-talkie mode
-        async function startWalkieRecording() {
-            try {
-                audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(audioStream);
-                audioChunks = [];
-                
-                mediaRecorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) audioChunks.push(e.data);
-                };
-                
-                mediaRecorder.onstop = async () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    await processWalkieAudio(audioBlob);
-                    audioStream?.getTracks().forEach(t => t.stop());
-                };
-                
-                mediaRecorder.start();
-                voiceDot.className = 'dot listening';
-                voiceStatus.textContent = '📻 Recording...';
-                
-                setTimeout(() => {
-                    if (mediaRecorder?.state === 'recording') {
-                        mediaRecorder.stop();
-                    }
-                }, 5000);
-                
-            } catch (err) {
-                addLog(`Mic error: ${err.message}`, 'error');
-            }
-        }
-        
-        async function processWalkieAudio(audioBlob) {
-            const headers = await getAuthHeader();
-            if (!headers) return;
-            
-            try {
-                const formData = new FormData();
-                formData.append('audio', audioBlob, 'recording.webm');
-                
-                const r = await fetch(`${GATEWAY}/transcribe`, {
-                    method: 'POST',
-                    headers: { 'Authorization': headers.Authorization },
-                    body: formData
-                });
-                
-                const data = await r.json();
-                const transcript = data.text || data.transcript;
-                
-                if (transcript) {
-                    addLog(`📝 Transcript: "${transcript}"`, 'success');
-                    addMessage(transcript, 'user');
-                    
-                    const aiR = await fetch(`${GATEWAY}/ai/chat`, {
-                        method: 'POST',
-                        headers: { ...headers, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ messages: [{ role: 'user', content: transcript }] })
-                    });
-                    
-                    const aiData = await aiR.json();
-                    const reply = aiData.result || aiData.choices?.[0]?.message?.content;
-                    
-                    if (reply) {
-                        addMessage(reply, 'agent');
-                        addLog(`🤖 AI: "${reply}"`, 'ai');
-                        
-                        const ttsForm = new FormData();
-                        ttsForm.append('text', reply);
-                        ttsForm.append('voice', 'en-US-JennyNeural');
-                        
-                        const ttsR = await fetch(`${GATEWAY}/tts`, {
-                            method: 'POST',
-                            headers: { 'Authorization': headers.Authorization },
-                            body: ttsForm
-                        });
-                        
-                        if (ttsR.ok) {
-                            const blob = await ttsR.blob();
-                            const audio = new Audio(URL.createObjectURL(blob));
-                            audio.play();
-                        }
-                    }
-                }
-            } catch (err) {
-                addLog(`Walkie error: ${err.message}`, 'error');
-            }
-            
-            voiceDot.className = 'dot idle';
-            voiceStatus.textContent = '📻 Ready';
-        }
-        
-        // Event handlers
-        micBtn.onclick = async () => {
-            if (currentMode === 'webrtc') {
-                await enableWebRTC();
-            } else {
-                await startWalkieRecording();
-            }
-        };
-        
-        stopMicBtn.onclick = () => {
-            if (currentMode === 'webrtc') {
-                disableWebRTC();
-            }
-        };
-        
-        document.getElementById('signInBtn').onclick = async () => {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-            if (error) {
-                addLog(`Sign in failed: ${error.message}`, 'error');
-            } else {
-                addLog(`✅ Signed in as ${data.user.email}`, 'success');
-                document.getElementById('authStatus').textContent = `✅ ${data.user.email}`;
-            }
-        };
-        
-        document.getElementById('signOutBtn').onclick = async () => {
-            await supabaseClient.auth.signOut();
-            addLog('Signed out', 'success');
-            document.getElementById('authStatus').textContent = 'Not signed in';
-            if (liveKitRoom) {
-                disableWebRTC();
-                liveKitRoom.disconnect();
-                liveKitRoom = null;
-            }
-            connectionStatus.textContent = '⚪ Offline';
-            roomInfo.textContent = '';
-        };
-        
-        document.getElementById('sendTextBtn').onclick = async () => {
-            const text = document.getElementById('textInput').value.trim();
-            if (!text) return;
-            
-            addMessage(text, 'user');
-            document.getElementById('textInput').value = '';
-            
-            const headers = await getAuthHeader();
-            if (!headers) return;
-            
-            try {
-                const r = await fetch(`${GATEWAY}/ai/chat`, {
-                    method: 'POST',
-                    headers: { ...headers, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ messages: [{ role: 'user', content: text }] })
-                });
-                
-                const data = await r.json();
-                const reply = data.result || data.choices?.[0]?.message?.content;
-                
-                if (reply) {
-                    addMessage(reply, 'agent');
-                    addLog(`🤖 AI: "${reply}"`, 'ai');
-                }
-            } catch (err) {
-                addLog(`Chat error: ${err.message}`, 'error');
-            }
-        };
-        
-        // Initialize
-        (async () => {
-            const { data } = await supabaseClient.auth.getSession();
-            if (data.session) {
-                addLog(`Session restored: ${data.session.user.email}`, 'success');
-                document.getElementById('authStatus').textContent = `✅ ${data.session.user.email}`;
-            } else {
-                addLog('👋 Sign in to start', 'info');
-            }
-            addLog('✅ Ready — True WebRTC mode enabled!', 'success');
-        })();
+        log('Page loaded — click Connect to start', 'system');
     </script>
 </body>
 </html>
