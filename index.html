@@ -143,6 +143,10 @@
                         const audioElement = track.attach();
                         audioElement.muted = false;
                         audioElement.volume = 1.0;
+                        // Force to default output — ensures AEC reference is correct
+                        if (audioElement.setSinkId) {
+                            audioElement.setSinkId('default');
+                        }
                         audioElement.style.display = 'none';
                         document.getElementById('audioContainer').appendChild(audioElement);
                         log('🔊 Agent audio attached — you should hear it!', 'agent');
