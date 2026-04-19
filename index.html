@@ -174,9 +174,9 @@
                 // Request microphone using LiveKit's proper API
                 updateStatus('Requesting microphone...');
                 localAudioTrack = await createLocalAudioTrack({
-                    echoCancellation: false,   // ✅ Disable — can distort voice
-                    noiseSuppression: false,   // ✅ Disable — can strip harmonics
-                    autoGainControl: true      // ✅ Keep — normalizes volume
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
                 });
                 
                 log(`🎙️ Microphone acquired`, 'system');
