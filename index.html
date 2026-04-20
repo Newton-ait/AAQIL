@@ -1,22 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ICE Inspector</title>
+    <title>Surf Test</title>
     <style>
         body { font-family: monospace; background: #0a0a0a; color: #0f0; padding: 20px; }
         button { background: #1a1a1a; color: #0f0; border: 1px solid #0f0; padding: 10px 20px; margin: 5px; cursor: pointer; }
         button:disabled { opacity: 0.3; }
-        .log { background: #000; padding: 15px; margin-top: 20px; height: 400px; overflow-y: auto; }
+        .log { background: #000; padding: 15px; margin-top: 20px; height: 300px; overflow-y: auto; }
     </style>
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
 </head>
 <body>
-    <h1>🔍 ICE Inspector</h1>
+    <h1>🌊 Surf Connection Test</h1>
     
     <div>
-        <button id="connectBtn" onclick="doConnect()">1️⃣ Connect Gateway</button>
-        <button id="agentBtn" onclick="doRequestAgent()" disabled>2️⃣ Request Agent</button>
-        <button id="micBtn" onclick="doStartMic()" disabled>3️⃣ Start Mic</button>
+        <button id="connectBtn" onclick="connect()">1️⃣ Connect Gateway</button>
+        <button id="agentBtn" onclick="requestAgent()" disabled>2️⃣ Request Agent</button>
+        <button id="micBtn" onclick="startMic()" disabled>3️⃣ Start Mic</button>
     </div>
     
     <div class="log" id="log">Ready...</div>
@@ -29,9 +29,10 @@
             const div = document.getElementById('log');
             div.innerHTML += `<div style="color:${color}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
             div.scrollTop = div.scrollHeight;
+            console.log(msg);
         }
         
-        window.doConnect = function() {
+        async function connect() {
             const btn = document.getElementById('connectBtn');
             btn.disabled = true;
             btn.textContent = 'Connecting...';
@@ -52,13 +53,22 @@
                 document.getElementById('micBtn').disabled = false; 
             });
             
+            socket.on('agent_disconnected', () => {
+                log('⚠️ Agent disconnected', '#f80');
+                document.getElementById('micBtn').disabled = true;
+            });
+            
             socket.on('answer', async (d) => { 
                 log('📥 Got answer', '#0f0'); 
                 await pc.setRemoteDescription(d); 
             });
-        };
+            
+            socket.on('ice_candidate', async (d) => { 
+                if (d.candidate) await pc.addIceCandidate(d.candidate); 
+            });
+        }
         
-        window.doRequestAgent = function() {
+        function requestAgent() {
             const btn = document.getElementById('agentBtn');
             btn.disabled = true;
             btn.textContent = 'Requesting...';
@@ -75,44 +85,57 @@
                     btn.textContent = '2️⃣ Request Agent';
                 }
             });
-        };
+        }
         
-        window.doStartMic = async function() {
+        async function startMic() {
             const btn = document.getElementById('micBtn');
             btn.disabled = true;
+            btn.textContent = 'Starting...';
             
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            log('🎤 Mic ready', '#0f0');
-            
-            pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-            stream.getTracks().forEach(t => pc.addTrack(t, stream));
-            
-            pc.onicecandidate = (e) => {
-                if (e.candidate) {
-                    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', '#0ff');
-                    log('🧊 ICE CANDIDATE:', '#0ff');
-                    log(JSON.stringify(e.candidate, null, 2), '#ff0');
-                    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', '#0ff');
-                    
-                    socket.emit('ice_candidate', { 
-                        from: 'browser', 
-                        agent_id: agentId, 
-                        candidate: e.candidate 
-                    });
-                }
-            };
-            
-            pc.onconnectionstatechange = () => {
-                log('State: ' + pc.connectionState, '#ff0');
-            };
-            
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            
-            socket.emit('offer', { agent_id: agentId, sdp: offer.sdp, type: offer.type });
-            log('📤 Offer sent', '#0f0');
-            btn.textContent = '🎤 Mic Active';
-        };
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                log('🎤 Mic ready', '#0f0');
+                
+                pc = new RTCPeerConnection({ 
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] 
+                });
+                
+                stream.getTracks().forEach(t => pc.addTrack(t, stream));
+                
+                pc.onconnectionstatechange = () => {
+                    const state = pc.connectionState;
+                    log('WebRTC: ' + state, state === 'connected' ? '#0ff' : '#ff0');
+                    if (state === 'connected') log('🎉🎉🎉 REAL-TIME AUDIO FLOWING! 🎉🎉🎉', '#0ff');
+                };
+                
+                pc.onicecandidate = (e) => { 
+                    if (e.candidate) {
+                        socket.emit('ice_candidate', { 
+                            from: 'browser', 
+                            agent_id: agentId, 
+                            candidate: e.candidate 
+                        }); 
+                    }
+                };
+                
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                
+                socket.emit('offer', { 
+                    agent_id: agentId, 
+                    sdp: offer.sdp, 
+                    type: offer.type 
+                });
+                
+                log('📤 Offer sent', '#0f0');
+                btn.textContent = '🎤 Mic Active';
+                
+            } catch(e) {
+                log('❌ Mic error: ' + e.message, '#f00');
+                btn.disabled = false;
+                btn.textContent = '3️⃣ Start Mic';
+            }
+        }
     </script>
 </body>
 </html>
