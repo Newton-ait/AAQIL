@@ -1,221 +1,725 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Surf AI — Mic Test (Final)</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surf Voice Agent - WebRTC Client</title>
     <style>
-        body { font-family: monospace; max-width: 800px; margin: 20px auto; padding: 20px; background: #1a1a2e; color: #eee; }
-        button { padding: 12px 24px; margin: 10px; font-size: 16px; cursor: pointer; border: none; border-radius: 8px; }
-        #connectBtn { background: #4ade80; color: #000; }
-        #disconnectBtn { background: #ef4444; color: #fff; }
-        #clearBtn { background: #3b82f6; color: #fff; }
-        #logs { background: #0a0a15; padding: 15px; border-radius: 8px; height: 400px; overflow-y: auto; font-size: 12px; margin-top: 20px; }
-        .log { margin: 5px 0; border-bottom: 1px solid #333; padding: 3px 0; }
-        .agent { color: #4ade80; }
-        .user { color: #60a5fa; }
-        .system { color: #fbbf24; }
-        .error { color: #ef4444; }
-        .status { padding: 10px; background: #0a0a15; border-radius: 8px; margin: 10px 0; }
-        #audioContainer { display: none; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #e2e8f0;
+        }
+        
+        .container {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: #94a3b8;
+            margin-bottom: 32px;
+            font-size: 0.95rem;
+        }
+        
+        .status-card {
+            background: #1e293b;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid #334155;
+        }
+        
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .status-row:last-child {
+            margin-bottom: 0;
+        }
+        
+        .status-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+        
+        .status-value {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ef4444;
+            transition: background 0.3s ease;
+        }
+        
+        .indicator.connected {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+        
+        .indicator.speaking {
+            background: #f59e0b;
+            box-shadow: 0 0 10px #f59e0b;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .control-btn {
+            width: 100%;
+            padding: 16px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 12px;
+        }
+        
+        .control-btn.connect {
+            background: linear-gradient(135deg, #38bdf8, #3b82f6);
+            color: white;
+        }
+        
+        .control-btn.connect:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.4);
+        }
+        
+        .control-btn.disconnect {
+            background: #334155;
+            color: #e2e8f0;
+        }
+        
+        .control-btn.disconnect:hover {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .voice-selector {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: #e2e8f0;
+            font-size: 1rem;
+            width: 100%;
+            margin-bottom: 16px;
+            cursor: pointer;
+        }
+        
+        .record-section {
+            margin-bottom: 16px;
+        }
+        
+        .record-btn {
+            width: 100%;
+            padding: 12px;
+            background: #334155;
+            border: 1px solid #475569;
+            border-radius: 12px;
+            color: #e2e8f0;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .record-btn.recording {
+            background: #ef4444;
+            border-color: #f87171;
+            animation: pulse 1s infinite;
+        }
+        
+        .record-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .transcript-panel {
+            background: #0f172a;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 20px;
+            border: 1px solid #334155;
+        }
+        
+        .transcript-label {
+            color: #64748b;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        
+        .transcript-text {
+            color: #e2e8f0;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            min-height: 60px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .response-text {
+            color: #38bdf8;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #334155;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 24px;
+            color: #475569;
+            font-size: 0.8rem;
+        }
+        
+        .footer a {
+            color: #38bdf8;
+            text-decoration: none;
+        }
     </style>
 </head>
 <body>
-    <h2>🎤 Surf AI — Microphone Test</h2>
-    
-    <div class="status">
-        <p>Status: <span id="status">Disconnected</span></p>
-        <p>Room: <span id="roomInfo">-</span></p>
-        <p>User: <span id="userInfo">ghostfree@test.com</span></p>
+    <div class="container">
+        <h1>🌊 Surf Vocal</h1>
+        <div class="subtitle">Real-time AI Voice Agent</div>
+        
+        <div class="status-card">
+            <div class="status-row">
+                <span class="status-label">Gateway</span>
+                <span class="status-value" id="gatewayStatus">Offline</span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Signaling</span>
+                <span class="status-value">
+                    <span class="indicator" id="signalingIndicator"></span>
+                    <span id="signalingText">Disconnected</span>
+                </span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">Media Stream</span>
+                <span class="status-value">
+                    <span class="indicator" id="mediaIndicator"></span>
+                    <span id="mediaText">Not Started</span>
+                </span>
+            </div>
+            <div class="status-row">
+                <span class="status-label">AI Response</span>
+                <span class="status-value">
+                    <span class="indicator" id="aiIndicator"></span>
+                    <span id="aiText">Waiting</span>
+                </span>
+            </div>
+        </div>
+        
+        <select class="voice-selector" id="voiceSelect">
+            <option value="en-US-AriaNeural">🎤 Aria - Female, American (Warm)</option>
+            <option value="en-US-JennyNeural">🎤 Jenny - Female, American (Friendly)</option>
+            <option value="en-US-GuyNeural">🎤 Guy - Male, American (Professional)</option>
+            <option value="en-GB-SoniaNeural">🎤 Sonia - Female, British (Clear)</option>
+            <option value="en-GB-RyanNeural">🎤 Ryan - Male, British (Warm)</option>
+        </select>
+        
+        <button class="control-btn connect" id="connectBtn" onclick="toggleConnection()">
+            🎙️ Start Voice Agent
+        </button>
+        
+        <div class="record-section">
+            <button class="record-btn" id="recordBtn" onclick="toggleRecording()" disabled>
+                ⏺️ Record & Send (REST Mode)
+            </button>
+        </div>
+        
+        <div class="transcript-panel">
+            <div class="transcript-label">📝 You said</div>
+            <div class="transcript-text" id="userTranscript">Click start and speak...</div>
+            <div class="transcript-label" style="margin-top: 12px;">🤖 AI responded</div>
+            <div class="transcript-text response-text" id="aiResponse">Waiting for response...</div>
+        </div>
+        
+        <div class="footer">
+            Surf Gateway • WebRTC SFU • Render Free Tier
+        </div>
     </div>
-    
-    <div>
-        <button id="connectBtn">🔌 Connect & Request Mic</button>
-        <button id="disconnectBtn" disabled>⏹️ Disconnect</button>
-        <button id="clearBtn">🧹 Clear Logs</button>
-        <button id="testAudioBtn" style="background:#a855f7;color:#fff;">🔊 Test Beep</button>
-    </div>
-    
-    <div id="audioContainer"></div>
-    <div id="logs"></div>
 
-    <script type="module">
-        import { Room, RoomEvent, createLocalAudioTrack } from 'https://esm.sh/livekit-client@2.0.10';
-        
-        // Configuration
+    <!-- Dependencies -->
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mediasoup-client@3.6.0/dist/mediasoup-client.min.js"></script>
+    
+    <script>
+        // ============================================
+        // CONFIGURATION
+        // ============================================
         const GATEWAY_URL = 'https://surf-gateway.onrender.com';
-        const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
-        const EMAIL = 'ghostfree@test.com';
-        const PASSWORD = 'NoGhost123!';
+        const SERVICE_PIN = 'ndu2026';
         
-        let room = null;
-        let localAudioTrack = null;
+        // ============================================
+        // GLOBAL STATE
+        // ============================================
+        let socket = null;
+        let device = null;
+        let producerTransport = null;
+        let audioProducer = null;
+        let localStream = null;
+        let isConnected = false;
+        let isSpeaking = false;
+        let isRecording = false;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let audioContext = null;
+        let speakingTimeout = null;
         
-        // Logging
-        function log(message, type = 'system') {
-            const logsDiv = document.getElementById('logs');
-            const logEntry = document.createElement('div');
-            logEntry.className = `log ${type}`;
-            const time = new Date().toLocaleTimeString();
-            logEntry.textContent = `[${time}] ${message}`;
-            logsDiv.appendChild(logEntry);
-            logsDiv.scrollTop = logsDiv.scrollHeight;
-            console.log(`[${type}] ${message}`);
-        }
+        // DOM Elements
+        const connectBtn = document.getElementById('connectBtn');
+        const recordBtn = document.getElementById('recordBtn');
+        const gatewayStatus = document.getElementById('gatewayStatus');
+        const signalingIndicator = document.getElementById('signalingIndicator');
+        const signalingText = document.getElementById('signalingText');
+        const mediaIndicator = document.getElementById('mediaIndicator');
+        const mediaText = document.getElementById('mediaText');
+        const aiIndicator = document.getElementById('aiIndicator');
+        const aiText = document.getElementById('aiText');
+        const userTranscript = document.getElementById('userTranscript');
+        const aiResponse = document.getElementById('aiResponse');
+        const voiceSelect = document.getElementById('voiceSelect');
         
-        function updateStatus(text) {
-            document.getElementById('status').textContent = text;
-            log(`Status: ${text}`, 'system');
-        }
-        
-        // Auth & Token
-        async function getToken() {
-            log('Authenticating...', 'system');
-            const auth = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-                method: 'POST',
-                headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: EMAIL, password: PASSWORD })
-            });
-            const { access_token } = await auth.json();
+        // ============================================
+        // HELPER FUNCTIONS
+        // ============================================
+        function updateUI() {
+            // Gateway status
+            gatewayStatus.textContent = 'Online';
+            gatewayStatus.style.color = '#10b981';
             
-            const ROOM = `mic-test-${Date.now()}`;
-            document.getElementById('roomInfo').textContent = ROOM;
-            
-            const tk = await fetch(`${GATEWAY_URL}/livekit/token`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ room: ROOM })
-            });
-            const data = await tk.json();
-            log(`Token obtained for room: ${ROOM}`, 'system');
-            return { token: data.token, url: data.url };
-        }
-        
-        // Test audio with Web Audio API (real beep)
-        document.getElementById('testAudioBtn').onclick = () => {
-            try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator();
-                osc.type = 'sine';
-                osc.frequency.value = 440;
-                osc.connect(ctx.destination);
-                osc.start();
-                osc.stop(ctx.currentTime + 0.3);
-                log('✅ Test beep played — speakers working!', 'system');
-            } catch (e) {
-                log(`❌ Audio error: ${e.message}`, 'error');
+            // Signaling
+            if (socket && socket.connected) {
+                signalingIndicator.className = 'indicator connected';
+                signalingText.textContent = 'Connected';
+            } else {
+                signalingIndicator.className = 'indicator';
+                signalingText.textContent = 'Disconnected';
             }
-        };
+            
+            // Media
+            if (audioProducer) {
+                mediaIndicator.className = isSpeaking ? 'indicator speaking' : 'indicator connected';
+                mediaText.textContent = isSpeaking ? 'Speaking...' : 'Streaming';
+            } else {
+                mediaIndicator.className = 'indicator';
+                mediaText.textContent = localStream ? 'Mic Ready' : 'No Mic';
+            }
+        }
         
-        // Connect
-        document.getElementById('connectBtn').onclick = async () => {
+        async function checkGatewayHealth() {
             try {
-                updateStatus('Connecting...');
-                const { token, url } = await getToken();
+                const response = await fetch(`${GATEWAY_URL}/health`);
+                const data = await response.json();
                 
-                room = new Room({
-                    adaptiveStream: true,
-                    dynacast: true
+                if (data.status === 'healthy' && data.mode === 'sfu') {
+                    gatewayStatus.textContent = 'Online (SFU)';
+                    gatewayStatus.style.color = '#10b981';
+                    return true;
+                } else {
+                    gatewayStatus.textContent = `Online (${data.mode || 'unknown'})`;
+                    gatewayStatus.style.color = '#f59e0b';
+                    return data.mode === 'sfu';
+                }
+            } catch (e) {
+                gatewayStatus.textContent = 'Offline';
+                gatewayStatus.style.color = '#ef4444';
+                return false;
+            }
+        }
+        
+        function detectSpeech(audioLevel) {
+            const threshold = 0.01;
+            const isSpeakingNow = audioLevel > threshold;
+            
+            if (isSpeakingNow !== isSpeaking) {
+                isSpeaking = isSpeakingNow;
+                updateUI();
+            }
+            
+            if (speakingTimeout) clearTimeout(speakingTimeout);
+            speakingTimeout = setTimeout(() => {
+                isSpeaking = false;
+                updateUI();
+            }, 500);
+        }
+        
+        // ============================================
+        // MEDIASOUP SETUP
+        // ============================================
+        async function setupMediasoup() {
+            device = new mediasoupClient.Device();
+            
+            const routerRtpCapabilities = await new Promise((resolve, reject) => {
+                socket.emit('getRouterRtpCapabilities', (caps) => {
+                    if (caps.error) reject(new Error(caps.error));
+                    else resolve(caps);
                 });
-                
-                room.on(RoomEvent.Connected, () => {
-                    updateStatus('Connected');
-                    log('✅ Connected to LiveKit', 'system');
-                    document.getElementById('connectBtn').disabled = true;
-                    document.getElementById('disconnectBtn').disabled = false;
-                });
-                
-                room.on(RoomEvent.Disconnected, () => {
-                    updateStatus('Disconnected');
-                    log('❌ Disconnected', 'system');
-                    document.getElementById('connectBtn').disabled = false;
-                    document.getElementById('disconnectBtn').disabled = true;
-                });
-                
-                room.on(RoomEvent.ParticipantConnected, (p) => {
-                    log(`👤 ${p.identity} joined`, p.identity.includes('agent') ? 'agent' : 'user');
-                });
-                
-                room.on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
-                    log(`🎵 Track subscribed: ${track.kind} from ${participant.identity}`, 
-                        participant.identity.includes('agent') ? 'agent' : 'user');
-                    
-                    if (track.kind === 'audio' && participant.identity.includes('agent')) {
-                        const audioElement = track.attach();
-                        audioElement.muted = false;
-                        audioElement.volume = 1.0;
-                        // Force to default output — ensures AEC reference is correct
-                        if (audioElement.setSinkId) {
-                            audioElement.setSinkId('default');
-                        }
-                        audioElement.style.display = 'none';
-                        document.getElementById('audioContainer').appendChild(audioElement);
-                        log('🔊 Agent audio attached — you should hear it!', 'agent');
-                        
-                        audioElement.play().then(() => {
-                            log('▶️ Agent audio playback started', 'agent');
-                        }).catch(e => {
-                            log(`⚠️ Autoplay blocked — click the page to enable audio`, 'error');
-                        });
-                    }
-                });
-                
-                room.on(RoomEvent.DataReceived, (payload, participant) => {
-                    try {
-                        const data = new TextDecoder().decode(payload);
-                        const json = JSON.parse(data);
-                        if (json.type === 'transcript') {
-                            log(`📝 ${json.speaker}: "${json.text}"`, 
-                                json.speaker === 'agent' ? 'agent' : 'user');
-                        }
-                    } catch (e) {
-                        // Ignore
-                    }
-                });
-                
-                await room.connect(url, token);
-                log(`📍 Connected to room: ${room.name}`, 'system');
-                
-                // Request microphone using LiveKit's proper API
-                updateStatus('Requesting microphone...');
-                localAudioTrack = await createLocalAudioTrack({
+            });
+            
+            await device.load({ routerRtpCapabilities });
+            console.log('✅ Mediasoup device loaded');
+            
+            localStream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
                     echoCancellation: true,
                     noiseSuppression: true,
                     autoGainControl: true
+                }, 
+                video: false 
+            });
+            
+            const audioTrack = localStream.getAudioTracks()[0];
+            console.log('🎤 Microphone ready:', audioTrack.label);
+            
+            const transportInfo = await new Promise((resolve, reject) => {
+                socket.emit('createProducerTransport', (info) => {
+                    if (info.error) reject(new Error(info.error));
+                    else resolve(info);
+                });
+            });
+            
+            producerTransport = device.createSendTransport({
+                id: transportInfo.id,
+                iceParameters: transportInfo.iceParameters,
+                iceCandidates: transportInfo.iceCandidates,
+                dtlsParameters: transportInfo.dtlsParameters
+            });
+            
+            producerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+                socket.emit('connectProducerTransport', { dtlsParameters }, (response) => {
+                    if (response.error) errback(new Error(response.error));
+                    else callback();
+                });
+            });
+            
+            producerTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
+                socket.emit('produce', { kind, rtpParameters }, (response) => {
+                    if (response.error) errback(new Error(response.error));
+                    else callback({ id: response.id });
+                });
+            });
+            
+            producerTransport.on('connectionstatechange', (state) => {
+                console.log('Transport state:', state);
+                if (state === 'connected') {
+                    mediaIndicator.className = 'indicator connected';
+                    mediaText.textContent = 'Connected (UDP flowing)';
+                    console.log('✅✅✅ UDP PACKETS FLOWING — RENDER FREE TIER WORKS!');
+                }
+            });
+            
+            audioProducer = await producerTransport.produce({ 
+                track: audioTrack,
+                codecOptions: {
+                    opusStereo: true,
+                    opusDtx: true,
+                    opusFec: true,
+                    opusMaxPlaybackRate: 48000
+                }
+            });
+            
+            console.log('✅ Audio producer created:', audioProducer.id);
+            
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioCtx.createMediaStreamSource(localStream);
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+            
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            
+            function checkAudioLevel() {
+                if (!isConnected) return;
+                analyser.getByteFrequencyData(dataArray);
+                const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+                detectSpeech(average / 255);
+                requestAnimationFrame(checkAudioLevel);
+            }
+            
+            checkAudioLevel();
+            
+            mediaText.textContent = 'Streaming';
+            updateUI();
+        }
+        
+        // ============================================
+        // CONNECTION MANAGEMENT
+        // ============================================
+        async function connect() {
+            try {
+                connectBtn.disabled = true;
+                connectBtn.textContent = '🔄 Connecting...';
+                
+                const healthy = await checkGatewayHealth();
+                if (!healthy) {
+                    console.warn('Gateway not in SFU mode');
+                }
+                
+                socket = io(GATEWAY_URL, {
+                    transports: ['websocket'],
+                    reconnection: true,
+                    reconnectionAttempts: 10,
+                    reconnectionDelay: 1000
                 });
                 
-                log(`🎙️ Microphone acquired`, 'system');
+                socket.on('connect', async () => {
+                    console.log('✅ Socket connected');
+                    signalingIndicator.className = 'indicator connected';
+                    signalingText.textContent = 'Connected';
+                    
+                    try {
+                        await setupMediasoup();
+                        isConnected = true;
+                        connectBtn.textContent = '🔴 Stop Voice Agent';
+                        connectBtn.className = 'control-btn disconnect';
+                        connectBtn.disabled = false;
+                        recordBtn.disabled = false;
+                        
+                        aiIndicator.className = 'indicator connected';
+                        aiText.textContent = 'Ready (SFU Mode)';
+                        userTranscript.textContent = '🎤 Speak into your microphone...';
+                        aiResponse.textContent = 'Waiting for Python aiortc consumer...';
+                        
+                    } catch (e) {
+                        console.error('Mediasoup setup failed:', e);
+                        signalingText.textContent = 'Setup Failed';
+                        connectBtn.textContent = '🎙️ Start Voice Agent';
+                        connectBtn.className = 'control-btn connect';
+                        connectBtn.disabled = false;
+                    }
+                });
                 
-                await room.localParticipant.publishTrack(localAudioTrack);
-                log('🎤 Microphone published — speak now!', 'user');
-                updateStatus('Ready — Speak!');
+                socket.on('connect_error', (err) => {
+                    console.error('Socket error:', err);
+                    signalingIndicator.className = 'indicator';
+                    signalingText.textContent = 'Connection Error';
+                    connectBtn.textContent = '🎙️ Start Voice Agent';
+                    connectBtn.className = 'control-btn connect';
+                    connectBtn.disabled = false;
+                });
+                
+                socket.on('disconnect', () => {
+                    console.log('Socket disconnected');
+                    signalingIndicator.className = 'indicator';
+                    signalingText.textContent = 'Disconnected';
+                    isConnected = false;
+                });
                 
             } catch (e) {
-                log(`❌ Error: ${e.message}`, 'error');
-                updateStatus('Error');
+                console.error('Connection failed:', e);
+                connectBtn.textContent = '🎙️ Start Voice Agent';
+                connectBtn.className = 'control-btn connect';
+                connectBtn.disabled = false;
             }
-        };
+        }
         
-        // Disconnect
-        document.getElementById('disconnectBtn').onclick = async () => {
-            if (localAudioTrack) {
-                localAudioTrack.stop();
-                localAudioTrack = null;
+        async function disconnect() {
+            isConnected = false;
+            
+            if (audioProducer) {
+                audioProducer.close();
+                audioProducer = null;
             }
-            if (room) {
-                await room.disconnect();
-                room = null;
+            
+            if (producerTransport) {
+                producerTransport.close();
+                producerTransport = null;
             }
-            updateStatus('Disconnected');
-        };
+            
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+            
+            connectBtn.textContent = '🎙️ Start Voice Agent';
+            connectBtn.className = 'control-btn connect';
+            connectBtn.disabled = false;
+            recordBtn.disabled = true;
+            
+            signalingIndicator.className = 'indicator';
+            signalingText.textContent = 'Disconnected';
+            mediaIndicator.className = 'indicator';
+            mediaText.textContent = 'Not Started';
+            aiIndicator.className = 'indicator';
+            aiText.textContent = 'Waiting';
+            
+            updateUI();
+        }
         
-        // Clear logs
-        document.getElementById('clearBtn').onclick = () => {
-            document.getElementById('logs').innerHTML = '';
-            log('Logs cleared', 'system');
-        };
+        function toggleConnection() {
+            if (isConnected) {
+                disconnect();
+            } else {
+                connect();
+            }
+        }
         
-        log('Page loaded — click Connect to start', 'system');
-        log('💡 Click "Test Beep" first to verify audio works', 'system');
+        // ============================================
+        // RECORDING & REST FALLBACK
+        // ============================================
+        async function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+        
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    stream.getTracks().forEach(track => track.stop());
+                    await sendAudioToREST(audioBlob);
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                recordBtn.textContent = '🔴 Recording... Click to Stop';
+                recordBtn.className = 'record-btn recording';
+                
+                userTranscript.textContent = '🎤 Recording...';
+                
+            } catch (e) {
+                console.error('Recording failed:', e);
+                alert('Microphone access denied');
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                recordBtn.textContent = '⏺️ Record & Send (REST Mode)';
+                recordBtn.className = 'record-btn';
+            }
+        }
+        
+        async function sendAudioToREST(audioBlob) {
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'recording.wav');
+            formData.append('voice', voiceSelect.value);
+            
+            try {
+                aiIndicator.className = 'indicator speaking';
+                aiText.textContent = 'Processing...';
+                userTranscript.textContent = '📤 Sending to AI...';
+                
+                const response = await fetch(`${GATEWAY_URL}/voice`, {
+                    method: 'POST',
+                    headers: { 
+                        'x-pin': SERVICE_PIN  // ✅ PIN as header
+                    },
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.transcript) {
+                    userTranscript.textContent = result.transcript;
+                } else {
+                    userTranscript.textContent = '(No transcript)';
+                }
+                
+                if (result.response) {
+                    aiResponse.textContent = result.response;
+                    aiIndicator.className = 'indicator connected';
+                    aiText.textContent = 'Responded';
+                }
+                
+                if (result.audio_base64) {
+                    const audioBytes = Uint8Array.from(
+                        result.audio_base64.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+                    );
+                    const audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' });
+                    const audio = new Audio(URL.createObjectURL(audioBlob));
+                    await audio.play();
+                }
+                
+                setTimeout(() => {
+                    aiIndicator.className = 'indicator';
+                    aiText.textContent = 'Waiting';
+                }, 2000);
+                
+            } catch (e) {
+                console.error('REST call failed:', e);
+                aiIndicator.className = 'indicator';
+                aiText.textContent = 'Error';
+                userTranscript.textContent = '❌ Error sending audio';
+            }
+        }
+        
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        window.onload = async () => {
+            await checkGatewayHealth();
+            console.log('🌊 Surf Voice Agent ready');
+            console.log('   SFU Mode: WebRTC streaming to aiortc consumer');
+            console.log('   REST Mode: Click record button to test fallback');
+        };
     </script>
 </body>
 </html>
