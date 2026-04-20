@@ -7,19 +7,21 @@
         button { background: #1a1a1a; color: #0f0; border: 1px solid #0f0; padding: 10px 20px; margin: 5px; cursor: pointer; }
         button:disabled { opacity: 0.3; }
         .log { background: #000; padding: 15px; margin-top: 20px; height: 400px; overflow-y: auto; }
+        .status { color: #0ff; }
     </style>
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mediasoup-client@3.6.68/dist/mediasoup-client.min.js"></script>
 </head>
 <body>
     <h1>🌊 Surf Mediasoup Producer</h1>
+    <p class="status">Agent is always connected — just start your mic!</p>
     
     <div>
-        <button id="connectBtn" onclick="doConnect()">1️⃣ Connect Gateway</button>
-        <button id="micBtn" onclick="doStartMic()" disabled>2️⃣ Start Mic (SFU)</button>
+        <button id="connectBtn" onclick="doConnect()">1️⃣ Connect & Start Mic</button>
+        <button id="stopBtn" onclick="doStop()" disabled>⏹️ Stop</button>
     </div>
     
-    <div class="log" id="log">Ready...</div>
+    <div class="log" id="log">Ready. Click Connect & Start Mic.</div>
 
     <script>
         const GATEWAY = 'https://surf-gateway.onrender.com';
@@ -31,20 +33,22 @@
             div.scrollTop = div.scrollHeight;
         }
         
-        // ✅ Receive TTS audio from agent
-        socket?.on('tts_audio', (data) => {
-            try {
-                const audioBytes = Uint8Array.from(
-                    data.audio.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
-                );
-                const audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' });
-                const audio = new Audio(URL.createObjectURL(audioBlob));
-                audio.play();
-                log('🔊 Playing TTS response', '#0ff');
-            } catch(e) {
-                log('❌ TTS error: ' + e.message, '#f00');
-            }
-        });
+        // Receive TTS audio from agent
+        function setupTTSListener() {
+            socket.on('tts_audio', (data) => {
+                try {
+                    const audioBytes = Uint8Array.from(
+                        data.audio.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+                    );
+                    const audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' });
+                    const audio = new Audio(URL.createObjectURL(audioBlob));
+                    audio.play();
+                    log('🔊 Playing TTS response', '#0ff');
+                } catch(e) {
+                    log('❌ TTS error: ' + e.message, '#f00');
+                }
+            });
+        }
         
         window.doConnect = async function() {
             const btn = document.getElementById('connectBtn');
@@ -52,84 +56,93 @@
             btn.textContent = 'Connecting...';
             
             socket = io(GATEWAY, { transports: ['websocket'] });
+            setupTTSListener();
             
             socket.on('connect', async () => {
                 log('✅ Gateway connected', '#0f0');
                 
-                // Initialize Mediasoup device
-                device = new mediasoupClient.Device();
-                
-                const caps = await new Promise((resolve) => {
-                    socket.emit('getRouterRtpCapabilities', resolve);
-                });
-                
-                await device.load({ routerRtpCapabilities: caps });
-                log('📡 Mediasoup device loaded', '#0f0');
-                
-                document.getElementById('micBtn').disabled = false;
-                btn.textContent = '✅ Connected';
+                try {
+                    // Initialize Mediasoup device
+                    device = new mediasoupClient.Device();
+                    
+                    const caps = await new Promise((resolve) => {
+                        socket.emit('getRouterRtpCapabilities', resolve);
+                    });
+                    
+                    await device.load({ routerRtpCapabilities: caps });
+                    log('📡 Mediasoup device loaded', '#0f0');
+                    
+                    // Get microphone
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const track = stream.getAudioTracks()[0];
+                    log('🎤 Mic ready: ' + track.label, '#0f0');
+                    
+                    // Create producer transport
+                    const transportInfo = await new Promise((resolve) => {
+                        socket.emit('createProducerTransport', resolve);
+                    });
+                    
+                    producerTransport = device.createSendTransport({
+                        id: transportInfo.id,
+                        iceParameters: transportInfo.iceParameters,
+                        iceCandidates: transportInfo.iceCandidates,
+                        dtlsParameters: transportInfo.dtlsParameters
+                    });
+                    
+                    producerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+                        socket.emit('connectProducerTransport', { dtlsParameters }, (r) => {
+                            if (r.error) errback(new Error(r.error));
+                            else callback();
+                        });
+                    });
+                    
+                    producerTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
+                        socket.emit('produce', { kind, rtpParameters }, (r) => {
+                            if (r.error) errback(new Error(r.error));
+                            else callback({ id: r.id });
+                        });
+                    });
+                    
+                    producerTransport.on('connectionstatechange', (state) => {
+                        log('Transport: ' + state, state === 'connected' ? '#0ff' : '#ff0');
+                        if (state === 'connected') {
+                            log('🎉🎉🎉 AUDIO FLOWING TO AGENT! 🎉🎉🎉', '#0ff');
+                        }
+                    });
+                    
+                    // Produce audio
+                    audioProducer = await producerTransport.produce({ 
+                        track,
+                        codecOptions: { opusStereo: true, opusDtx: true }
+                    });
+                    
+                    log('🎤 Producer created: ' + audioProducer.id.slice(0,20) + '...', '#0f0');
+                    log('🤖 Agent will auto-consume and respond!', '#0ff');
+                    
+                    btn.textContent = '🎤 Streaming...';
+                    document.getElementById('stopBtn').disabled = false;
+                    
+                } catch(e) {
+                    log('❌ Error: ' + e.message, '#f00');
+                    btn.disabled = false;
+                    btn.textContent = '1️⃣ Connect & Start Mic';
+                }
             });
             
             socket.on('connect_error', (e) => log('❌ ' + e.message, '#f00'));
         };
         
-        window.doStartMic = async function() {
-            const btn = document.getElementById('micBtn');
-            btn.disabled = true;
-            btn.textContent = 'Starting...';
+        window.doStop = function() {
+            if (audioProducer) audioProducer.close();
+            if (producerTransport) producerTransport.close();
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            if (socket) socket.disconnect();
             
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const track = stream.getAudioTracks()[0];
-                log('🎤 Mic ready: ' + track.label, '#0f0');
-                
-                // Create producer transport
-                const transportInfo = await new Promise((resolve) => {
-                    socket.emit('createProducerTransport', resolve);
-                });
-                
-                producerTransport = device.createSendTransport({
-                    id: transportInfo.id,
-                    iceParameters: transportInfo.iceParameters,
-                    iceCandidates: transportInfo.iceCandidates,
-                    dtlsParameters: transportInfo.dtlsParameters
-                });
-                
-                producerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
-                    socket.emit('connectProducerTransport', { dtlsParameters }, (r) => {
-                        if (r.error) errback(new Error(r.error));
-                        else callback();
-                    });
-                });
-                
-                producerTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
-                    socket.emit('produce', { kind, rtpParameters }, (r) => {
-                        if (r.error) errback(new Error(r.error));
-                        else callback({ id: r.id });
-                    });
-                });
-                
-                producerTransport.on('connectionstatechange', (state) => {
-                    log('Transport: ' + state, state === 'connected' ? '#0ff' : '#ff0');
-                    if (state === 'connected') {
-                        log('🎉🎉🎉 AUDIO FLOWING TO SFU! 🎉🎉🎉', '#0ff');
-                    }
-                });
-                
-                // Produce audio
-                audioProducer = await producerTransport.produce({ 
-                    track,
-                    codecOptions: { opusStereo: true, opusDtx: true }
-                });
-                
-                log('🎤 Producer created: ' + audioProducer.id.slice(0,20) + '...', '#0f0');
-                btn.textContent = '🎤 Streaming to SFU';
-                
-            } catch(e) {
-                log('❌ Error: ' + e.message, '#f00');
-                btn.disabled = false;
-                btn.textContent = '2️⃣ Start Mic (SFU)';
-            }
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('connectBtn').textContent = '1️⃣ Connect & Start Mic';
+            document.getElementById('stopBtn').disabled = true;
+            
+            log('⏹️ Stopped', '#f80');
         };
     </script>
 </body>
