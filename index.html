@@ -103,9 +103,8 @@
         }
     </style>
     
-    <!-- DEPENDENCIES - Fixed CDN versions -->
+    <!-- Socket.io (reliable) -->
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mediasoup-client@3.6.68/dist/mediasoup-client.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -128,8 +127,8 @@
         </div>
         
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <button id="connectBtn" onclick="toggleConnection()">🔌 Connect</button>
-            <button id="recordBtn" onclick="toggleRecording()" disabled>🎤 Record & Send REST</button>
+            <button id="connectBtn" onclick="toggleConnection()">🔌 Connect (REST Only)</button>
+            <button id="recordBtn" onclick="toggleRecording()">🎤 Record & Send REST</button>
             <select id="voiceSelect" style="width: 200px;">
                 <option value="en-US-AriaNeural">Aria (US Female)</option>
                 <option value="en-US-JennyNeural">Jenny (US Female)</option>
@@ -147,7 +146,7 @@
         </div>
         
         <div class="log-container" id="logContainer">
-            <div class="log-entry"><span class="log-time">[--:--:--]</span> <span class="log-info">Ready. Click Connect.</span></div>
+            <div class="log-entry"><span class="log-time">[--:--:--]</span> <span class="log-info">Ready. Click Connect (REST mode).</span></div>
         </div>
     </div>
 
@@ -156,10 +155,6 @@
         const SERVICE_PIN = 'ndu2026';
         
         let socket = null;
-        let device = null;
-        let producerTransport = null;
-        let audioProducer = null;
-        let localStream = null;
         let isConnected = false;
         let mediaRecorder = null;
         let audioChunks = [];
@@ -194,15 +189,15 @@
                 const res = await fetch(`${GATEWAY_URL}/health`);
                 const data = await res.json();
                 
-                if (data.status === 'healthy' && data.mode === 'sfu') {
+                if (data.status === 'healthy') {
                     ledGateway.className = 'led on';
-                    gatewayText.textContent = `Gateway: SFU Mode ✅`;
+                    gatewayText.textContent = `Gateway: Online (${data.mode}) ✅`;
                     log(`Gateway healthy - Mode: ${data.mode}, Mediasoup: ${data.mediasoup}`, 'success');
                     return true;
                 } else {
                     ledGateway.className = 'led';
                     gatewayText.textContent = `Gateway: ${data.mode || 'unknown'}`;
-                    log(`Gateway mode: ${data.mode} (SFU: ${data.mediasoup})`, 'warn');
+                    log(`Gateway mode: ${data.mode}`, 'warn');
                     return false;
                 }
             } catch (e) {
@@ -213,174 +208,75 @@
             }
         }
         
-        // Connection
+        // Connection (REST-only fallback mode)
         async function connect() {
             connectBtn.disabled = true;
             connectBtn.textContent = '🔄 Connecting...';
             
-            // Check if mediasoupClient loaded
-            if (typeof mediasoupClient === 'undefined') {
-                log('ERROR: mediasoupClient not loaded! Check CDN.', 'error');
-                connectBtn.textContent = '🔌 Connect';
+            const healthy = await checkHealth();
+            if (!healthy) {
+                log('Gateway offline - cannot connect', 'error');
+                connectBtn.textContent = '🔌 Connect (REST Only)';
                 connectBtn.disabled = false;
                 return;
             }
-            log('✅ mediasoupClient loaded', 'success');
             
-            const healthy = await checkHealth();
-            if (!healthy) {
-                log('Gateway not in SFU mode - WebRTC may fail', 'warn');
-            }
-            
-            socket = io(GATEWAY_URL, {
-                transports: ['websocket'],
-                reconnection: true,
-                reconnectionAttempts: 5
-            });
-            
-            socket.on('connect', async () => {
-                log('Socket.io connected', 'success');
-                ledSignal.className = 'led on';
-                signalText.textContent = 'Signal: Connected';
+            // We're skipping WebRTC entirely - just use Socket.io for status
+            try {
+                socket = io(GATEWAY_URL, {
+                    transports: ['websocket'],
+                    reconnection: true,
+                    reconnectionAttempts: 3
+                });
                 
-                try {
-                    await setupMediasoup();
+                socket.on('connect', () => {
+                    log('Socket.io connected (signaling only)', 'success');
+                    ledSignal.className = 'led on';
+                    signalText.textContent = 'Signal: Connected';
                     isConnected = true;
                     connectBtn.textContent = '🔴 Disconnect';
                     connectBtn.disabled = false;
-                    recordBtn.disabled = false;
                     
-                } catch (e) {
-                    log(`Mediasoup setup failed: ${e.message}`, 'error');
-                    signalText.textContent = 'Signal: Setup Failed';
-                    connectBtn.textContent = '🔌 Connect';
-                    connectBtn.disabled = false;
-                }
-            });
-            
-            socket.on('connect_error', (err) => {
-                log(`Socket error: ${err.message}`, 'error');
-                ledSignal.className = 'led';
-                signalText.textContent = 'Signal: Error';
-                connectBtn.textContent = '🔌 Connect';
-                connectBtn.disabled = false;
-            });
-            
-            socket.on('disconnect', () => {
-                log('Socket disconnected', 'warn');
-                ledSignal.className = 'led';
-                signalText.textContent = 'Signal: Disconnected';
-                isConnected = false;
-            });
-        }
-        
-        async function setupMediasoup() {
-            log('Setting up Mediasoup device...', 'info');
-            
-            device = new mediasoupClient.Device();
-            
-            // Get router capabilities
-            log('Requesting router RTP capabilities...', 'info');
-            const caps = await new Promise((resolve, reject) => {
-                socket.emit('getRouterRtpCapabilities', (response) => {
-                    if (response.error) reject(new Error(response.error));
-                    else resolve(response);
-                });
-            });
-            
-            await device.load({ routerRtpCapabilities: caps });
-            log(`Device loaded - Codecs: ${caps.codecs?.map(c => c.mimeType).join(', ')}`, 'success');
-            
-            // Get microphone
-            log('Requesting microphone access...', 'info');
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            const track = localStream.getAudioTracks()[0];
-            log(`Microphone ready: ${track.label}`, 'success');
-            
-            // Create transport
-            log('Creating producer transport...', 'info');
-            const transportInfo = await new Promise((resolve, reject) => {
-                socket.emit('createProducerTransport', (info) => {
-                    if (info.error) reject(new Error(info.error));
-                    else resolve(info);
-                });
-            });
-            
-            log(`Transport created - ID: ${transportInfo.id.slice(0, 20)}...`, 'success');
-            
-            // Log ICE candidates
-            transportInfo.iceCandidates.forEach((c, i) => {
-                log(`  ICE ${i+1}: ${c.ip}:${c.port} (${c.protocol}/${c.type})`, 'info');
-            });
-            
-            producerTransport = device.createSendTransport({
-                id: transportInfo.id,
-                iceParameters: transportInfo.iceParameters,
-                iceCandidates: transportInfo.iceCandidates,
-                dtlsParameters: transportInfo.dtlsParameters
-            });
-            
-            producerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
-                log('Transport connect event - sending DTLS...', 'info');
-                socket.emit('connectProducerTransport', { dtlsParameters }, (response) => {
-                    if (response.error) {
-                        log(`DTLS connect failed: ${response.error}`, 'error');
-                        errback(new Error(response.error));
-                    } else {
-                        log('DTLS connected', 'success');
-                        callback();
-                    }
-                });
-            });
-            
-            producerTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
-                log(`Produce event - kind: ${kind}`, 'info');
-                socket.emit('produce', { kind, rtpParameters }, (response) => {
-                    if (response.error) {
-                        log(`Produce failed: ${response.error}`, 'error');
-                        errback(new Error(response.error));
-                    } else {
-                        log(`Producer created - ID: ${response.id.slice(0, 20)}...`, 'success');
-                        callback({ id: response.id });
-                    }
-                });
-            });
-            
-            producerTransport.on('connectionstatechange', (state) => {
-                log(`Transport state: ${state}`, state === 'connected' ? 'success' : 'info');
-                
-                if (state === 'connected') {
+                    // Enable REST mode
+                    mediaText.textContent = 'Media: REST Mode';
                     ledMedia.className = 'led on';
-                    mediaText.textContent = 'Media: UDP FLOWING ✅';
-                    log('✅✅✅ UDP PACKETS FLOWING — RENDER FREE TIER WORKS!', 'success');
-                } else if (state === 'failed') {
-                    ledMedia.className = 'led';
-                    mediaText.textContent = 'Media: Failed';
-                    log('Transport failed', 'error');
-                } else if (state === 'connecting') {
-                    mediaText.textContent = 'Media: Connecting...';
-                }
-            });
-            
-            // Produce audio
-            log('Producing audio track...', 'info');
-            audioProducer = await producerTransport.produce({ 
-                track: track,
-                codecOptions: {
-                    opusStereo: true,
-                    opusDtx: true,
-                    opusFec: true,
-                    opusMaxPlaybackRate: 48000
-                }
-            });
-            
-            log(`Audio producer active - ID: ${audioProducer.id.slice(0, 20)}...`, 'success');
+                    log('✅ Connected in REST mode - use Record button', 'success');
+                });
+                
+                socket.on('connect_error', (err) => {
+                    log(`Socket error: ${err.message}`, 'error');
+                    ledSignal.className = 'led';
+                    signalText.textContent = 'Signal: Error';
+                    connectBtn.textContent = '🔌 Connect (REST Only)';
+                    connectBtn.disabled = false;
+                    
+                    // Still enable REST - it doesn't need WebSocket
+                    isConnected = true;
+                    mediaText.textContent = 'Media: REST Mode';
+                    ledMedia.className = 'led on';
+                    log('⚠️ WebSocket failed, but REST /voice works', 'warn');
+                });
+                
+                socket.on('disconnect', () => {
+                    log('Socket disconnected', 'warn');
+                    ledSignal.className = 'led';
+                    signalText.textContent = 'Signal: Disconnected';
+                });
+                
+            } catch (e) {
+                log(`Connection error: ${e.message}`, 'error');
+                connectBtn.textContent = '🔌 Connect (REST Only)';
+                connectBtn.disabled = false;
+                
+                // REST mode still works
+                isConnected = true;
+                mediaText.textContent = 'Media: REST Mode';
+                ledMedia.className = 'led on';
+                log('⚠️ WebRTC unavailable - using REST fallback', 'warn');
+            }
         }
         
         function disconnect() {
-            if (audioProducer) audioProducer.close();
-            if (producerTransport) producerTransport.close();
-            if (localStream) localStream.getTracks().forEach(t => t.stop());
             if (socket) socket.disconnect();
             
             isConnected = false;
@@ -388,8 +284,7 @@
             ledMedia.className = 'led';
             signalText.textContent = 'Signal: --';
             mediaText.textContent = 'Media: --';
-            connectBtn.textContent = '🔌 Connect';
-            recordBtn.disabled = true;
+            connectBtn.textContent = '🔌 Connect (REST Only)';
             
             log('Disconnected', 'warn');
         }
@@ -402,13 +297,13 @@
             }
         }
         
-        // Recording (REST fallback)
+        // Recording (REST)
         async function toggleRecording() {
             if (mediaRecorder) {
                 mediaRecorder.stop();
                 mediaRecorder = null;
                 recordBtn.textContent = '🎤 Record & Send REST';
-                log('Recording stopped, sending to REST...', 'info');
+                log('Recording stopped, sending...', 'info');
             } else {
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -437,44 +332,50 @@
             formData.append('audio', audioBlob, 'recording.wav');
             formData.append('voice', document.getElementById('voiceSelect').value);
             
-            log('Sending to REST /voice endpoint...', 'info');
+            log(`Sending ${audioBlob.size} bytes to /voice...`, 'info');
             
             try {
+                const start = Date.now();
                 const res = await fetch(`${GATEWAY_URL}/voice`, {
                     method: 'POST',
                     headers: { 'x-pin': SERVICE_PIN },
                     body: formData
                 });
+                const elapsed = Date.now() - start;
                 
                 const data = await res.json();
+                log(`Response received in ${elapsed}ms`, 'success');
                 
                 if (data.transcript) {
                     transcriptText.textContent = data.transcript;
-                    log(`Transcript: "${data.transcript}"`, 'success');
+                    log(`📝 Transcript: "${data.transcript}"`, 'success');
+                } else {
+                    transcriptText.textContent = '(No transcript)';
                 }
                 
                 if (data.response) {
                     responseText.textContent = data.response;
-                    log(`Response: "${data.response}"`, 'success');
+                    log(`🤖 Response: "${data.response}"`, 'success');
                 }
                 
                 if (data.audio_base64) {
                     const bytes = Uint8Array.from(data.audio_base64.match(/.{1,2}/g).map(b => parseInt(b, 16)));
                     const audio = new Audio(URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' })));
-                    audio.play();
-                    log('Playing TTS audio...', 'info');
+                    await audio.play();
+                    log('🔊 Playing TTS audio', 'info');
                 }
                 
             } catch (e) {
                 log(`REST failed: ${e.message}`, 'error');
+                responseText.textContent = 'Error: ' + e.message;
             }
         }
         
         // Startup
         window.onload = () => {
             checkHealth();
-            log('Debug client ready', 'info');
-            log(`mediasoupClient available: ${typeof mediasoupClient !== 'undefined'}`, 'info');
+            log('Debug client ready (REST mode)', 'info');
+            log('WebRTC skipped due to CDN issues - using REST fallback', 'warn');
         };
     </script>
 </body>
