@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Surf Full Duplex</title>
+    <title>Surf Mediasoup Producer</title>
     <style>
         body { font-family: monospace; background: #0a0a0a; color: #0f0; padding: 20px; }
         button { background: #1a1a1a; color: #0f0; border: 1px solid #0f0; padding: 10px 20px; margin: 5px; cursor: pointer; }
@@ -9,21 +9,21 @@
         .log { background: #000; padding: 15px; margin-top: 20px; height: 400px; overflow-y: auto; }
     </style>
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mediasoup-client@3.6.68/dist/mediasoup-client.min.js"></script>
 </head>
 <body>
-    <h1>🌊 Surf Full Duplex Voice</h1>
+    <h1>🌊 Surf Mediasoup Producer</h1>
     
     <div>
         <button id="connectBtn" onclick="doConnect()">1️⃣ Connect Gateway</button>
-        <button id="agentBtn" onclick="doRequestAgent()" disabled>2️⃣ Request Agent</button>
-        <button id="micBtn" onclick="doStartMic()" disabled>3️⃣ Start Mic</button>
+        <button id="micBtn" onclick="doStartMic()" disabled>2️⃣ Start Mic (SFU)</button>
     </div>
     
     <div class="log" id="log">Ready...</div>
 
     <script>
         const GATEWAY = 'https://surf-gateway.onrender.com';
-        let socket, pc, stream, agentId;
+        let socket, device, producerTransport, audioProducer, stream;
         
         function log(msg, color = '#0f0') {
             const div = document.getElementById('log');
@@ -31,71 +31,46 @@
             div.scrollTop = div.scrollHeight;
         }
         
-        window.doConnect = function() {
+        // ✅ Receive TTS audio from agent
+        socket?.on('tts_audio', (data) => {
+            try {
+                const audioBytes = Uint8Array.from(
+                    data.audio.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+                );
+                const audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' });
+                const audio = new Audio(URL.createObjectURL(audioBlob));
+                audio.play();
+                log('🔊 Playing TTS response', '#0ff');
+            } catch(e) {
+                log('❌ TTS error: ' + e.message, '#f00');
+            }
+        });
+        
+        window.doConnect = async function() {
             const btn = document.getElementById('connectBtn');
             btn.disabled = true;
             btn.textContent = 'Connecting...';
             
             socket = io(GATEWAY, { transports: ['websocket'] });
             
-            socket.on('connect', () => {
+            socket.on('connect', async () => {
                 log('✅ Gateway connected', '#0f0');
-                document.getElementById('agentBtn').disabled = false;
+                
+                // Initialize Mediasoup device
+                device = new mediasoupClient.Device();
+                
+                const caps = await new Promise((resolve) => {
+                    socket.emit('getRouterRtpCapabilities', resolve);
+                });
+                
+                await device.load({ routerRtpCapabilities: caps });
+                log('📡 Mediasoup device loaded', '#0f0');
+                
+                document.getElementById('micBtn').disabled = false;
                 btn.textContent = '✅ Connected';
             });
             
             socket.on('connect_error', (e) => log('❌ ' + e.message, '#f00'));
-            
-            socket.on('agent_ready', (d) => { 
-                agentId = d.agent_id; 
-                log('🤖 Agent paired: ' + agentId.slice(0,8), '#0ff'); 
-                document.getElementById('micBtn').disabled = false; 
-            });
-            
-            socket.on('agent_disconnected', () => {
-                log('⚠️ Agent disconnected', '#f80');
-                document.getElementById('micBtn').disabled = true;
-            });
-            
-            socket.on('answer', async (d) => { 
-                log('📥 Got answer', '#0f0'); 
-                await pc.setRemoteDescription(d); 
-            });
-            
-            // ✅ Receive TTS audio from agent
-            socket.on('tts_audio', (data) => {
-                try {
-                    const audioBytes = Uint8Array.from(
-                        data.audio.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
-                    );
-                    const audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' });
-                    const audioUrl = URL.createObjectURL(audioBlob);
-                    const audio = new Audio(audioUrl);
-                    audio.play();
-                    log('🔊 Playing TTS response', '#0ff');
-                } catch(e) {
-                    log('❌ TTS playback error: ' + e.message, '#f00');
-                }
-            });
-        };
-        
-        window.doRequestAgent = function() {
-            const btn = document.getElementById('agentBtn');
-            btn.disabled = true;
-            btn.textContent = 'Requesting...';
-            
-            socket.emit('request_agent', (r) => {
-                if (r.success) {
-                    agentId = r.agent_id;
-                    log('✅ Agent assigned: ' + agentId.slice(0,8), '#0f0');
-                    document.getElementById('micBtn').disabled = false;
-                    btn.textContent = '✅ Agent Ready';
-                } else {
-                    log('⏳ ' + r.message, '#ff0');
-                    btn.disabled = false;
-                    btn.textContent = '2️⃣ Request Agent';
-                }
-            });
         };
         
         window.doStartMic = async function() {
@@ -105,43 +80,55 @@
             
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                log('🎤 Mic ready', '#0f0');
+                const track = stream.getAudioTracks()[0];
+                log('🎤 Mic ready: ' + track.label, '#0f0');
                 
-                pc = new RTCPeerConnection({ 
-                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] 
+                // Create producer transport
+                const transportInfo = await new Promise((resolve) => {
+                    socket.emit('createProducerTransport', resolve);
                 });
                 
-                stream.getTracks().forEach(t => pc.addTrack(t, stream));
+                producerTransport = device.createSendTransport({
+                    id: transportInfo.id,
+                    iceParameters: transportInfo.iceParameters,
+                    iceCandidates: transportInfo.iceCandidates,
+                    dtlsParameters: transportInfo.dtlsParameters
+                });
                 
-                pc.onicecandidate = (e) => {
-                    if (e.candidate) {
-                        socket.emit('ice_candidate', { 
-                            from: 'browser', 
-                            agent_id: agentId, 
-                            candidate: e.candidate 
-                        });
-                    }
-                };
+                producerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+                    socket.emit('connectProducerTransport', { dtlsParameters }, (r) => {
+                        if (r.error) errback(new Error(r.error));
+                        else callback();
+                    });
+                });
                 
-                pc.onconnectionstatechange = () => {
-                    const state = pc.connectionState;
-                    log('WebRTC: ' + state, state === 'connected' ? '#0ff' : '#ff0');
+                producerTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
+                    socket.emit('produce', { kind, rtpParameters }, (r) => {
+                        if (r.error) errback(new Error(r.error));
+                        else callback({ id: r.id });
+                    });
+                });
+                
+                producerTransport.on('connectionstatechange', (state) => {
+                    log('Transport: ' + state, state === 'connected' ? '#0ff' : '#ff0');
                     if (state === 'connected') {
-                        log('🎉🎉🎉 FULL DUPLEX AUDIO FLOWING! 🎉🎉🎉', '#0ff');
+                        log('🎉🎉🎉 AUDIO FLOWING TO SFU! 🎉🎉🎉', '#0ff');
                     }
-                };
+                });
                 
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
+                // Produce audio
+                audioProducer = await producerTransport.produce({ 
+                    track,
+                    codecOptions: { opusStereo: true, opusDtx: true }
+                });
                 
-                socket.emit('offer', { agent_id: agentId, sdp: offer.sdp, type: offer.type });
-                log('📤 Offer sent', '#0f0');
-                btn.textContent = '🎤 Mic Active';
+                log('🎤 Producer created: ' + audioProducer.id.slice(0,20) + '...', '#0f0');
+                btn.textContent = '🎤 Streaming to SFU';
                 
             } catch(e) {
-                log('❌ Mic error: ' + e.message, '#f00');
+                log('❌ Error: ' + e.message, '#f00');
                 btn.disabled = false;
-                btn.textContent = '3️⃣ Start Mic';
+                btn.textContent = '2️⃣ Start Mic (SFU)';
             }
         };
     </script>
