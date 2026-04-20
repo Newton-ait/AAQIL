@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Surf Test with TURN</title>
+    <title>Surf Test - STUN Only</title>
     <style>
         body { font-family: monospace; background: #0a0a0a; color: #0f0; padding: 20px; }
         button { background: #1a1a1a; color: #0f0; border: 1px solid #0f0; padding: 10px 20px; margin: 5px; cursor: pointer; }
@@ -11,7 +11,7 @@
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
 </head>
 <body>
-    <h1>🌊 Surf Test with TURN</h1>
+    <h1>🌊 Surf Test - STUN Only</h1>
     
     <div>
         <button id="connectBtn" onclick="doConnect()">1️⃣ Connect Gateway</button>
@@ -91,19 +91,10 @@
                 stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 log('🎤 Mic ready', '#0f0');
                 
+                // STUN ONLY - No TURN
                 pc = new RTCPeerConnection({ 
                     iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { 
-                            urls: 'turn:openrelay.metered.ca:80',
-                            username: 'openrelayproject',
-                            credential: 'openrelayproject'
-                        },
-                        { 
-                            urls: 'turn:openrelay.metered.ca:443',
-                            username: 'openrelayproject',
-                            credential: 'openrelayproject'
-                        }
+                        { urls: 'stun:stun.l.google.com:19302' }
                     ] 
                 });
                 
@@ -125,6 +116,16 @@
                     if (state === 'connected') {
                         log('🎉🎉🎉 REAL-TIME AUDIO FLOWING! 🎉🎉🎉', '#0ff');
                     }
+                };
+                
+                // Also log ICE gathering state
+                pc.onicegatheringstatechange = () => {
+                    log('ICE gathering: ' + pc.iceGatheringState, '#888');
+                };
+                
+                // Log ICE connection state
+                pc.oniceconnectionstatechange = () => {
+                    log('ICE connection: ' + pc.iceConnectionState, '#888');
                 };
                 
                 const offer = await pc.createOffer();
