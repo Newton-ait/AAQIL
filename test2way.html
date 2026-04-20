@@ -15,9 +15,9 @@
     <p>Using the proven event-based pattern</p>
     
     <div>
-        <button id="connectBtn" onclick="doConnect()">1️⃣ Connect & Get Caps</button>
-        <button id="producersBtn" onclick="doGetProducers()" disabled>2️⃣ Get Producers</button>
-        <button id="micBtn" onclick="doStartMic()" disabled>3️⃣ Start Mic (REST)</button>
+        <button id="connectBtn">1️⃣ Connect & Get Caps</button>
+        <button id="producersBtn" disabled>2️⃣ Get Producers</button>
+        <button id="micBtn" disabled>3️⃣ Start Mic (REST)</button>
     </div>
     
     <div class="log" id="log">Ready...</div>
@@ -27,20 +27,21 @@
         const SERVICE_PIN = 'ndu2026';
         let socket, stream, mediaRecorder, audioChunks;
         
-        function log(msg, color = '#0f0') {
+        const log = (msg, color = '#0f0') => {
             const div = document.getElementById('log');
             div.innerHTML += `<div style="color:${color}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
             div.scrollTop = div.scrollHeight;
-        }
+        };
         
+        // Attach functions to window for onclick
         window.doConnect = function() {
             const btn = document.getElementById('connectBtn');
             btn.disabled = true;
             btn.textContent = 'Connecting...';
+            log('📡 Connecting to gateway...', '#ff0');
             
             socket = io(GATEWAY, { transports: ['websocket'] });
             
-            // Event-based listeners (what actually works)
             socket.on('routerRtpCapabilities', (caps) => {
                 log('✅ Router caps received!', '#0ff');
                 log(`   Codecs: ${caps.codecs?.map(c => c.mimeType).join(', ')}`, '#888');
@@ -53,13 +54,10 @@
                 producers.forEach(p => {
                     log(`   - ${p.producerId.slice(0,20)}... (${p.kind})`, '#888');
                 });
-                if (producers.length === 0) {
-                    log('   No producers yet - start your mic!', '#888');
-                }
             });
             
             socket.on('producer_added', (data) => {
-                log(`🎬 New producer: ${data.producerId.slice(0,20)}... (${data.kind})`, '#0f0');
+                log(`🎬 New producer: ${data.producerId.slice(0,20)}...`, '#0f0');
             });
             
             socket.on('tts_audio', (data) => {
@@ -69,7 +67,7 @@
                     );
                     const audio = new Audio(URL.createObjectURL(new Blob([audioBytes], { type: 'audio/mpeg' })));
                     audio.play();
-                    log('🔊 Playing TTS response', '#0ff');
+                    log('🔊 Playing TTS', '#0ff');
                 } catch(e) {
                     log('❌ TTS error: ' + e.message, '#f00');
                 }
@@ -77,15 +75,18 @@
             
             socket.on('connect', () => {
                 log('✅ Socket connected', '#0f0');
-                // Request caps using EMIT (not call)
                 socket.emit('getRouterRtpCapabilities');
             });
             
-            socket.on('connect_error', (e) => log('❌ ' + e.message, '#f00));
+            socket.on('connect_error', (e) => {
+                log('❌ Connection error: ' + e.message, '#f00');
+                btn.disabled = false;
+                btn.textContent = '1️⃣ Connect & Get Caps';
+            });
         };
         
         window.doGetProducers = function() {
-            log('📡 Requesting producers list...', '#ff0');
+            log('📡 Requesting producers...', '#ff0');
             socket.emit('getProducers');
             document.getElementById('micBtn').disabled = false;
         };
@@ -99,7 +100,6 @@
                 stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 log('🎤 Mic ready', '#0f0');
                 
-                // Use REST fallback since it's proven working
                 mediaRecorder = new MediaRecorder(stream);
                 audioChunks = [];
                 
@@ -107,21 +107,19 @@
                 mediaRecorder.onstop = async () => {
                     const blob = new Blob(audioChunks, { type: 'audio/wav' });
                     await sendToREST(blob);
+                    audioChunks = [];
                 };
                 
-                // Record in 3-second chunks
                 mediaRecorder.start(3000);
+                log('🎤 Recording in 3s chunks...', '#0f0');
+                btn.textContent = '🎤 Recording';
                 
-                // Auto-send every 3 seconds
                 setInterval(() => {
-                    if (mediaRecorder.state === 'recording') {
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
                         mediaRecorder.stop();
                         mediaRecorder.start(3000);
                     }
                 }, 3000);
-                
-                log('🎤 Recording in 3s chunks...', '#0f0');
-                btn.textContent = '🎤 Recording';
                 
             } catch(e) {
                 log('❌ Mic error: ' + e.message, '#f00');
@@ -157,6 +155,13 @@
                 log('❌ REST error: ' + e.message, '#f00');
             }
         }
+        
+        // Attach onclick handlers
+        document.getElementById('connectBtn').onclick = window.doConnect;
+        document.getElementById('producersBtn').onclick = window.doGetProducers;
+        document.getElementById('micBtn').onclick = window.doStartMic;
+        
+        log('✅ Ready! Click Connect', '#0f0);
     </script>
 </body>
 </html>
