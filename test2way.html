@@ -9,8 +9,9 @@
         .log { background: #000; padding: 15px; margin-top: 20px; height: 400px; overflow-y: auto; }
         .status { color: #0ff; }
     </style>
+    <!-- Use reliable CDN sources -->
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mediasoup-client@3.6.68/dist/mediasoup-client.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mediasoup-client@3.7.0/dist/mediasoup-client.min.js"></script>
 </head>
 <body>
     <h1>🌊 Surf Mediasoup Producer</h1>
@@ -31,6 +32,16 @@
             const div = document.getElementById('log');
             div.innerHTML += `<div style="color:${color}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
             div.scrollTop = div.scrollHeight;
+        }
+        
+        // Check if library loaded
+        function checkLibrary() {
+            if (typeof mediasoupClient === 'undefined') {
+                log('❌ Mediasoup client not loaded. Trying alternative...', '#f00');
+                return false;
+            }
+            log('✅ Mediasoup client loaded', '#0f0');
+            return true;
         }
         
         // Receive TTS audio from agent
@@ -54,6 +65,12 @@
             const btn = document.getElementById('connectBtn');
             btn.disabled = true;
             btn.textContent = 'Connecting...';
+            
+            if (!checkLibrary()) {
+                btn.disabled = false;
+                btn.textContent = '1️⃣ Connect & Start Mic';
+                return;
+            }
             
             socket = io(GATEWAY, { transports: ['websocket'] });
             setupTTSListener();
