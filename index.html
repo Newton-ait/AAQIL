@@ -7,24 +7,19 @@
         button { background: #1a1a1a; color: #0f0; border: 1px solid #0f0; padding: 10px 20px; margin: 5px; cursor: pointer; }
         button:disabled { opacity: 0.3; }
         .log { background: #000; padding: 15px; margin-top: 20px; height: 400px; overflow-y: auto; }
-        .highlight { color: #0ff; }
     </style>
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
 </head>
 <body>
-    <h1>🔍 ICE Candidate Inspector</h1>
-    <p>This tool logs the exact ICE candidate format being sent to the agent.</p>
+    <h1>🔍 ICE Inspector</h1>
     
     <div>
-        <button id="connectBtn" onclick="connect()">1️⃣ Connect Gateway</button>
-        <button id="agentBtn" onclick="requestAgent()" disabled>2️⃣ Request Agent</button>
-        <button id="micBtn" onclick="startMic()" disabled>3️⃣ Start Mic & Inspect ICE</button>
+        <button id="connectBtn" onclick="doConnect()">1️⃣ Connect Gateway</button>
+        <button id="agentBtn" onclick="doRequestAgent()" disabled>2️⃣ Request Agent</button>
+        <button id="micBtn" onclick="doStartMic()" disabled>3️⃣ Start Mic</button>
     </div>
     
-    <div class="log" id="log">
-        <div>Ready. Click Connect.</div>
-        <div>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</div>
-    </div>
+    <div class="log" id="log">Ready...</div>
 
     <script>
         const GATEWAY = 'https://surf-gateway.onrender.com';
@@ -34,24 +29,9 @@
             const div = document.getElementById('log');
             div.innerHTML += `<div style="color:${color}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
             div.scrollTop = div.scrollHeight;
-            console.log(msg);
         }
         
-        function logICE(candidate) {
-            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', '#0ff');
-            log('🧊 ICE CANDIDATE GENERATED:', '#0ff');
-            log(`   Type: ${candidate.type}`, '#0ff');
-            log(`   Protocol: ${candidate.protocol}`, '#0ff');
-            log(`   Address: ${candidate.address || candidate.ip || 'N/A'}`, '#0ff');
-            log(`   Port: ${candidate.port}`, '#0ff');
-            log('   Full candidate string:', '#0ff');
-            log(`   ${candidate.candidate}`, '#ff0');
-            log('   Complete RTCIceCandidate object:', '#0ff');
-            log(`   ${JSON.stringify(candidate, null, 2)}`, '#888');
-            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', '#0ff');
-        }
-        
-        async function connect() {
+        window.doConnect = function() {
             const btn = document.getElementById('connectBtn');
             btn.disabled = true;
             btn.textContent = 'Connecting...';
@@ -72,21 +52,13 @@
                 document.getElementById('micBtn').disabled = false; 
             });
             
-            socket.on('agent_disconnected', () => log('⚠️ Agent disconnected', '#f80'));
-            
             socket.on('answer', async (d) => { 
-                log('📥 Got SDP answer', '#0f0); 
+                log('📥 Got answer', '#0f0'); 
                 await pc.setRemoteDescription(d); 
             });
-            
-            socket.on('ice_candidate', async (d) => {
-                if (d.candidate) {
-                    log('📥 Received ICE from agent (ignoring for this test)', '#888');
-                }
-            });
-        }
+        };
         
-        function requestAgent() {
+        window.doRequestAgent = function() {
             const btn = document.getElementById('agentBtn');
             btn.disabled = true;
             btn.textContent = 'Requesting...';
@@ -103,67 +75,44 @@
                     btn.textContent = '2️⃣ Request Agent';
                 }
             });
-        }
+        };
         
-        async function startMic() {
+        window.doStartMic = async function() {
             const btn = document.getElementById('micBtn');
             btn.disabled = true;
-            btn.textContent = 'Starting...';
             
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                log('🎤 Mic ready', '#0f0');
-                
-                pc = new RTCPeerConnection({ 
-                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] 
-                });
-                
-                stream.getTracks().forEach(t => pc.addTrack(t, stream));
-                
-                pc.onconnectionstatechange = () => {
-                    log('WebRTC state: ' + pc.connectionState, '#ff0');
-                    if (pc.connectionState === 'connected') {
-                        log('🎉🎉🎉 CONNECTED! 🎉🎉🎉', '#0ff');
-                    }
-                };
-                
-                // 🔍🔍🔍 INSPECT ICE CANDIDATES 🔍🔍🔍
-                pc.onicecandidate = (e) => { 
-                    if (e.candidate) {
-                        logICE(e.candidate);
-                        
-                        // Send to agent
-                        socket.emit('ice_candidate', { 
-                            from: 'browser', 
-                            agent_id: agentId, 
-                            candidate: e.candidate 
-                        });
-                        
-                        log('📤 Sent ICE to agent', '#0f0');
-                    } else {
-                        log('📤 End of ICE candidates (null)', '#888');
-                    }
-                };
-                
-                // Create offer
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                
-                log('📤 Sending SDP offer...', '#0f0');
-                socket.emit('offer', { 
-                    agent_id: agentId, 
-                    sdp: offer.sdp, 
-                    type: offer.type 
-                });
-                
-                btn.textContent = '🎤 Mic Active - Inspecting ICE';
-                
-            } catch(e) {
-                log('❌ Error: ' + e.message, '#f00');
-                btn.disabled = false;
-                btn.textContent = '3️⃣ Start Mic & Inspect ICE';
-            }
-        }
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            log('🎤 Mic ready', '#0f0');
+            
+            pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+            stream.getTracks().forEach(t => pc.addTrack(t, stream));
+            
+            pc.onicecandidate = (e) => {
+                if (e.candidate) {
+                    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', '#0ff');
+                    log('🧊 ICE CANDIDATE:', '#0ff');
+                    log(JSON.stringify(e.candidate, null, 2), '#ff0');
+                    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', '#0ff');
+                    
+                    socket.emit('ice_candidate', { 
+                        from: 'browser', 
+                        agent_id: agentId, 
+                        candidate: e.candidate 
+                    });
+                }
+            };
+            
+            pc.onconnectionstatechange = () => {
+                log('State: ' + pc.connectionState, '#ff0');
+            };
+            
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            
+            socket.emit('offer', { agent_id: agentId, sdp: offer.sdp, type: offer.type });
+            log('📤 Offer sent', '#0f0');
+            btn.textContent = '🎤 Mic Active';
+        };
     </script>
 </body>
 </html>
