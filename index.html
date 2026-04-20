@@ -53,6 +53,7 @@
             cursor: pointer;
             border-radius: 4px;
             margin-right: 10px;
+            margin-bottom: 10px;
         }
         button:hover {
             background: #00ff00;
@@ -101,6 +102,10 @@
             color: #fff;
         }
     </style>
+    
+    <!-- DEPENDENCIES - Fixed CDN versions -->
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mediasoup-client@3.6.68/dist/mediasoup-client.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -146,9 +151,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mediasoup-client@3.6.0/dist/mediasoup-client.min.js"></script>
-    
     <script>
         const GATEWAY_URL = 'https://surf-gateway.onrender.com';
         const SERVICE_PIN = 'ndu2026';
@@ -215,6 +217,15 @@
         async function connect() {
             connectBtn.disabled = true;
             connectBtn.textContent = '🔄 Connecting...';
+            
+            // Check if mediasoupClient loaded
+            if (typeof mediasoupClient === 'undefined') {
+                log('ERROR: mediasoupClient not loaded! Check CDN.', 'error');
+                connectBtn.textContent = '🔌 Connect';
+                connectBtn.disabled = false;
+                return;
+            }
+            log('✅ mediasoupClient loaded', 'success');
             
             const healthy = await checkHealth();
             if (!healthy) {
@@ -346,6 +357,8 @@
                     ledMedia.className = 'led';
                     mediaText.textContent = 'Media: Failed';
                     log('Transport failed', 'error');
+                } else if (state === 'connecting') {
+                    mediaText.textContent = 'Media: Connecting...';
                 }
             });
             
@@ -362,8 +375,6 @@
             });
             
             log(`Audio producer active - ID: ${audioProducer.id.slice(0, 20)}...`, 'success');
-            ledMedia.className = 'led on';
-            mediaText.textContent = 'Media: Ready';
         }
         
         function disconnect() {
@@ -463,6 +474,7 @@
         window.onload = () => {
             checkHealth();
             log('Debug client ready', 'info');
+            log(`mediasoupClient available: ${typeof mediasoupClient !== 'undefined'}`, 'info');
         };
     </script>
 </body>
