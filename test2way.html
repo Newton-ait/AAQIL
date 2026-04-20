@@ -1,139 +1,100 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Surf Voice - Full Client</title>
+    <title>Surf Voice - Event-Based</title>
     <style>
         body { font-family: monospace; background: #0a0a0a; color: #0f0; padding: 20px; }
-        button { background: #1a1a1a; color: #0f0; border: 1px solid #0f0; padding: 12px 24px; margin: 5px; cursor: pointer; font-size: 14px; }
-        button:disabled { opacity: 0.3; cursor: not-allowed; }
-        .log { background: #000; padding: 15px; margin-top: 20px; height: 400px; overflow-y: auto; font-size: 13px; }
-        .status { color: #0ff; margin-bottom: 10px; }
+        button { background: #1a1a1a; color: #0f0; border: 1px solid #0f0; padding: 10px 20px; margin: 5px; cursor: pointer; }
+        button:disabled { opacity: 0.3; }
+        .log { background: #000; padding: 15px; margin-top: 20px; height: 400px; overflow-y: auto; }
     </style>
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
 </head>
 <body>
-    <h1>🌊 Surf Voice Client</h1>
-    <p class="status">Socket.io connection: Ready</p>
+    <h1>🌊 Surf Voice - Event-Based</h1>
+    <p>Using the proven event-based pattern</p>
     
     <div>
-        <button id="connectBtn">1️⃣ Connect</button>
-        <button id="capsBtn" disabled>2️⃣ Get Caps</button>
-        <button id="producersBtn" disabled>3️⃣ Get Producers</button>
-        <button id="micBtn" disabled>4️⃣ Start Mic (REST)</button>
-        <button id="stopBtn" disabled>⏹️ Stop</button>
+        <button id="connectBtn">1️⃣ Connect & Get Caps</button>
+        <button id="producersBtn" disabled>2️⃣ Get Producers</button>
+        <button id="micBtn" disabled>3️⃣ Start Mic (REST)</button>
     </div>
     
-    <div class="log" id="log"></div>
+    <div class="log" id="log">Ready...</div>
 
     <script>
         const GATEWAY = 'https://surf-gateway.onrender.com';
         const SERVICE_PIN = 'ndu2026';
+        let socket, stream, mediaRecorder, audioChunks;
         
-        let socket = null;
-        let stream = null;
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let recordingInterval = null;
-        
-        // Simple log function
-        function log(msg, color) {
+        const log = (msg, color = '#0f0') => {
             const div = document.getElementById('log');
-            div.innerHTML += '<div style="color:' + (color || '#0f0') + '">[' + new Date().toLocaleTimeString() + '] ' + msg + '</div>';
+            div.innerHTML += `<div style="color:${color}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
             div.scrollTop = div.scrollHeight;
-            console.log(msg);
-        }
+        };
         
-        // Update button states
-        function setButtons(connected, capsReceived) {
-            document.getElementById('connectBtn').disabled = connected;
-            document.getElementById('capsBtn').disabled = !connected;
-            document.getElementById('producersBtn').disabled = !capsReceived;
-            document.getElementById('micBtn').disabled = !capsReceived;
-        }
-        
-        // Connect to gateway
-        function doConnect() {
+        // Attach functions to window
+        window.doConnect = function() {
             const btn = document.getElementById('connectBtn');
             btn.disabled = true;
             btn.textContent = 'Connecting...';
-            log('📡 Connecting...', '#ff0');
+            log('📡 Connecting to gateway...', '#ff0');
             
             socket = io(GATEWAY, { transports: ['websocket'] });
             
-            socket.on('connect', function() {
-                log('✅ Connected! SID: ' + socket.id, '#0f0');
-                document.querySelector('.status').textContent = 'Socket.io: Connected';
-                setButtons(true, false);
+            socket.on('routerRtpCapabilities', (caps) => {
+                log('✅ Router caps received!', '#0ff');
+                log('   Codecs: ' + (caps.codecs || []).map(c => c.mimeType).join(', '), '#888');
+                document.getElementById('producersBtn').disabled = false;
                 btn.textContent = '✅ Connected';
             });
             
-            socket.on('connect_error', function(err) {
-                log('❌ Connection error: ' + err.message, '#f00');
-                btn.disabled = false;
-                btn.textContent = '1️⃣ Connect';
-            });
-            
-            socket.on('disconnect', function() {
-                log('🔌 Disconnected', '#f80');
-                document.querySelector('.status').textContent = 'Socket.io: Disconnected';
-                setButtons(false, false);
-                document.getElementById('connectBtn').disabled = false;
-                document.getElementById('connectBtn').textContent = '1️⃣ Connect';
-            });
-            
-            // Event listeners for responses
-            socket.on('routerRtpCapabilities', function(caps) {
-                log('✅ Router caps received!', '#0ff');
-                log('   Codecs: ' + (caps.codecs || []).map(c => c.mimeType).join(', '), '#888');
-                setButtons(true, true);
-                document.getElementById('capsBtn').textContent = '✅ Caps Received';
-            });
-            
-            socket.on('producersList', function(producers) {
+            socket.on('producersList', (producers) => {
                 log('📋 Producers: ' + producers.length, '#0ff');
                 producers.forEach(p => {
                     log('   - ' + p.producerId.slice(0,20) + '... (' + p.kind + ')', '#888');
                 });
-                if (producers.length === 0) {
-                    log('   No active producers', '#888');
-                }
             });
             
-            socket.on('producer_added', function(data) {
+            socket.on('producer_added', (data) => {
                 log('🎬 New producer: ' + data.producerId.slice(0,20) + '...', '#0f0');
             });
             
-            socket.on('tts_audio', function(data) {
+            socket.on('tts_audio', (data) => {
                 try {
-                    var audioBytes = new Uint8Array(data.audio.match(/.{1,2}/g).map(function(b) { return parseInt(b, 16); }));
-                    var audio = new Audio(URL.createObjectURL(new Blob([audioBytes], { type: 'audio/mpeg' })));
+                    const audioBytes = Uint8Array.from(
+                        data.audio.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+                    );
+                    const audio = new Audio(URL.createObjectURL(new Blob([audioBytes], { type: 'audio/mpeg' })));
                     audio.play();
-                    log('🔊 TTS playing', '#0ff');
+                    log('🔊 Playing TTS', '#0ff');
                 } catch(e) {
                     log('❌ TTS error: ' + e.message, '#f00');
                 }
             });
-        }
+            
+            socket.on('connect', () => {
+                log('✅ Socket connected', '#0f0');
+                socket.emit('getRouterRtpCapabilities');
+            });
+            
+            socket.on('connect_error', (e) => {
+                log('❌ Connection error: ' + e.message, '#f00');
+                btn.disabled = false;
+                btn.textContent = '1️⃣ Connect & Get Caps';
+            });
+        };
         
-        // Get router capabilities
-        function doGetCaps() {
-            log('📡 Requesting router capabilities...', '#ff0');
-            socket.emit('getRouterRtpCapabilities');
-            document.getElementById('capsBtn').disabled = true;
-            document.getElementById('capsBtn').textContent = 'Requesting...';
-        }
-        
-        // Get producers list
-        function doGetProducers() {
+        window.doGetProducers = function() {
             log('📡 Requesting producers...', '#ff0');
             socket.emit('getProducers');
-        }
+            document.getElementById('micBtn').disabled = false;
+        };
         
-        // Start microphone (REST mode)
-        async function doStartMic() {
+        window.doStartMic = async function() {
             const btn = document.getElementById('micBtn');
             btn.disabled = true;
-            btn.textContent = 'Starting...';
+            btn.textContent = 'Recording...';
             
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -142,56 +103,52 @@
                 mediaRecorder = new MediaRecorder(stream);
                 audioChunks = [];
                 
-                mediaRecorder.ondataavailable = function(e) {
-                    audioChunks.push(e.data);
-                };
-                
-                mediaRecorder.onstop = async function() {
-                    var blob = new Blob(audioChunks, { type: 'audio/wav' });
-                    audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = async () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/wav' });
                     await sendToREST(blob);
+                    audioChunks = [];
                 };
                 
                 mediaRecorder.start(3000);
-                log('🎤 Recording 3s chunks...', '#0f0');
+                log('🎤 Recording in 3s chunks...', '#0f0');
+                btn.textContent = '🎤 Recording';
                 
-                recordingInterval = setInterval(function() {
+                setInterval(() => {
                     if (mediaRecorder && mediaRecorder.state === 'recording') {
                         mediaRecorder.stop();
                         mediaRecorder.start(3000);
                     }
                 }, 3000);
                 
-                btn.textContent = '🎤 Recording';
-                document.getElementById('stopBtn').disabled = false;
-                
             } catch(e) {
                 log('❌ Mic error: ' + e.message, '#f00');
                 btn.disabled = false;
-                btn.textContent = '4️⃣ Start Mic (REST)';
+                btn.textContent = '3️⃣ Start Mic (REST)';
             }
-        }
+        };
         
-        // Send audio to REST endpoint
         async function sendToREST(audioBlob) {
-            var formData = new FormData();
+            const formData = new FormData();
             formData.append('audio', audioBlob, 'chunk.wav');
             formData.append('voice', 'en-US-AriaNeural');
             
             try {
-                var res = await fetch(GATEWAY + '/voice', {
+                const res = await fetch(`${GATEWAY}/voice`, {
                     method: 'POST',
                     headers: { 'x-pin': SERVICE_PIN },
                     body: formData
                 });
                 
-                var data = await res.json();
+                const data = await res.json();
                 if (data.transcript) log('📝 ' + data.transcript, '#fff');
                 if (data.response) log('🤖 ' + data.response, '#0ff');
                 
                 if (data.audio_base64) {
-                    var audioBytes = new Uint8Array(data.audio_base64.match(/.{1,2}/g).map(b => parseInt(b, 16)));
-                    var audio = new Audio(URL.createObjectURL(new Blob([audioBytes], { type: 'audio/mpeg' })));
+                    const audioBytes = Uint8Array.from(
+                        data.audio_base64.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+                    );
+                    const audio = new Audio(URL.createObjectURL(new Blob([audioBytes], { type: 'audio/mpeg' })));
                     audio.play();
                 }
             } catch(e) {
@@ -199,34 +156,12 @@
             }
         }
         
-        // Stop recording
-        function doStop() {
-            if (recordingInterval) {
-                clearInterval(recordingInterval);
-                recordingInterval = null;
-            }
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-            }
-            if (stream) {
-                stream.getTracks().forEach(t => t.stop());
-                stream = null;
-            }
-            log('⏹️ Stopped', '#f80');
-            document.getElementById('micBtn').disabled = false;
-            document.getElementById('micBtn').textContent = '4️⃣ Start Mic (REST)';
-            document.getElementById('stopBtn').disabled = true;
-        }
+        // Set up button handlers
+        document.getElementById('connectBtn').addEventListener('click', window.doConnect);
+        document.getElementById('producersBtn').addEventListener('click', window.doGetProducers);
+        document.getElementById('micBtn').addEventListener('click', window.doStartMic);
         
-        // Attach event listeners
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('connectBtn').onclick = doConnect;
-            document.getElementById('capsBtn').onclick = doGetCaps;
-            document.getElementById('producersBtn').onclick = doGetProducers;
-            document.getElementById('micBtn').onclick = doStartMic;
-            document.getElementById('stopBtn').onclick = doStop;
-            log('✅ Client ready', '#0f0');
-        });
+        log('✅ Ready! Click Connect', '#0f0');
     </script>
 </body>
 </html>
