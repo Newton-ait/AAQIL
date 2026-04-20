@@ -29,6 +29,7 @@
             const div = document.getElementById('log');
             div.innerHTML += `<div style="color:${color}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
             div.scrollTop = div.scrollHeight;
+            console.log(msg);
         }
         
         async function connect() {
@@ -45,43 +46,95 @@
             });
             
             socket.on('connect_error', (e) => log('❌ ' + e.message, '#f00'));
-            socket.on('agent_ready', (d) => { agentId = d.agent_id; log('🤖 Agent paired', '#0ff'); document.getElementById('micBtn').disabled = false; });
-            socket.on('agent_disconnected', () => log('⚠️ Agent gone', '#f80'));
-            socket.on('answer', async (d) => { log('📥 Got answer', '#0f0'); await pc.setRemoteDescription(d); });
-            socket.on('ice_candidate', async (d) => { if (d.candidate) await pc.addIceCandidate(d.candidate); });
+            
+            socket.on('agent_ready', (d) => { 
+                agentId = d.agent_id; 
+                log('🤖 Agent paired: ' + agentId.slice(0,8), '#0ff'); 
+                document.getElementById('micBtn').disabled = false; 
+            });
+            
+            socket.on('agent_disconnected', () => {
+                log('⚠️ Agent disconnected', '#f80');
+                document.getElementById('micBtn').disabled = true;
+            });
+            
+            socket.on('answer', async (d) => { 
+                log('📥 Got answer', '#0f0'); 
+                await pc.setRemoteDescription(d); 
+            });
+            
+            socket.on('ice_candidate', async (d) => { 
+                if (d.candidate) await pc.addIceCandidate(d.candidate); 
+            });
         }
         
         function requestAgent() {
-            document.getElementById('agentBtn').disabled = true;
+            const btn = document.getElementById('agentBtn');
+            btn.disabled = true;
+            btn.textContent = 'Requesting...';
+            
             socket.emit('request_agent', (r) => {
-                log(r.success ? '✅ Agent assigned' : '⏳ ' + r.message, '#ff0');
-                if (!r.success) document.getElementById('agentBtn').disabled = false;
+                if (r.success) {
+                    agentId = r.agent_id;
+                    log('✅ Agent assigned: ' + agentId.slice(0,8), '#0f0');
+                    document.getElementById('micBtn').disabled = false;
+                    btn.textContent = '✅ Agent Ready';
+                } else {
+                    log('⏳ ' + r.message, '#ff0');
+                    btn.disabled = false;
+                    btn.textContent = '2️⃣ Request Agent';
+                }
             });
         }
         
         async function startMic() {
             const btn = document.getElementById('micBtn');
             btn.disabled = true;
+            btn.textContent = 'Starting...';
             
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            log('🎤 Mic ready', '#0f0');
-            
-            pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-            stream.getTracks().forEach(t => pc.addTrack(t, stream));
-            
-            pc.onconnectionstatechange = () => {
-                log('State: ' + pc.connectionState, pc.connectionState === 'connected' ? '#0ff' : '#ff0');
-                if (pc.connectionState === 'connected') log('🎉 REAL-TIME AUDIO FLOWING!', '#0ff');
-            };
-            
-            pc.onicecandidate = (e) => { if (e.candidate) socket.emit('ice_candidate', { from: 'browser', agent_id: agentId, candidate: e.candidate }); };
-            
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            socket.emit('offer', { agent_id: agentId, sdp: offer.sdp, type: offer.type });
-            log('📤 Offer sent', '#0f0');
-            
-            btn.textContent = '🎤 Mic Active';
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                log('🎤 Mic ready', '#0f0');
+                
+                pc = new RTCPeerConnection({ 
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] 
+                });
+                
+                stream.getTracks().forEach(t => pc.addTrack(t, stream));
+                
+                pc.onconnectionstatechange = () => {
+                    const state = pc.connectionState;
+                    log('WebRTC: ' + state, state === 'connected' ? '#0ff' : '#ff0');
+                    if (state === 'connected') log('🎉🎉🎉 REAL-TIME AUDIO FLOWING! 🎉🎉🎉', '#0ff');
+                };
+                
+                pc.onicecandidate = (e) => { 
+                    if (e.candidate) {
+                        socket.emit('ice_candidate', { 
+                            from: 'browser', 
+                            agent_id: agentId, 
+                            candidate: e.candidate 
+                        }); 
+                    }
+                };
+                
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                
+                socket.emit('offer', { 
+                    agent_id: agentId, 
+                    sdp: offer.sdp, 
+                    type: offer.type 
+                });
+                
+                log('📤 Offer sent', '#0f0');
+                btn.textContent = '🎤 Mic Active';
+                
+            } catch(e) {
+                log('❌ Mic error: ' + e.message, '#f00');
+                btn.disabled = false;
+                btn.textContent = '3️⃣ Start Mic';
+            }
         }
     </script>
 </body>
