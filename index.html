@@ -1,382 +1,88 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surf Gateway - Debug Client</title>
+    <title>Surf Test</title>
     <style>
-        body {
-            font-family: monospace;
-            background: #0a0a0a;
-            color: #00ff00;
-            padding: 20px;
-            margin: 0;
-        }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
-        h1 {
-            color: #00ffff;
-            margin-bottom: 5px;
-        }
-        .status-bar {
-            display: flex;
-            gap: 20px;
-            margin: 20px 0;
-            padding: 15px;
-            background: #111;
-            border: 1px solid #333;
-            border-radius: 8px;
-        }
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .led {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #ff0000;
-        }
-        .led.on { background: #00ff00; box-shadow: 0 0 10px #00ff00; }
-        .led.speaking { background: #ffaa00; box-shadow: 0 0 10px #ffaa00; animation: pulse 0.5s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-        button {
-            background: #1a1a1a;
-            color: #00ff00;
-            border: 1px solid #00ff00;
-            padding: 12px 24px;
-            font-family: monospace;
-            font-size: 14px;
-            cursor: pointer;
-            border-radius: 4px;
-            margin-right: 10px;
-            margin-bottom: 10px;
-        }
-        button:hover {
-            background: #00ff00;
-            color: #000;
-        }
-        button:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-        select {
-            background: #1a1a1a;
-            color: #00ff00;
-            border: 1px solid #00ff00;
-            padding: 10px;
-            font-family: monospace;
-            border-radius: 4px;
-        }
-        .log-container {
-            background: #000;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 15px;
-            margin-top: 20px;
-            height: 400px;
-            overflow-y: auto;
-            font-size: 13px;
-        }
-        .log-entry {
-            padding: 3px 0;
-            border-bottom: 1px solid #1a1a1a;
-        }
-        .log-time {
-            color: #666;
-            margin-right: 10px;
-        }
-        .log-info { color: #00ff00; }
-        .log-warn { color: #ffaa00; }
-        .log-error { color: #ff4444; }
-        .log-success { color: #00ffff; font-weight: bold; }
-        .transcript {
-            background: #111;
-            border: 1px solid #333;
-            border-radius: 4px;
-            padding: 10px;
-            margin: 10px 0;
-            color: #fff;
-        }
+        body { font-family: monospace; background: #0a0a0a; color: #0f0; padding: 20px; }
+        button { background: #1a1a1a; color: #0f0; border: 1px solid #0f0; padding: 10px 20px; margin: 5px; cursor: pointer; }
+        button:disabled { opacity: 0.3; }
+        .log { background: #000; padding: 15px; margin-top: 20px; height: 300px; overflow-y: auto; }
     </style>
-    
-    <!-- Socket.io (reliable) -->
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>🌊 Surf Gateway Debug Client</h1>
-        <p style="color:#666; margin-top:0;">Gateway: https://surf-gateway.onrender.com</p>
-        
-        <div class="status-bar">
-            <div class="status-item">
-                <span class="led" id="ledGateway"></span>
-                <span id="gatewayText">Gateway: Checking...</span>
-            </div>
-            <div class="status-item">
-                <span class="led" id="ledSignal"></span>
-                <span id="signalText">Signal: --</span>
-            </div>
-            <div class="status-item">
-                <span class="led" id="ledMedia"></span>
-                <span id="mediaText">Media: --</span>
-            </div>
-        </div>
-        
-        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <button id="connectBtn" onclick="toggleConnection()">🔌 Connect (REST Only)</button>
-            <button id="recordBtn" onclick="toggleRecording()">🎤 Record & Send REST</button>
-            <select id="voiceSelect" style="width: 200px;">
-                <option value="en-US-AriaNeural">Aria (US Female)</option>
-                <option value="en-US-JennyNeural">Jenny (US Female)</option>
-                <option value="en-US-GuyNeural">Guy (US Male)</option>
-                <option value="en-GB-SoniaNeural">Sonia (UK Female)</option>
-                <option value="en-GB-RyanNeural">Ryan (UK Male)</option>
-            </select>
-        </div>
-        
-        <div class="transcript" id="transcriptDisplay">
-            📝 Transcript: <span id="transcriptText">--</span>
-        </div>
-        <div class="transcript" id="responseDisplay">
-            🤖 Response: <span id="responseText">--</span>
-        </div>
-        
-        <div class="log-container" id="logContainer">
-            <div class="log-entry"><span class="log-time">[--:--:--]</span> <span class="log-info">Ready. Click Connect (REST mode).</span></div>
-        </div>
+    <h1>🌊 Surf Connection Test</h1>
+    
+    <div>
+        <button id="connectBtn" onclick="connect()">1️⃣ Connect Gateway</button>
+        <button id="agentBtn" onclick="requestAgent()" disabled>2️⃣ Request Agent</button>
+        <button id="micBtn" onclick="startMic()" disabled>3️⃣ Start Mic</button>
     </div>
+    
+    <div class="log" id="log">Ready...</div>
 
     <script>
-        const GATEWAY_URL = 'https://surf-gateway.onrender.com';
-        const SERVICE_PIN = 'ndu2026';
+        const GATEWAY = 'https://surf-gateway.onrender.com';
+        let socket, pc, stream, agentId;
         
-        let socket = null;
-        let isConnected = false;
-        let mediaRecorder = null;
-        let audioChunks = [];
-        
-        // UI Elements
-        const ledGateway = document.getElementById('ledGateway');
-        const ledSignal = document.getElementById('ledSignal');
-        const ledMedia = document.getElementById('ledMedia');
-        const gatewayText = document.getElementById('gatewayText');
-        const signalText = document.getElementById('signalText');
-        const mediaText = document.getElementById('mediaText');
-        const connectBtn = document.getElementById('connectBtn');
-        const recordBtn = document.getElementById('recordBtn');
-        const transcriptText = document.getElementById('transcriptText');
-        const responseText = document.getElementById('responseText');
-        const logContainer = document.getElementById('logContainer');
-        
-        // Logging
-        function log(message, type = 'info') {
-            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
-            const entry = document.createElement('div');
-            entry.className = 'log-entry';
-            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
-            logContainer.appendChild(entry);
-            logContainer.scrollTop = logContainer.scrollHeight;
-            console.log(`[${type}] ${message}`);
+        function log(msg, color = '#0f0') {
+            const div = document.getElementById('log');
+            div.innerHTML += `<div style="color:${color}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+            div.scrollTop = div.scrollHeight;
         }
         
-        // Health check
-        async function checkHealth() {
-            try {
-                const res = await fetch(`${GATEWAY_URL}/health`);
-                const data = await res.json();
-                
-                if (data.status === 'healthy') {
-                    ledGateway.className = 'led on';
-                    gatewayText.textContent = `Gateway: Online (${data.mode}) ✅`;
-                    log(`Gateway healthy - Mode: ${data.mode}, Mediasoup: ${data.mediasoup}`, 'success');
-                    return true;
-                } else {
-                    ledGateway.className = 'led';
-                    gatewayText.textContent = `Gateway: ${data.mode || 'unknown'}`;
-                    log(`Gateway mode: ${data.mode}`, 'warn');
-                    return false;
-                }
-            } catch (e) {
-                ledGateway.className = 'led';
-                gatewayText.textContent = 'Gateway: OFFLINE';
-                log(`Gateway health check failed: ${e.message}`, 'error');
-                return false;
-            }
-        }
-        
-        // Connection (REST-only fallback mode)
         async function connect() {
-            connectBtn.disabled = true;
-            connectBtn.textContent = '🔄 Connecting...';
+            const btn = document.getElementById('connectBtn');
+            btn.disabled = true;
+            btn.textContent = 'Connecting...';
             
-            const healthy = await checkHealth();
-            if (!healthy) {
-                log('Gateway offline - cannot connect', 'error');
-                connectBtn.textContent = '🔌 Connect (REST Only)';
-                connectBtn.disabled = false;
-                return;
-            }
+            socket = io(GATEWAY, { transports: ['websocket'] });
             
-            // We're skipping WebRTC entirely - just use Socket.io for status
-            try {
-                socket = io(GATEWAY_URL, {
-                    transports: ['websocket'],
-                    reconnection: true,
-                    reconnectionAttempts: 3
-                });
-                
-                socket.on('connect', () => {
-                    log('Socket.io connected (signaling only)', 'success');
-                    ledSignal.className = 'led on';
-                    signalText.textContent = 'Signal: Connected';
-                    isConnected = true;
-                    connectBtn.textContent = '🔴 Disconnect';
-                    connectBtn.disabled = false;
-                    
-                    // Enable REST mode
-                    mediaText.textContent = 'Media: REST Mode';
-                    ledMedia.className = 'led on';
-                    log('✅ Connected in REST mode - use Record button', 'success');
-                });
-                
-                socket.on('connect_error', (err) => {
-                    log(`Socket error: ${err.message}`, 'error');
-                    ledSignal.className = 'led';
-                    signalText.textContent = 'Signal: Error';
-                    connectBtn.textContent = '🔌 Connect (REST Only)';
-                    connectBtn.disabled = false;
-                    
-                    // Still enable REST - it doesn't need WebSocket
-                    isConnected = true;
-                    mediaText.textContent = 'Media: REST Mode';
-                    ledMedia.className = 'led on';
-                    log('⚠️ WebSocket failed, but REST /voice works', 'warn');
-                });
-                
-                socket.on('disconnect', () => {
-                    log('Socket disconnected', 'warn');
-                    ledSignal.className = 'led';
-                    signalText.textContent = 'Signal: Disconnected';
-                });
-                
-            } catch (e) {
-                log(`Connection error: ${e.message}`, 'error');
-                connectBtn.textContent = '🔌 Connect (REST Only)';
-                connectBtn.disabled = false;
-                
-                // REST mode still works
-                isConnected = true;
-                mediaText.textContent = 'Media: REST Mode';
-                ledMedia.className = 'led on';
-                log('⚠️ WebRTC unavailable - using REST fallback', 'warn');
-            }
+            socket.on('connect', () => {
+                log('✅ Gateway connected', '#0f0');
+                document.getElementById('agentBtn').disabled = false;
+                btn.textContent = '✅ Connected';
+            });
+            
+            socket.on('connect_error', (e) => log('❌ ' + e.message, '#f00'));
+            socket.on('agent_ready', (d) => { agentId = d.agent_id; log('🤖 Agent paired', '#0ff'); document.getElementById('micBtn').disabled = false; });
+            socket.on('agent_disconnected', () => log('⚠️ Agent gone', '#f80'));
+            socket.on('answer', async (d) => { log('📥 Got answer', '#0f0'); await pc.setRemoteDescription(d); });
+            socket.on('ice_candidate', async (d) => { if (d.candidate) await pc.addIceCandidate(d.candidate); });
         }
         
-        function disconnect() {
-            if (socket) socket.disconnect();
-            
-            isConnected = false;
-            ledSignal.className = 'led';
-            ledMedia.className = 'led';
-            signalText.textContent = 'Signal: --';
-            mediaText.textContent = 'Media: --';
-            connectBtn.textContent = '🔌 Connect (REST Only)';
-            
-            log('Disconnected', 'warn');
+        function requestAgent() {
+            document.getElementById('agentBtn').disabled = true;
+            socket.emit('request_agent', (r) => {
+                log(r.success ? '✅ Agent assigned' : '⏳ ' + r.message, '#ff0');
+                if (!r.success) document.getElementById('agentBtn').disabled = false;
+            });
         }
         
-        function toggleConnection() {
-            if (isConnected) {
-                disconnect();
-            } else {
-                connect();
-            }
-        }
-        
-        // Recording (REST)
-        async function toggleRecording() {
-            if (mediaRecorder) {
-                mediaRecorder.stop();
-                mediaRecorder = null;
-                recordBtn.textContent = '🎤 Record & Send REST';
-                log('Recording stopped, sending...', 'info');
-            } else {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    audioChunks = [];
-                    
-                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-                    mediaRecorder.onstop = async () => {
-                        stream.getTracks().forEach(t => t.stop());
-                        const blob = new Blob(audioChunks, { type: 'audio/wav' });
-                        await sendREST(blob);
-                    };
-                    
-                    mediaRecorder.start();
-                    recordBtn.textContent = '🔴 Stop Recording';
-                    log('Recording started...', 'info');
-                    
-                } catch (e) {
-                    log(`Recording failed: ${e.message}`, 'error');
-                }
-            }
-        }
-        
-        async function sendREST(audioBlob) {
-            const formData = new FormData();
-            formData.append('audio', audioBlob, 'recording.wav');
-            formData.append('voice', document.getElementById('voiceSelect').value);
+        async function startMic() {
+            const btn = document.getElementById('micBtn');
+            btn.disabled = true;
             
-            log(`Sending ${audioBlob.size} bytes to /voice...`, 'info');
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            log('🎤 Mic ready', '#0f0');
             
-            try {
-                const start = Date.now();
-                const res = await fetch(`${GATEWAY_URL}/voice`, {
-                    method: 'POST',
-                    headers: { 'x-pin': SERVICE_PIN },
-                    body: formData
-                });
-                const elapsed = Date.now() - start;
-                
-                const data = await res.json();
-                log(`Response received in ${elapsed}ms`, 'success');
-                
-                if (data.transcript) {
-                    transcriptText.textContent = data.transcript;
-                    log(`📝 Transcript: "${data.transcript}"`, 'success');
-                } else {
-                    transcriptText.textContent = '(No transcript)';
-                }
-                
-                if (data.response) {
-                    responseText.textContent = data.response;
-                    log(`🤖 Response: "${data.response}"`, 'success');
-                }
-                
-                if (data.audio_base64) {
-                    const bytes = Uint8Array.from(data.audio_base64.match(/.{1,2}/g).map(b => parseInt(b, 16)));
-                    const audio = new Audio(URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' })));
-                    await audio.play();
-                    log('🔊 Playing TTS audio', 'info');
-                }
-                
-            } catch (e) {
-                log(`REST failed: ${e.message}`, 'error');
-                responseText.textContent = 'Error: ' + e.message;
-            }
+            pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+            stream.getTracks().forEach(t => pc.addTrack(t, stream));
+            
+            pc.onconnectionstatechange = () => {
+                log('State: ' + pc.connectionState, pc.connectionState === 'connected' ? '#0ff' : '#ff0');
+                if (pc.connectionState === 'connected') log('🎉 REAL-TIME AUDIO FLOWING!', '#0ff');
+            };
+            
+            pc.onicecandidate = (e) => { if (e.candidate) socket.emit('ice_candidate', { from: 'browser', agent_id: agentId, candidate: e.candidate }); };
+            
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('offer', { agent_id: agentId, sdp: offer.sdp, type: offer.type });
+            log('📤 Offer sent', '#0f0');
+            
+            btn.textContent = '🎤 Mic Active';
         }
-        
-        // Startup
-        window.onload = () => {
-            checkHealth();
-            log('Debug client ready (REST mode)', 'info');
-            log('WebRTC skipped due to CDN issues - using REST fallback', 'warn');
-        };
     </script>
 </body>
 </html>
