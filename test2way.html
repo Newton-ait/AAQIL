@@ -1,38 +1,31 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Surf Mediasoup Producer</title>
+    <title>Surf Voice - Event-Based</title>
     <style>
         body { font-family: monospace; background: #0a0a0a; color: #0f0; padding: 20px; }
         button { background: #1a1a1a; color: #0f0; border: 1px solid #0f0; padding: 10px 20px; margin: 5px; cursor: pointer; }
         button:disabled { opacity: 0.3; }
         .log { background: #000; padding: 15px; margin-top: 20px; height: 400px; overflow-y: auto; }
-        .status { color: #0ff; }
     </style>
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
 </head>
 <body>
-    <h1>🌊 Surf Mediasoup Producer</h1>
-    <p class="status">Agent is always connected — just start your mic!</p>
+    <h1>🌊 Surf Voice - Event-Based</h1>
+    <p>Using the proven event-based pattern</p>
     
     <div>
-        <button id="connectBtn" onclick="doConnect()" disabled>1️⃣ Connect & Start Mic</button>
-        <button id="stopBtn" onclick="doStop()" disabled>⏹️ Stop</button>
+        <button id="connectBtn" onclick="doConnect()">1️⃣ Connect & Get Caps</button>
+        <button id="producersBtn" onclick="doGetProducers()" disabled>2️⃣ Get Producers</button>
+        <button id="micBtn" onclick="doStartMic()" disabled>3️⃣ Start Mic (REST)</button>
     </div>
     
-    <div class="log" id="log">Loading Mediasoup library...</div>
+    <div class="log" id="log">Ready...</div>
 
     <script>
         const GATEWAY = 'https://surf-gateway.onrender.com';
-        let socket, device, producerTransport, audioProducer, stream;
-        
-        // Production-ready fallback URLs
-        const MEDIASOUP_URLS = [
-            'https://cdn.jsdelivr.net/npm/mediasoup-client@3.6.68/dist/mediasoup-client.min.js',
-            'https://unpkg.com/mediasoup-client@3.6.68/dist/mediasoup-client.min.js',
-            'https://cdnjs.cloudflare.com/ajax/libs/mediasoup-client/3.6.68/mediasoup-client.min.js',
-            'https://surf-ait-surf-agent.hf.space/static/mediasoup-client.min.js'
-        ];
+        const SERVICE_PIN = 'ndu2026';
+        let socket, stream, mediaRecorder, audioChunks;
         
         function log(msg, color = '#0f0') {
             const div = document.getElementById('log');
@@ -40,157 +33,130 @@
             div.scrollTop = div.scrollHeight;
         }
         
-        async function loadMediasoup() {
-            if (typeof mediasoupClient !== 'undefined') {
-                log('✅ Mediasoup already loaded', '#0f0');
-                return true;
-            }
+        window.doConnect = function() {
+            const btn = document.getElementById('connectBtn');
+            btn.disabled = true;
+            btn.textContent = 'Connecting...';
             
-            log('📦 Loading Mediasoup library...', '#ff0');
+            socket = io(GATEWAY, { transports: ['websocket'] });
             
-            for (const url of MEDIASOUP_URLS) {
-                try {
-                    const host = new URL(url).hostname;
-                    log('   Trying: ' + host, '#888');
-                    
-                    await new Promise((resolve, reject) => {
-                        const script = document.createElement('script');
-                        script.src = url;
-                        script.onload = resolve;
-                        script.onerror = reject;
-                        document.head.appendChild(script);
-                    });
-                    
-                    if (typeof mediasoupClient !== 'undefined') {
-                        log('✅ Loaded from: ' + host, '#0f0');
-                        return true;
-                    }
-                } catch(e) {
-                    log('   ⚠️ Failed: ' + new URL(url).hostname, '#f80');
+            // Event-based listeners (what actually works)
+            socket.on('routerRtpCapabilities', (caps) => {
+                log('✅ Router caps received!', '#0ff');
+                log(`   Codecs: ${caps.codecs?.map(c => c.mimeType).join(', ')}`, '#888');
+                document.getElementById('producersBtn').disabled = false;
+                btn.textContent = '✅ Connected';
+            });
+            
+            socket.on('producersList', (producers) => {
+                log(`📋 Producers: ${producers.length}`, '#0ff');
+                producers.forEach(p => {
+                    log(`   - ${p.producerId.slice(0,20)}... (${p.kind})`, '#888');
+                });
+                if (producers.length === 0) {
+                    log('   No producers yet - start your mic!', '#888');
                 }
-            }
+            });
             
-            log('❌ All CDNs failed. Cannot load Mediasoup.', '#f00');
-            return false;
-        }
-        
-        function setupTTSListener() {
+            socket.on('producer_added', (data) => {
+                log(`🎬 New producer: ${data.producerId.slice(0,20)}... (${data.kind})`, '#0f0');
+            });
+            
             socket.on('tts_audio', (data) => {
                 try {
                     const audioBytes = Uint8Array.from(
                         data.audio.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
                     );
-                    const audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' });
-                    const audio = new Audio(URL.createObjectURL(audioBlob));
+                    const audio = new Audio(URL.createObjectURL(new Blob([audioBytes], { type: 'audio/mpeg' })));
                     audio.play();
                     log('🔊 Playing TTS response', '#0ff');
                 } catch(e) {
                     log('❌ TTS error: ' + e.message, '#f00');
                 }
             });
-        }
-        
-        window.doConnect = async function() {
-            const btn = document.getElementById('connectBtn');
-            btn.disabled = true;
-            btn.textContent = 'Connecting...';
             
-            socket = io(GATEWAY, { transports: ['websocket'] });
-            setupTTSListener();
-            
-            socket.on('connect', async () => {
-                log('✅ Gateway connected', '#0f0');
-                
-                try {
-                    device = new mediasoupClient.Device();
-                    
-                    const caps = await new Promise((resolve) => {
-                        socket.emit('getRouterRtpCapabilities', resolve);
-                    });
-                    
-                    await device.load({ routerRtpCapabilities: caps });
-                    log('📡 Device loaded', '#0f0');
-                    
-                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    const track = stream.getAudioTracks()[0];
-                    log('🎤 Mic: ' + track.label, '#0f0');
-                    
-                    const transportInfo = await new Promise((resolve) => {
-                        socket.emit('createProducerTransport', resolve);
-                    });
-                    
-                    producerTransport = device.createSendTransport({
-                        id: transportInfo.id,
-                        iceParameters: transportInfo.iceParameters,
-                        iceCandidates: transportInfo.iceCandidates,
-                        dtlsParameters: transportInfo.dtlsParameters
-                    });
-                    
-                    producerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
-                        socket.emit('connectProducerTransport', { dtlsParameters }, (r) => {
-                            if (r.error) errback(new Error(r.error));
-                            else callback();
-                        });
-                    });
-                    
-                    producerTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
-                        socket.emit('produce', { kind, rtpParameters }, (r) => {
-                            if (r.error) errback(new Error(r.error));
-                            else callback({ id: r.id });
-                        });
-                    });
-                    
-                    producerTransport.on('connectionstatechange', (state) => {
-                        log('Transport: ' + state, state === 'connected' ? '#0ff' : '#ff0');
-                        if (state === 'connected') {
-                            log('🎉🎉🎉 AUDIO FLOWING TO AGENT! 🎉🎉🎉', '#0ff');
-                        }
-                    });
-                    
-                    audioProducer = await producerTransport.produce({ 
-                        track,
-                        codecOptions: { opusStereo: true, opusDtx: true }
-                    });
-                    
-                    log('🎤 Producer: ' + audioProducer.id.slice(0,20) + '...', '#0f0');
-                    log('🤖 Agent will auto-consume and respond!', '#0ff');
-                    
-                    btn.textContent = '🎤 Streaming...';
-                    document.getElementById('stopBtn').disabled = false;
-                    
-                } catch(e) {
-                    log('❌ Error: ' + e.message, '#f00');
-                    btn.disabled = false;
-                    btn.textContent = '1️⃣ Connect & Start Mic';
-                }
+            socket.on('connect', () => {
+                log('✅ Socket connected', '#0f0');
+                // Request caps using EMIT (not call)
+                socket.emit('getRouterRtpCapabilities');
             });
             
-            socket.on('connect_error', (e) => log('❌ ' + e.message, '#f00'));
+            socket.on('connect_error', (e) => log('❌ ' + e.message, '#f00));
         };
         
-        window.doStop = function() {
-            if (audioProducer) audioProducer.close();
-            if (producerTransport) producerTransport.close();
-            if (stream) stream.getTracks().forEach(t => t.stop());
-            if (socket) socket.disconnect();
-            
-            document.getElementById('connectBtn').disabled = false;
-            document.getElementById('connectBtn').textContent = '1️⃣ Connect & Start Mic';
-            document.getElementById('stopBtn').disabled = true;
-            
-            log('⏹️ Stopped', '#f80');
+        window.doGetProducers = function() {
+            log('📡 Requesting producers list...', '#ff0');
+            socket.emit('getProducers');
+            document.getElementById('micBtn').disabled = false;
         };
         
-        // Load Mediasoup on page load
-        (async () => {
-            const loaded = await loadMediasoup();
-            if (loaded) {
-                document.getElementById('connectBtn').disabled = false;
-                log('✅ Ready! Click Connect & Start Mic', '#0f0');
-            } else {
-                log('❌ Cannot load Mediasoup. Please try a different network.', '#f00');
+        window.doStartMic = async function() {
+            const btn = document.getElementById('micBtn');
+            btn.disabled = true;
+            btn.textContent = 'Recording...';
+            
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                log('🎤 Mic ready', '#0f0');
+                
+                // Use REST fallback since it's proven working
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = async () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/wav' });
+                    await sendToREST(blob);
+                };
+                
+                // Record in 3-second chunks
+                mediaRecorder.start(3000);
+                
+                // Auto-send every 3 seconds
+                setInterval(() => {
+                    if (mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                        mediaRecorder.start(3000);
+                    }
+                }, 3000);
+                
+                log('🎤 Recording in 3s chunks...', '#0f0');
+                btn.textContent = '🎤 Recording';
+                
+            } catch(e) {
+                log('❌ Mic error: ' + e.message, '#f00');
+                btn.disabled = false;
+                btn.textContent = '3️⃣ Start Mic (REST)';
             }
-        })();
+        };
+        
+        async function sendToREST(audioBlob) {
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'chunk.wav');
+            formData.append('voice', 'en-US-AriaNeural');
+            
+            try {
+                const res = await fetch(`${GATEWAY}/voice`, {
+                    method: 'POST',
+                    headers: { 'x-pin': SERVICE_PIN },
+                    body: formData
+                });
+                
+                const data = await res.json();
+                if (data.transcript) log(`📝 ${data.transcript}`, '#fff');
+                if (data.response) log(`🤖 ${data.response}`, '#0ff');
+                
+                if (data.audio_base64) {
+                    const audioBytes = Uint8Array.from(
+                        data.audio_base64.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+                    );
+                    const audio = new Audio(URL.createObjectURL(new Blob([audioBytes], { type: 'audio/mpeg' })));
+                    audio.play();
+                }
+            } catch(e) {
+                log('❌ REST error: ' + e.message, '#f00');
+            }
+        }
     </script>
 </body>
 </html>
