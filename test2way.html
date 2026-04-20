@@ -9,9 +9,7 @@
         .log { background: #000; padding: 15px; margin-top: 20px; height: 400px; overflow-y: auto; }
         .status { color: #0ff; }
     </style>
-    <!-- Use reliable CDN sources -->
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mediasoup-client@3.7.0/dist/mediasoup-client.min.js"></script>
 </head>
 <body>
     <h1>🌊 Surf Mediasoup Producer</h1>
@@ -22,7 +20,7 @@
         <button id="stopBtn" onclick="doStop()" disabled>⏹️ Stop</button>
     </div>
     
-    <div class="log" id="log">Ready. Click Connect & Start Mic.</div>
+    <div class="log" id="log">Loading Mediasoup library...</div>
 
     <script>
         const GATEWAY = 'https://surf-gateway.onrender.com';
@@ -34,17 +32,45 @@
             div.scrollTop = div.scrollHeight;
         }
         
-        // Check if library loaded
-        function checkLibrary() {
-            if (typeof mediasoupClient === 'undefined') {
-                log('❌ Mediasoup client not loaded. Trying alternative...', '#f00');
-                return false;
+        // Dynamic loader for Mediasoup
+        async function loadMediasoup() {
+            if (typeof mediasoupClient !== 'undefined') {
+                log('✅ Mediasoup already loaded', '#0f0');
+                return true;
             }
-            log('✅ Mediasoup client loaded', '#0f0');
-            return true;
+            
+            log('📦 Loading Mediasoup library...', '#ff0');
+            
+            // Try multiple CDNs
+            const cdns = [
+                'https://unpkg.com/mediasoup-client@3.7.0/dist/mediasoup-client.min.js',
+                'https://cdn.jsdelivr.net/npm/mediasoup-client@3.6.68/dist/mediasoup-client.min.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/mediasoup-client/3.6.68/mediasoup-client.min.js'
+            ];
+            
+            for (const cdn of cdns) {
+                try {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = cdn;
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                    });
+                    
+                    if (typeof mediasoupClient !== 'undefined') {
+                        log('✅ Mediasoup loaded from: ' + cdn.split('/')[2], '#0f0');
+                        return true;
+                    }
+                } catch(e) {
+                    log('⚠️ Failed: ' + cdn.split('/')[2], '#f80');
+                }
+            }
+            
+            return false;
         }
         
-        // Receive TTS audio from agent
+        // Receive TTS audio
         function setupTTSListener() {
             socket.on('tts_audio', (data) => {
                 try {
@@ -64,13 +90,18 @@
         window.doConnect = async function() {
             const btn = document.getElementById('connectBtn');
             btn.disabled = true;
-            btn.textContent = 'Connecting...';
+            btn.textContent = 'Loading...';
             
-            if (!checkLibrary()) {
+            // Load Mediasoup first
+            const loaded = await loadMediasoup();
+            if (!loaded) {
+                log('❌ Could not load Mediasoup library', '#f00');
                 btn.disabled = false;
                 btn.textContent = '1️⃣ Connect & Start Mic';
                 return;
             }
+            
+            btn.textContent = 'Connecting...';
             
             socket = io(GATEWAY, { transports: ['websocket'] });
             setupTTSListener();
@@ -79,7 +110,6 @@
                 log('✅ Gateway connected', '#0f0');
                 
                 try {
-                    // Initialize Mediasoup device
                     device = new mediasoupClient.Device();
                     
                     const caps = await new Promise((resolve) => {
@@ -87,14 +117,12 @@
                     });
                     
                     await device.load({ routerRtpCapabilities: caps });
-                    log('📡 Mediasoup device loaded', '#0f0');
+                    log('📡 Device loaded', '#0f0');
                     
-                    // Get microphone
                     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     const track = stream.getAudioTracks()[0];
-                    log('🎤 Mic ready: ' + track.label, '#0f0');
+                    log('🎤 Mic: ' + track.label, '#0f0');
                     
-                    // Create producer transport
                     const transportInfo = await new Promise((resolve) => {
                         socket.emit('createProducerTransport', resolve);
                     });
@@ -123,18 +151,17 @@
                     producerTransport.on('connectionstatechange', (state) => {
                         log('Transport: ' + state, state === 'connected' ? '#0ff' : '#ff0');
                         if (state === 'connected') {
-                            log('🎉🎉🎉 AUDIO FLOWING TO AGENT! 🎉🎉🎉', '#0ff');
+                            log('🎉🎉🎉 AUDIO FLOWING! 🎉🎉🎉', '#0ff');
                         }
                     });
                     
-                    // Produce audio
                     audioProducer = await producerTransport.produce({ 
                         track,
                         codecOptions: { opusStereo: true, opusDtx: true }
                     });
                     
-                    log('🎤 Producer created: ' + audioProducer.id.slice(0,20) + '...', '#0f0');
-                    log('🤖 Agent will auto-consume and respond!', '#0ff');
+                    log('🎤 Producer: ' + audioProducer.id.slice(0,20) + '...', '#0f0');
+                    log('🤖 Agent will auto-consume!', '#0ff');
                     
                     btn.textContent = '🎤 Streaming...';
                     document.getElementById('stopBtn').disabled = false;
@@ -161,6 +188,15 @@
             
             log('⏹️ Stopped', '#f80');
         };
+        
+        // Start loading immediately
+        loadMediasoup().then(loaded => {
+            if (loaded) {
+                log('✅ Ready! Click Connect & Start Mic', '#0f0');
+            } else {
+                log('❌ Library failed to load. Check console.', '#f00');
+            }
+        });
     </script>
 </body>
 </html>
