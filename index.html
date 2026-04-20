@@ -48,8 +48,13 @@
             
             socket.on('agent_ready', (d) => { 
                 agentId = d.agent_id; 
-                log('🤖 Agent paired: ' + agentId.slice(0,8), '#0ff); 
+                log('🤖 Agent paired: ' + agentId.slice(0,8), '#0ff'); 
                 document.getElementById('micBtn').disabled = false; 
+            });
+            
+            socket.on('agent_disconnected', () => {
+                log('⚠️ Agent disconnected', '#f80');
+                document.getElementById('micBtn').disabled = true;
             });
             
             socket.on('answer', async (d) => { 
@@ -80,47 +85,60 @@
         window.doStartMic = async function() {
             const btn = document.getElementById('micBtn');
             btn.disabled = true;
+            btn.textContent = 'Starting...';
             
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            log('🎤 Mic ready', '#0f0');
-            
-            pc = new RTCPeerConnection({ 
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { 
-                        urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443'],
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                log('🎤 Mic ready', '#0f0');
+                
+                pc = new RTCPeerConnection({ 
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { 
+                            urls: 'turn:openrelay.metered.ca:80',
+                            username: 'openrelayproject',
+                            credential: 'openrelayproject'
+                        },
+                        { 
+                            urls: 'turn:openrelay.metered.ca:443',
+                            username: 'openrelayproject',
+                            credential: 'openrelayproject'
+                        }
+                    ] 
+                });
+                
+                stream.getTracks().forEach(t => pc.addTrack(t, stream));
+                
+                pc.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        socket.emit('ice_candidate', { 
+                            from: 'browser', 
+                            agent_id: agentId, 
+                            candidate: e.candidate 
+                        });
                     }
-                ] 
-            });
-            
-            stream.getTracks().forEach(t => pc.addTrack(t, stream));
-            
-            pc.onicecandidate = (e) => {
-                if (e.candidate) {
-                    socket.emit('ice_candidate', { 
-                        from: 'browser', 
-                        agent_id: agentId, 
-                        candidate: e.candidate 
-                    });
-                }
-            };
-            
-            pc.onconnectionstatechange = () => {
-                const state = pc.connectionState;
-                log('WebRTC: ' + state, state === 'connected' ? '#0ff' : '#ff0');
-                if (state === 'connected') {
-                    log('🎉🎉🎉 REAL-TIME AUDIO FLOWING! 🎉🎉🎉', '#0ff');
-                }
-            };
-            
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            
-            socket.emit('offer', { agent_id: agentId, sdp: offer.sdp, type: offer.type });
-            log('📤 Offer sent', '#0f0');
-            btn.textContent = '🎤 Mic Active';
+                };
+                
+                pc.onconnectionstatechange = () => {
+                    const state = pc.connectionState;
+                    log('WebRTC: ' + state, state === 'connected' ? '#0ff' : '#ff0');
+                    if (state === 'connected') {
+                        log('🎉🎉🎉 REAL-TIME AUDIO FLOWING! 🎉🎉🎉', '#0ff');
+                    }
+                };
+                
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                
+                socket.emit('offer', { agent_id: agentId, sdp: offer.sdp, type: offer.type });
+                log('📤 Offer sent', '#0f0');
+                btn.textContent = '🎤 Mic Active';
+                
+            } catch(e) {
+                log('❌ Mic error: ' + e.message, '#f00');
+                btn.disabled = false;
+                btn.textContent = '3️⃣ Start Mic';
+            }
         };
     </script>
 </body>
