@@ -3,29 +3,496 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surf Voice Sandbox</title>
+    <title>🌊 Surf Voice - Sandbox Tester</title>
     <style>
-        body {
+        * {
             margin: 0;
             padding: 0;
-            background: #0a0f0f;
+            box-sizing: border-box;
         }
-        #status {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            color: #00ff9d;
-            font-family: monospace;
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+        
+        .panel h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+        }
+        
+        button.danger {
+            background: #e74c3c;
+        }
+        
+        button.success {
+            background: #27ae60;
+        }
+        
+        .log-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
             font-size: 12px;
-            opacity: 0.5;
+            height: calc(100% - 100px);
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-left: 3px solid;
+            font-family: monospace;
+        }
+        
+        .log-info { border-left-color: #3498db; color: #3498db; }
+        .log-success { border-left-color: #27ae60; color: #27ae60; }
+        .log-error { border-left-color: #e74c3c; color: #e74c3c; }
+        .log-warning { border-left-color: #f39c12; color: #f39c12; }
+        
+        .iframe-container {
+            margin-top: 20px;
+            border: 2px solid #667eea;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 400px;
+            border: none;
+        }
+        
+        .status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-active { background: #27ae60; box-shadow: 0 0 5px #27ae60; }
+        .status-inactive { background: #e74c3c; }
+        
+        .test-result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        input, select {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .message-input {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .message-input input {
+            flex: 1;
         }
     </style>
-   
-    <script src="socket.io.min.js"></script>
-    <script src="mediasoup-client.bundle.js"></script>
 </head>
 <body>
-    <div id="status">⚡ Sandbox Ready</div>
-    <script src="webrtc-handler.js"></script>
+    <div class="container">
+        <!-- Left Panel: Controls & Logs -->
+        <div class="panel">
+            <h2>🎮 Sandbox Control Panel</h2>
+            
+            <div class="controls">
+                <button onclick="loadSandbox()" class="success">🔄 Load Sandbox</button>
+                <button onclick="reloadIframe()">🔄 Reload Iframe</button>
+                <button onclick="clearLogs()" class="danger">🗑️ Clear Logs</button>
+                <button onclick="testAuth()">🔐 Test Auth</button>
+                <button onclick="checkWebRTC()">📡 Check WebRTC</button>
+            </div>
+            
+            <div class="controls">
+                <button onclick="testMicrophone()">🎤 Test Microphone</button>
+                <button onclick="testAudioPlayback()">🔊 Test Audio</button>
+                <button onclick="sendTestMessage()">💬 Send Test Message</button>
+            </div>
+            
+            <div class="message-input">
+                <input type="text" id="testMessage" placeholder="Enter test message..." value="What's the weather like?">
+                <button onclick="sendCustomMessage()">Send to Sandbox</button>
+            </div>
+            
+            <div class="test-result" id="testResult">
+                <strong>📊 Test Results:</strong><br>
+                Status: <span id="statusText">Not loaded</span>
+            </div>
+            
+            <h3>📝 Activity Log</h3>
+            <div class="log-container" id="logContainer">
+                <div class="log-entry log-info">[System] Ready - Click 'Load Sandbox' to start</div>
+            </div>
+        </div>
+        
+        <!-- Right Panel: Sandbox Iframe -->
+        <div class="panel">
+            <h2>🏄 Sandbox Iframe</h2>
+            <div id="iframeStatus">
+                <span class="status status-inactive" id="statusIndicator"></span>
+                <span id="iframeStatusText">Not loaded</span>
+            </div>
+            <div class="iframe-container">
+                <iframe id="sandboxFrame" sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"></iframe>
+            </div>
+            
+            <div class="controls" style="margin-top: 15px;">
+                <button onclick="startMic()">🎙️ Start Microphone</button>
+                <button onclick="stopMic()">⏹️ Stop Microphone</button>
+                <button onclick="checkConnection()">🔌 Check Connection</button>
+            </div>
+            
+            <div id="messageDisplay" style="margin-top: 15px; padding: 10px; background: #f0f0f0; border-radius: 5px; max-height: 150px; overflow-y: auto;">
+                <strong>💬 Messages from Sandbox:</strong><br>
+                <div id="messages"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const SANDBOX_URL = "https://ashirafnewton-ait.github.io/extension/";
+        const SUPABASE_URL = "https://ljksgzttnufecxohwtwm.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk";
+        
+        let iframe = null;
+        let accessToken = null;
+        
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '<div class="log-entry log-info">[System] Logs cleared</div>';
+            addLog('Logs cleared', 'info');
+        }
+        
+        function loadSandbox() {
+            addLog('Loading sandbox...', 'info');
+            iframe = document.getElementById('sandboxFrame');
+            
+            // Listen for messages from sandbox
+            window.addEventListener('message', handleSandboxMessage);
+            
+            iframe.src = SANDBOX_URL;
+            iframe.onload = () => {
+                addLog('✅ Sandbox loaded successfully!', 'success');
+                document.getElementById('iframeStatusText').innerHTML = 'Loaded';
+                document.getElementById('statusIndicator').className = 'status status-active';
+                document.getElementById('statusText').innerHTML = 'Sandbox loaded';
+                
+                // Check sandbox content
+                checkSandboxContent();
+            };
+            
+            iframe.onerror = (error) => {
+                addLog(`❌ Failed to load sandbox: ${error}`, 'error');
+                document.getElementById('statusText').innerHTML = 'Failed to load';
+            };
+        }
+        
+        function reloadIframe() {
+            addLog('Reloading iframe...', 'warning');
+            iframe.src = SANDBOX_URL;
+        }
+        
+        function checkSandboxContent() {
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                const htmlContent = iframeDoc.body.innerHTML;
+                
+                // Check for required components
+                const components = {
+                    'webrtc-handler.js': htmlContent.includes('webrtc-handler.js'),
+                    'mediasoup-client.bundle.js': htmlContent.includes('mediasoup-client.bundle.js'),
+                    'socket.io.min.js': htmlContent.includes('socket.io.min.js')
+                };
+                
+                addLog('📦 Sandbox Components:', 'info');
+                for (const [component, exists] of Object.entries(components)) {
+                    if (exists) {
+                        addLog(`  ✅ ${component} found`, 'success');
+                    } else {
+                        addLog(`  ⚠️ ${component} not found`, 'warning');
+                    }
+                }
+            } catch(e) {
+                addLog(`Cannot access iframe content (cross-origin): ${e.message}`, 'warning');
+            }
+        }
+        
+        async function testAuth() {
+            addLog('Testing Supabase authentication...', 'info');
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'surf@testuser.com',
+                        password: 'Test1234!'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    accessToken = data.access_token;
+                    addLog(`✅ Authentication successful!`, 'success');
+                    addLog(`   User: ${data.user.email}`, 'success');
+                    addLog(`   User ID: ${data.user.id}`, 'success');
+                    addLog(`   Token expires in: ${data.expires_in}s`, 'success');
+                    
+                    document.getElementById('statusText').innerHTML = 'Authenticated';
+                    
+                    // Send token to sandbox
+                    if (iframe && iframe.contentWindow) {
+                        iframe.contentWindow.postMessage({
+                            type: 'auth_token',
+                            token: accessToken
+                                }, '*');
+                        addLog('📤 Sent auth token to sandbox', 'info');
+                    }
+                } else {
+                    addLog(`❌ Authentication failed: ${response.status}`, 'error');
+                }
+            } catch(e) {
+                addLog(`❌ Auth error: ${e.message}`, 'error');
+            }
+        }
+        
+        function handleSandboxMessage(event) {
+            addLog(`📨 Received message from sandbox: ${JSON.stringify(event.data)}`, 'info');
+            
+            // Display in message panel
+            const messagesDiv = document.getElementById('messages');
+            const msgElement = document.createElement('div');
+            msgElement.style.marginTop = '5px';
+            msgElement.style.padding = '5px';
+            msgElement.style.background = '#e8e8e8';
+            msgElement.style.borderRadius = '3px';
+            msgElement.innerHTML = `<strong>${event.data.type || 'unknown'}:</strong> ${JSON.stringify(event.data).substring(0, 200)}`;
+            messagesDiv.appendChild(msgElement);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            
+            // Handle specific message types
+            switch(event.data.type) {
+                case 'sandbox_ready':
+                    addLog('🏄 Sandbox is ready!', 'success');
+                    break;
+                case 'auth_success':
+                    addLog('✅ Sandbox authenticated successfully!', 'success');
+                    break;
+                case 'auth_error':
+                    addLog(`❌ Sandbox auth error: ${event.data.error}`, 'error');
+                    break;
+                case 'transcript':
+                    addLog(`📝 Transcript: ${event.data.text}`, 'success');
+                    break;
+                case 'response':
+                    addLog(`💬 AI Response: ${event.data.text}`, 'success');
+                    break;
+                case 'tts_audio':
+                    addLog(`🔊 Received TTS audio (${event.data.audio ? event.data.audio.length : 0} bytes)`, 'success');
+                    break;
+                case 'error':
+                    addLog(`❌ Sandbox error: ${event.data.message}`, 'error');
+                    break;
+                case 'status':
+                    addLog(`📊 Status update: ${event.data.status}`, 'info');
+                    break;
+            }
+        }
+        
+        function sendMessageToSandbox(type, data = {}) {
+            if (iframe && iframe.contentWindow) {
+                const message = { type, ...data };
+                iframe.contentWindow.postMessage(message, '*');
+                addLog(`📤 Sent to sandbox: ${type}`, 'info');
+            } else {
+                addLog(`❌ Cannot send message - sandbox not loaded`, 'error');
+            }
+        }
+        
+        function startMic() {
+            addLog('🎤 Requesting microphone access...', 'info');
+            sendMessageToSandbox('start_mic');
+        }
+        
+        function stopMic() {
+            addLog('⏹️ Stopping microphone...', 'info');
+            sendMessageToSandbox('stop_mic');
+        }
+        
+        function checkConnection() {
+            addLog('🔌 Checking sandbox connection...', 'info');
+            sendMessageToSandbox('ping');
+        }
+        
+        function sendTestMessage() {
+            const testMsg = document.getElementById('testMessage').value;
+            addLog(`💬 Sending test message: "${testMsg}"`, 'info');
+            sendMessageToSandbox('test_message', { text: testMsg });
+        }
+        
+        function sendCustomMessage() {
+            const input = document.getElementById('testMessage');
+            const msg = input.value;
+            if (msg) {
+                addLog(`📤 Sending custom message: "${msg}"`, 'info');
+                sendMessageToSandbox('user_message', { text: msg });
+                input.value = '';
+            }
+        }
+        
+        function checkWebRTC() {
+            addLog('Checking WebRTC support...', 'info');
+            
+            const checks = {
+                'RTCPeerConnection': !!window.RTCPeerConnection,
+                'getUserMedia': !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+                'WebSocket': !!window.WebSocket
+            };
+            
+            for (const [feature, supported] of Object.entries(checks)) {
+                if (supported) {
+                    addLog(`✅ ${feature} supported`, 'success');
+                } else {
+                    addLog(`❌ ${feature} NOT supported`, 'error');
+                }
+            }
+        }
+        
+        async function testMicrophone() {
+            addLog('Testing microphone access...', 'info');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                addLog('✅ Microphone access granted!', 'success');
+                
+                // Test audio levels
+                const audioContext = new AudioContext();
+                const source = audioContext.createMediaStreamSource(stream);
+                const analyser = audioContext.createAnalyser();
+                source.connect(analyser);
+                
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                let maxLevel = 0;
+                
+                for (let i = 0; i < 10; i++) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    analyser.getByteTimeDomainData(dataArray);
+                    let max = 0;
+                    for (let j = 0; j < dataArray.length; j++) {
+                        const v = (dataArray[j] - 128) / 128;
+                        max = Math.max(max, Math.abs(v));
+                    }
+                    maxLevel = Math.max(maxLevel, max);
+                }
+                
+                addLog(`🎤 Audio level: ${(maxLevel * 100).toFixed(1)}%`, maxLevel > 0.01 ? 'success' : 'warning');
+                
+                stream.getTracks().forEach(track => track.stop());
+                audioContext.close();
+                
+            } catch(e) {
+                addLog(`❌ Microphone error: ${e.message}`, 'error');
+            }
+        }
+        
+        function testAudioPlayback() {
+            addLog('Testing audio playback...', 'info');
+            
+            // Create a simple beep
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 880;
+            gainNode.gain.value = 0.1;
+            
+            oscillator.start();
+            setTimeout(() => {
+                oscillator.stop();
+                audioContext.close();
+                addLog('✅ Audio playback successful!', 'success');
+            }, 500);
+        }
+        
+        // Auto-load on page load
+        window.addEventListener('load', () => {
+            addLog('🌊 Surf Voice Sandbox Tester Ready', 'success');
+            addLog(`Sandbox URL: ${SANDBOX_URL}`, 'info');
+            addLog(`Supabase URL: ${SUPABASE_URL}`, 'info');
+            setTimeout(() => loadSandbox(), 1000);
+        });
+    </script>
 </body>
 </html>
