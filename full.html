@@ -183,6 +183,7 @@
         <div class="controls">
             <button class="primary" onclick="runFullTest()">🚀 Run Full Diagnostic</button>
             <button onclick="loadSandbox()">🔄 Load Sandbox</button>
+            <button onclick="authenticate()">🔐 Get Token</button>
             <button onclick="startMic()">🎤 Start Mic</button>
             <button onclick="stopMic()">⏹️ Stop Mic</button>
             <button onclick="testGatewayHealth()">🏥 Gateway Health</button>
@@ -211,8 +212,10 @@
     <script>
         const SANDBOX_URL = "https://ashirafnewton-ait.github.io/extension/";
         const GATEWAY_URL = "https://surf-gateway.onrender.com";
-        const VOCAL_URL = "https://surf-ait-surf-vocal.hf.space";
+        const SUPABASE_URL = "https://ljksgzttnufecxohwtwm.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk";
         
+        let accessToken = null;
         let stats = { sent: 0, recv: 0, rtp: 0, transcripts: 0, responses: 0, startTime: 0 };
         let currentMode = 'offline';
         
@@ -280,11 +283,15 @@
                     }
                     break;
                     
+                case 'token_received':
+                    log('sandboxLogs', '🔐 Token stored in sandbox', 'success');
+                    updateStep(2, 'pending', 'Token received');
+                    break;
+                    
                 case 'log':
                     const type = data.level === 'success' ? 'success' : data.level === 'error' ? 'error' : 'info';
                     log('sandboxLogs', `[${data.level}] ${data.message}`, type);
                     
-                    // Detect mode from log messages
                     if (data.message.includes('REST mode active')) {
                         setMode('rest');
                         updateStep(2, 'pass', 'REST Active');
@@ -320,10 +327,6 @@
                         stats.startTime = 0;
                     }
                     break;
-                    
-                case 'status':
-                    // Status updates
-                    break;
             }
         }
         
@@ -336,6 +339,26 @@
             log('clientLogs', '🔄 Loading sandbox...', 'info');
             updateStep(1, 'pending', 'Loading...');
             setMode('offline');
+        }
+        
+        async function authenticate() {
+            log('clientLogs', '🔐 Fetching Supabase token...', 'info');
+            try {
+                const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'surf@testuser.com', password: 'Test1234!' })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    accessToken = data.access_token;
+                    log('clientLogs', `✅ Token: ${accessToken.substring(0, 40)}...`, 'success');
+                    sendToSandbox('auth_token', { token: accessToken });
+                    updateStep(2, 'pending', 'Token sent');
+                } else {
+                    log('clientLogs', `❌ Auth failed: ${res.status}`, 'error');
+                }
+            } catch(e) { log('clientLogs', `❌ ${e.message}`, 'error'); }
         }
         
         function startMic() { 
@@ -359,8 +382,7 @@
             document.getElementById('clientLogs').innerHTML = '';
             document.getElementById('sandboxLogs').innerHTML = '';
             stats = { sent: 0, recv: 0, rtp: 0, transcripts: 0, responses: 0, startTime: 0 };
-            updateStat('statSent', 0); updateStat('statRecv', 0);
-            updateStat('statTranscripts', 0); updateStat('statResponses', 0);
+            ['statSent','statRecv','statTranscripts','statResponses','statLatency'].forEach(id => updateStat(id, '0'));
             updateStat('statLatency', '--');
         }
         
@@ -376,7 +398,12 @@
             await testGatewayHealth();
             await sleep(1000);
             
-            log('clientLogs', '📋 Step 3: Start Microphone (REST Mode)', 'info');
+            // ✅ AUTHENTICATE FIRST - Token must be set before starting mic
+            log('clientLogs', '📋 Step 3: Authenticate', 'info');
+            await authenticate();
+            await sleep(2000);
+            
+            log('clientLogs', '📋 Step 4: Start Microphone (REST Mode)', 'info');
             startMic();
             await sleep(5000);
             
@@ -392,7 +419,7 @@
         
         window.addEventListener('load', () => {
             log('clientLogs', '🔍 Surf Voice Diagnostic Ready', 'success');
-            log('clientLogs', 'Mode: REST (WebRTC RTP unavailable on this platform)', 'info');
+            log('clientLogs', 'Mode: REST (authenticate before starting mic)', 'info');
         });
     </script>
 </body>
