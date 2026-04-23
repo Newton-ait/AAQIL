@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Surf Voice - Pipeline Diagnostic</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0f0f;
+            color: #00ff9d;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { color: #00ffcc; margin-bottom: 5px; }
+        h2 { color: #00ffcc; font-size: 16px; margin: 15px 0 10px 0; }
+        
+        .pipeline {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .node {
+            background: #0d1117;
+            border: 2px solid #1a2332;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .node.active { border-color: #00ff9d; box-shadow: 0 0 20px rgba(0,255,157,0.2); }
+        .node.error { border-color: #ff4444; box-shadow: 0 0 20px rgba(255,68,68,0.2); }
+        .node.warning { border-color: #ffaa00; box-shadow: 0 0 20px rgba(255,170,0,0.2); }
+        
+        .node-icon { font-size: 40px; margin-bottom: 10px; }
+        .node-name { font-weight: bold; margin-bottom: 5px; }
+        .node-status { font-size: 12px; }
+        
+        .arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+            font-size: 24px;
+        }
+        
+        .arrow.flowing { color: #00ff9d; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        
+        .log-panel {
+            background: #000;
+            border: 1px solid #1a2332;
+            border-radius: 10px;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            margin-top: 15px;
+            font-size: 12px;
+        }
+        
+        .log-entry {
+            padding: 4px 8px;
+            margin: 2px 0;
+            border-left: 3px solid #333;
+        }
+        
+        .log-client { border-left-color: #3498db; }
+        .log-sandbox { border-left-color: #9b59b6; }
+        .log-gateway { border-left-color: #f39c12; }
+        .log-agent { border-left-color: #2ecc71; }
+        .log-error { border-left-color: #e74c3c; color: #e74c3c; }
+        .log-success { border-left-color: #00ff9d; color: #00ff9d; }
+        
+        button {
+            background: #1a2332;
+            color: #00ff9d;
+            border: 1px solid #2a3a4a;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: monospace;
+            border-radius: 5px;
+        }
+        button:hover { background: #2a3a4a; }
+        button:disabled { opacity: 0.3; }
+        button.danger { border-color: #ff4444; color: #ff4444; }
+        button.success { border-color: #00ff9d; }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .stat-card {
+            background: #0d1117;
+            border: 1px solid #1a2332;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .stat-value { font-size: 28px; font-weight: bold; color: #00ff9d; }
+        .stat-label { font-size: 10px; color: #666; text-transform: uppercase; }
+        
+        .test-section {
+            background: #0d1117;
+            border: 1px solid #1a2332;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Surf Voice - Pipeline Diagnostic</h1>
+        <p style="color:#666">Tracing data flow: Client → Sandbox → Gateway → Agent</p>
+        
+        <!-- Pipeline Status -->
+        <div class="pipeline">
+            <div class="node" id="nodeClient">
+                <div class="node-icon">💻</div>
+                <div class="node-name">Client</div>
+                <div class="node-status" id="statusClient">Waiting</div>
+            </div>
+            <div class="arrow" id="arrow1">→</div>
+            <div class="node" id="nodeSandbox">
+                <div class="node-icon">🏄</div>
+                <div class="node-name">Sandbox</div>
+                <div class="node-status" id="statusSandbox">Waiting</div>
+            </div>
+            <div class="arrow" id="arrow2">→</div>
+            <div class="node" id="nodeGateway">
+                <div class="node-icon">🚪</div>
+                <div class="node-name">Gateway</div>
+                <div class="node-status" id="statusGateway">Waiting</div>
+            </div>
+            <div class="arrow" id="arrow3">→</div>
+            <div class="node" id="nodeAgent">
+                <div class="node-icon">🤖</div>
+                <div class="node-name">Agent</div>
+                <div class="node-status" id="statusAgent">Waiting</div>
+            </div>
+        </div>
+        
+        <!-- Stats -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="statMessagesOut">0</div>
+                <div class="stat-label">Messages Sent</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statMessagesIn">0</div>
+                <div class="stat-label">Messages Received</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statRTPPackets">0</div>
+                <div class="stat-label">RTP Packets</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statAudioChunks">0</div>
+                <div class="stat-label">Audio Chunks</div>
+            </div>
+        </div>
+        
+        <!-- Controls -->
+        <div class="test-section">
+            <h2>🎮 Controls</h2>
+            <button onclick="loadSandbox()" class="success">🔄 Load Sandbox</button>
+            <button onclick="authenticate()">🔐 Authenticate</button>
+            <button onclick="startMic()" class="success">🎤 Start Mic</button>
+            <button onclick="stopMic()" class="danger">⏹️ Stop Mic</button>
+            <button onclick="testREST()">📡 Test REST API</button>
+            <button onclick="testGatewayHealth()">🏥 Gateway Health</button>
+            <button onclick="testAgentHealth()">🤖 Agent Health</button>
+            <button onclick="runFullDiagnostic()">🚀 Run Full Diagnostic</button>
+        </div>
+        
+        <!-- Logs -->
+        <div class="grid-2">
+            <div>
+                <h2>📝 Client Logs (This Page)</h2>
+                <div class="log-panel" id="clientLogs">
+                    <div class="log-entry log-success">[System] Ready. Click 'Load Sandbox' to start diagnostic.</div>
+                </div>
+            </div>
+            <div>
+                <h2>🏄 Sandbox Messages (postMessage)</h2>
+                <div class="log-panel" id="sandboxLogs">
+                    <div class="log-entry">[System] Waiting for sandbox messages...</div>
+                </div>
+            </div>
+        </div>
+        
+        <iframe id="sandboxFrame" src="about:blank" style="display:none;" allow="microphone; autoplay"></iframe>
+    </div>
+
+    <script>
+        const SANDBOX_URL = "https://ashirafnewton-ait.github.io/extension/";
+        const GATEWAY_URL = "https://surf-gateway.onrender.com";
+        const SUPABASE_URL = "https://ljksgzttnufecxohwtwm.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk";
+        
+        let accessToken = null;
+        let stats = { out: 0, in: 0, rtp: 0, audio: 0 };
+        
+        function addLog(container, message, type = '') {
+            const div = document.createElement('div');
+            div.className = `log-entry log-${type}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            document.getElementById(container).appendChild(div);
+            document.getElementById(container).scrollTop = document.getElementById(container).scrollHeight;
+        }
+        
+        function updateNode(id, status, className = 'active') {
+            const node = document.getElementById('node' + id);
+            const statusEl = document.getElementById('status' + id);
+            node.className = 'node ' + className;
+            statusEl.textContent = status;
+        }
+        
+        function updateStat(id, value) {
+            document.getElementById(id).textContent = value;
+        }
+        
+        function sendToSandbox(type, data = {}) {
+            const frame = document.getElementById('sandboxFrame');
+            if (!frame?.contentWindow) {
+                addLog('clientLogs', '❌ Sandbox not loaded', 'error');
+                return false;
+            }
+            frame.contentWindow.postMessage({ type, ...data }, '*');
+            stats.out++;
+            updateStat('statMessagesOut', stats.out);
+            addLog('clientLogs', `📤 ${type} ${JSON.stringify(data)}`, 'client');
+            return true;
+        }
+        
+        function handleSandboxMessage(event) {
+            stats.in++;
+            updateStat('statMessagesIn', stats.in);
+            
+            const data = event.data;
+            const msg = JSON.stringify(data).substring(0, 150);
+            
+            if (data.type === 'log') {
+                addLog('sandboxLogs', `[${data.level}] ${data.message}`, 'sandbox');
+            } else {
+                addLog('sandboxLogs', `${data.type}: ${msg}`, 'sandbox');
+            }
+            
+            // Update pipeline nodes based on messages
+            if (data.type === 'sandbox_ready') {
+                updateNode('Sandbox', 'Ready', 'active');
+            } else if (data.type === 'streaming' && data.mode === 'sfu') {
+                updateNode('Sandbox', 'Streaming (SFU)', 'active');
+                document.getElementById('arrow1').className = 'arrow flowing';
+            } else if (data.message?.includes('Gateway connected')) {
+                updateNode('Gateway', 'Connected', 'active');
+                document.getElementById('arrow2').className = 'arrow flowing';
+            } else if (data.message?.includes('Authenticated')) {
+                updateNode('Gateway', 'Authenticated', 'active');
+            } else if (data.message?.includes('Producer created')) {
+                updateNode('Gateway', 'Producer Active', 'active');
+            }
+        }
+        
+        function loadSandbox() {
+            const frame = document.getElementById('sandboxFrame');
+            window.removeEventListener('message', handleSandboxMessage);
+            window.addEventListener('message', handleSandboxMessage);
+            
+            frame.src = SANDBOX_URL;
+            frame.onload = () => {
+                addLog('clientLogs', '✅ Sandbox loaded', 'success');
+                updateNode('Sandbox', 'Loaded', 'active');
+            };
+            addLog('clientLogs', '🔄 Loading sandbox...', 'client');
+        }
+        
+        async function authenticate() {
+            addLog('clientLogs', '🔐 Getting Supabase token...', 'client');
+            
+            try {
+                const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                    method: 'POST',
+                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'surf@testuser.com', password: 'Test1234!' })
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    accessToken = data.access_token;
+                    addLog('clientLogs', `✅ Token: ${accessToken.substring(0, 40)}...`, 'success');
+                    sendToSandbox('auth_token', { token: accessToken });
+                } else {
+                    addLog('clientLogs', `❌ Auth failed: ${res.status}`, 'error');
+                }
+            } catch(e) {
+                addLog('clientLogs', `❌ ${e.message}`, 'error');
+            }
+        }
+        
+        function startMic() { sendToSandbox('start_mic'); }
+        function stopMic() { sendToSandbox('stop_mic'); }
+        
+        async function testREST() {
+            addLog('clientLogs', '📡 Testing REST /voice endpoint...', 'client');
+            
+            try {
+                const res = await fetch(`${GATEWAY_URL}/health`);
+                const data = await res.json();
+                addLog('clientLogs', `✅ Gateway health: ${JSON.stringify(data)}`, 'success');
+                updateNode('Gateway', 'Healthy', 'active');
+            } catch(e) {
+                addLog('clientLogs', `❌ ${e.message}`, 'error');
+                updateNode('Gateway', 'Offline', 'error');
+            }
+        }
+        
+        async function testGatewayHealth() {
+            try {
+                const res = await fetch(`${GATEWAY_URL}/health`);
+                const data = await res.json();
+                addLog('clientLogs', `🏥 Gateway: ${JSON.stringify(data)}`, 'success');
+                updateNode('Gateway', data.status, 'active');
+                
+                // Also check status
+                const statusRes = await fetch(`${GATEWAY_URL}/status`);
+                const statusData = await statusRes.json();
+                addLog('clientLogs', `📊 Status: ${JSON.stringify(statusData)}`, 'client');
+            } catch(e) {
+                addLog('clientLogs', `❌ Gateway offline: ${e.message}`, 'error');
+                updateNode('Gateway', 'Offline', 'error');
+            }
+        }
+        
+        async function testAgentHealth() {
+            try {
+                const res = await fetch('https://surf-ait-surf-agent.hf.space/health');
+                const data = await res.json();
+                addLog('clientLogs', `🤖 Agent: ${JSON.stringify(data)}`, 'success');
+                updateNode('Agent', 'Healthy', 'active');
+            } catch(e) {
+                addLog('clientLogs', `❌ Agent offline: ${e.message}`, 'error');
+                updateNode('Agent', 'Offline', 'error');
+            }
+        }
+        
+        async function runFullDiagnostic() {
+            addLog('clientLogs', '🚀 STARTING FULL DIAGNOSTIC', 'success');
+            addLog('clientLogs', '━'.repeat(50), 'client');
+            
+            // Step 1: Load sandbox
+            addLog('clientLogs', '📋 Step 1: Load Sandbox', 'client');
+            loadSandbox();
+            await sleep(3000);
+            
+            // Step 2: Check Gateway
+            addLog('clientLogs', '📋 Step 2: Check Gateway', 'client');
+            await testGatewayHealth();
+            await sleep(1000);
+            
+            // Step 3: Check Agent
+            addLog('clientLogs', '📋 Step 3: Check Agent', 'client');
+            await testAgentHealth();
+            await sleep(1000);
+            
+            // Step 4: Authenticate
+            addLog('clientLogs', '📋 Step 4: Authenticate', 'client');
+            await authenticate();
+            await sleep(3000);
+            
+            // Step 5: Start Mic
+            addLog('clientLogs', '📋 Step 5: Start Microphone', 'client');
+            startMic();
+            await sleep(5000);
+            
+            // Step 6: Summary
+            addLog('clientLogs', '━'.repeat(50), 'client');
+            addLog('clientLogs', '✅ DIAGNOSTIC COMPLETE', 'success');
+            addLog('clientLogs', `   Messages Sent: ${stats.out}`, 'client');
+            addLog('clientLogs', `   Messages Received: ${stats.in}`, 'client');
+            addLog('clientLogs', '   Check Gateway logs for RTP forwarding', 'client');
+            addLog('clientLogs', '   Check Agent logs for packet processing', 'client');
+        }
+        
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+        
+        // Auto-load sandbox
+        window.addEventListener('load', () => {
+            addLog('clientLogs', '🌊 Pipeline Diagnostic Ready', 'success');
+            addLog('clientLogs', 'Click "Run Full Diagnostic" to start', 'client');
+        });
+    </script>
+</body>
+</html>
