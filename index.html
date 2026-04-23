@@ -73,6 +73,10 @@
             background: #f39c12;
         }
         
+        button.primary {
+            background: #3498db;
+        }
+        
         .log-container {
             background: #1e1e1e;
             color: #d4d4d4;
@@ -153,6 +157,26 @@
             gap: 20px;
             margin-bottom: 20px;
         }
+        
+        .step {
+            background: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        
+        .step-number {
+            display: inline-block;
+            width: 25px;
+            height: 25px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 25px;
+            margin-right: 10px;
+        }
     </style>
 </head>
 <body>
@@ -168,14 +192,15 @@
                 <h2>🎮 Controls</h2>
                 
                 <div class="controls">
-                    <button onclick="requestMicrophonePermission()" class="success">🎤 Request Mic Permission</button>
-                    <button onclick="loadSandbox()">🔄 Load Sandbox</button>
-                    <button onclick="testAuth()">🔐 Test Auth</button>
-                    <button onclick="startMic()">🎙️ Start Mic</button>
-                    <button onclick="stopMic()">⏹️ Stop Mic</button>
+                    <button onclick="requestMicrophonePermission()" class="success">🎤 Step 1: Request Mic</button>
+                    <button onclick="loadSandbox()" class="primary">🔄 Step 2: Load Sandbox</button>
+                    <button onclick="testAuth()" class="primary">🔐 Step 3: Test Auth</button>
+                    <button onclick="startMic()" class="success">🎙️ Step 4: Start Mic</button>
+                    <button onclick="stopMic()" class="danger">⏹️ Stop Mic</button>
                 </div>
                 
                 <div class="controls">
+                    <button onclick="quickTest()" class="warning">🚀 Quick Test (All Steps)</button>
                     <button onclick="testWebRTC()">📡 Test WebRTC</button>
                     <button onclick="checkState()">🔍 Check State</button>
                     <button onclick="clearLogs()" class="danger">🗑️ Clear Logs</button>
@@ -200,18 +225,28 @@
             <!-- Right Panel: Instructions -->
             <div class="panel">
                 <h2>📋 Test Instructions</h2>
-                <ol style="margin-left: 20px; line-height: 1.8;">
-                    <li>Click <strong>"Request Mic Permission"</strong> - Grant access when prompted</li>
-                    <li>Click <strong>"Load Sandbox"</strong> - Loads the WebRTC client</li>
-                    <li>Click <strong>"Test Auth"</strong> - Authenticates with Supabase</li>
-                    <li>Click <strong>"Start Mic"</strong> - Begins audio streaming</li>
-                    <li>Speak into your microphone</li>
-                    <li>Watch for AI responses!</li>
-                </ol>
+                <div class="step">
+                    <span class="step-number">1</span> Click <strong>"Request Mic"</strong> - Grant access when prompted
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span> Click <strong>"Load Sandbox"</strong> - Loads the WebRTC client
+                </div>
+                <div class="step">
+                    <span class="step-number">3</span> Click <strong>"Test Auth"</strong> - Authenticates with Supabase
+                </div>
+                <div class="step">
+                    <span class="step-number">4</span> Click <strong>"Start Mic"</strong> - Begins audio streaming
+                </div>
+                <div class="step">
+                    <span class="step-number">5</span> <strong>Speak into your microphone</strong>
+                </div>
+                <div class="step">
+                    <span class="step-number">6</span> Watch for AI responses in logs!
+                </div>
                 
                 <div style="margin-top: 20px; padding: 10px; background: #e8f4f8; border-radius: 5px;">
-                    <strong>💡 Note:</strong> The iframe below has <code>allow="microphone; autoplay"</code> 
-                    attribute, which is required for WebRTC audio streaming.
+                    <strong>💡 Note:</strong> The sandbox waits for <code>start_mic</code> command after receiving the token.
+                    Without Step 4, the microphone won't start streaming!
                 </div>
             </div>
         </div>
@@ -231,7 +266,7 @@
         <div class="panel">
             <h2>📝 Debug Logs</h2>
             <div class="log-container" id="logContainer">
-                <div class="log-entry log-info">[System] Ready - Click 'Request Mic Permission' to start</div>
+                <div class="log-entry log-info">[System] Ready - Follow the 4 steps above in order!</div>
             </div>
         </div>
     </div>
@@ -248,8 +283,8 @@
         let analyserNode = null;
         let animationFrame = null;
         let accessToken = null;
-        let testSocket = null;
         let sandboxFrame = null;
+        let micGranted = false;
         
         function addLog(message, type = 'info') {
             const logContainer = document.getElementById('logContainer');
@@ -268,39 +303,36 @@
         }
         
         async function requestMicrophonePermission() {
-            addLog('🎤 Requesting microphone permission...', 'info');
+            addLog('🎤 Step 1: Requesting microphone permission...', 'info');
             
             try {
-                // Request microphone access
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaStream = stream;
+                micGranted = true;
                 
                 addLog('✅ Microphone permission GRANTED!', 'success');
                 document.getElementById('micStatus').className = 'status status-active';
                 document.getElementById('micStatus').innerHTML = '✅ Granted';
                 
-                // List available microphones
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const mics = devices.filter(d => d.kind === 'audioinput');
                 const micList = mics.map(m => m.label || 'Unknown mic').join(', ');
                 document.getElementById('micDevices').innerHTML = `🎙️ Microphones: ${micList || 'Default microphone'}`;
-                addLog(`Found ${mics.length} microphone(s): ${micList}`, 'success');
+                addLog(`Found ${mics.length} microphone(s)`, 'success');
                 
-                // Setup audio level meter
                 setupAudioLevelMeter(stream);
                 
-                // Keep stream active but muted
                 const audioTrack = stream.getAudioTracks()[0];
-                addLog(`Using microphone: ${audioTrack.label}`, 'info');
+                addLog(`Using microphone: ${audioTrack.label}`, 'success');
                 
-                // Now load sandbox with permission already granted
-                loadSandbox();
+                addLog('✅ Step 1 Complete! Now click "Load Sandbox"', 'success');
                 
                 return stream;
             } catch(e) {
                 addLog(`❌ Microphone permission DENIED: ${e.message}`, 'error');
                 document.getElementById('micStatus').className = 'status status-inactive';
                 document.getElementById('micStatus').innerHTML = '❌ Denied';
+                micGranted = false;
                 return null;
             }
         }
@@ -325,7 +357,6 @@
                 const level = Math.min(100, max * 100);
                 document.getElementById('micLevel').style.width = level + '%';
                 
-                // Color based on level
                 const fill = document.getElementById('micLevel');
                 if (level > 50) fill.style.background = '#e74c3c';
                 else if (level > 20) fill.style.background = '#f39c12';
@@ -336,31 +367,29 @@
             
             updateLevel();
             audioContext.resume();
-            addLog('🎤 Audio level meter active', 'success');
         }
         
         function loadSandbox() {
-            addLog(`Loading sandbox: ${SANDBOX_URL}`, 'info');
+            addLog('🔄 Step 2: Loading sandbox...', 'info');
             sandboxFrame = document.getElementById('sandboxFrame');
             
-            // Remove old event listener
             window.removeEventListener('message', handleSandboxMessage);
             window.addEventListener('message', handleSandboxMessage);
             
-            // Load sandbox
             sandboxFrame.src = SANDBOX_URL;
             
             sandboxFrame.onload = () => {
                 addLog('✅ Sandbox iframe loaded with microphone permissions', 'success');
                 
-                // Send microphone permission status to sandbox
-                if (mediaStream) {
+                if (micGranted && sandboxFrame.contentWindow) {
                     sandboxFrame.contentWindow.postMessage({
                         type: 'mic_permission_granted',
                         hasMic: true
                     }, '*');
                     addLog('📤 Sent mic permission status to sandbox', 'info');
                 }
+                
+                addLog('✅ Step 2 Complete! Now click "Test Auth"', 'success');
             };
         }
         
@@ -375,18 +404,18 @@
                     addLog(`✅ Authentication successful! User: ${event.data.userId}`, 'success');
                     document.getElementById('gatewayStatus').className = 'status status-active';
                     document.getElementById('gatewayStatus').innerHTML = '✅ Authenticated';
+                    addLog('✅ Step 3 Complete! Now click "Start Mic"', 'success');
                     break;
                 case 'auth_error':
                     addLog(`❌ Auth error: ${event.data.error}`, 'error');
                     break;
                 case 'sfu_ready':
-                    addLog(`🎉 SFU READY! Transport created: ${event.data.transportId}`, 'success');
-                    document.getElementById('gatewayInfo').innerHTML = `✅ SFU Connected - ${event.data.transportId}`;
+                    addLog(`🎉 SFU READY! Transport created`, 'success');
+                    document.getElementById('gatewayInfo').innerHTML = `✅ SFU Connected`;
                     break;
-                case 'sfu_failed':
-                    addLog(`❌ SFU failed: ${event.data.error}`, 'error');
-                    document.getElementById('gatewayStatus').className = 'status status-warning';
-                    document.getElementById('gatewayStatus').innerHTML = '⚠️ SFU Failed';
+                case 'producer_created':
+                    addLog(`🎤 Audio producer created! Streaming active!`, 'success');
+                    document.getElementById('gatewayStatus').innerHTML = '🎤 Streaming';
                     break;
                 case 'transcript':
                     addLog(`📝 Transcript: "${event.data.text}"`, 'success');
@@ -394,8 +423,8 @@
                 case 'response':
                     addLog(`💬 AI Response: "${event.data.text}"`, 'success');
                     break;
-                case 'tts_audio':
-                    addLog(`🔊 Received TTS audio (${event.data.audio?.length || 0} bytes)`, 'success');
+                case 'tts_playing':
+                    addLog(`🔊 TTS audio playing!`, 'success');
                     break;
                 case 'error':
                     addLog(`❌ Error: ${event.data.message}`, 'error');
@@ -404,7 +433,12 @@
         }
         
         async function testAuth() {
-            addLog('🔐 Testing authentication...', 'info');
+            if (!sandboxFrame) {
+                addLog('❌ Please load sandbox first!', 'error');
+                return;
+            }
+            
+            addLog('🔐 Step 3: Testing authentication...', 'info');
             
             try {
                 const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -424,14 +458,11 @@
                     accessToken = data.access_token;
                     addLog(`✅ Got token: ${accessToken.substring(0, 50)}...`, 'success');
                     
-                    // Send token to sandbox
-                    if (sandboxFrame && sandboxFrame.contentWindow) {
-                        sandboxFrame.contentWindow.postMessage({
-                            type: 'auth_token',
-                            token: accessToken
-                        }, '*');
-                        addLog('📤 Sent auth token to sandbox', 'success');
-                    }
+                    sandboxFrame.contentWindow.postMessage({
+                        type: 'auth_token',
+                        token: accessToken
+                    }, '*');
+                    addLog('📤 Sent auth token to sandbox', 'success');
                 } else {
                     addLog(`❌ Auth failed: ${response.status}`, 'error');
                 }
@@ -441,25 +472,52 @@
         }
         
         function startMic() {
-            if (!mediaStream) {
-                addLog('❌ Please request microphone permission first!', 'error');
-                alert('Please click "Request Mic Permission" first!');
+            if (!sandboxFrame) {
+                addLog('❌ Please load sandbox first!', 'error');
                 return;
             }
             
-            addLog('🎤 Sending start_mic to sandbox...', 'info');
-            if (sandboxFrame && sandboxFrame.contentWindow) {
-                sandboxFrame.contentWindow.postMessage({ type: 'start_mic' }, '*');
-                document.getElementById('gatewayStatus').innerHTML = '🎤 Streaming...';
+            if (!accessToken) {
+                addLog('❌ Please authenticate first!', 'error');
+                return;
             }
+            
+            addLog('🎙️ Step 4: Sending start_mic to sandbox...', 'info');
+            addLog('🎤 Now speak into your microphone!', 'success');
+            
+            sandboxFrame.contentWindow.postMessage({ type: 'start_mic' }, '*');
+            document.getElementById('gatewayStatus').innerHTML = '🎤 Starting...';
         }
         
         function stopMic() {
             addLog('⏹️ Sending stop_mic to sandbox...', 'info');
-            if (sandboxFrame && sandboxFrame.contentWindow) {
+            if (sandboxFrame) {
                 sandboxFrame.contentWindow.postMessage({ type: 'stop_mic' }, '*');
                 document.getElementById('gatewayStatus').innerHTML = 'Disconnected';
             }
+        }
+        
+        async function quickTest() {
+            addLog('🚀 Running quick test (all steps automatically)...', 'info');
+            
+            // Step 1: Request mic
+            if (!micGranted) {
+                await requestMicrophonePermission();
+                await new Promise(r => setTimeout(r, 1000));
+            }
+            
+            // Step 2: Load sandbox
+            loadSandbox();
+            await new Promise(r => setTimeout(r, 2000));
+            
+            // Step 3: Auth
+            await testAuth();
+            await new Promise(r => setTimeout(r, 1000));
+            
+            // Step 4: Start mic
+            startMic();
+            
+            addLog('✅ Quick test complete! Speak into your microphone...', 'success');
         }
         
         function testWebRTC() {
@@ -479,7 +537,7 @@
         
         function checkState() {
             addLog('🔍 Checking current state...', 'info');
-            addLog(`Microphone: ${mediaStream ? '✅ Granted' : '❌ Not requested'}`, mediaStream ? 'success' : 'warning');
+            addLog(`Microphone: ${micGranted ? '✅ Granted' : '❌ Not requested'}`, micGranted ? 'success' : 'warning');
             addLog(`Sandbox iframe: ${sandboxFrame ? '✅ Loaded' : '❌ Not loaded'}`, sandboxFrame ? 'success' : 'warning');
             addLog(`Auth token: ${accessToken ? '✅ Present' : '❌ Missing'}`, accessToken ? 'success' : 'warning');
             
@@ -488,7 +546,6 @@
             }
         }
         
-        // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
             if (mediaStream) {
                 mediaStream.getTracks().forEach(track => track.stop());
@@ -502,7 +559,7 @@
         });
         
         addLog('🌊 Surf Voice Complete Test Ready', 'success');
-        addLog('⚠️ IMPORTANT: Click "Request Mic Permission" first!', 'warning');
+        addLog('⚠️ Follow the 4 steps in order!', 'warning');
     </script>
 </body>
 </html>
