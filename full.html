@@ -18,50 +18,33 @@
         h2 { color: #00ffcc; font-size: 16px; margin: 15px 0 10px 0; }
         .subtitle { color: #666; margin-bottom: 20px; font-size: 12px; }
         
-        /* Architecture Diagram */
         .arch-diagram {
-            background: #0d1117;
-            border: 1px solid #1a2332;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
-            text-align: center;
-            font-size: 13px;
-            line-height: 2;
+            background: #0d1117; border: 1px solid #1a2332;
+            border-radius: 10px; padding: 20px; margin: 20px 0;
+            text-align: center; font-size: 13px; line-height: 2;
         }
-        .arch-row {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
+        .arch-row { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; }
         .arch-box {
-            background: #1a2332;
-            border: 2px solid #2a3a4a;
-            border-radius: 8px;
-            padding: 8px 16px;
-            min-width: 100px;
-            text-align: center;
+            background: #1a2332; border: 2px solid #2a3a4a;
+            border-radius: 8px; padding: 8px 16px; min-width: 100px; text-align: center;
         }
         .arch-box.active { border-color: #00ff9d; box-shadow: 0 0 10px rgba(0,255,157,0.3); }
         .arch-box.error { border-color: #ff4444; box-shadow: 0 0 10px rgba(255,68,68,0.3); }
         .arch-arrow { color: #00ff9d; font-size: 18px; }
         .arch-arrow.blocked { color: #ff4444; }
         
-        /* Stats Grid */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 10px;
-            margin: 20px 0;
+        .mode-badge {
+            display: inline-block; padding: 5px 15px; border-radius: 20px;
+            font-size: 14px; font-weight: bold; margin: 10px 0;
         }
+        .mode-rest { background: #f39c12; color: #000; }
+        .mode-sfu { background: #00ff9d; color: #000; }
+        .mode-offline { background: #ff4444; color: #fff; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin: 20px 0; }
         .stat-card {
-            background: #0d1117;
-            border: 1px solid #1a2332;
-            border-radius: 8px;
-            padding: 15px;
-            text-align: center;
+            background: #0d1117; border: 1px solid #1a2332;
+            border-radius: 8px; padding: 15px; text-align: center;
         }
         .stat-card .value { font-size: 32px; font-weight: bold; color: #00ff9d; }
         .stat-card .label { font-size: 10px; color: #666; text-transform: uppercase; margin-top: 5px; }
@@ -70,81 +53,38 @@
         .stat-card .status.warn { color: #ffaa00; }
         .stat-card .status.err { color: #ff4444; }
         
-        /* Test Steps */
-        .test-steps {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 10px;
-            margin: 20px 0;
-        }
+        .test-steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 20px 0; }
         .test-step {
-            background: #0d1117;
-            border: 2px solid #1a2332;
-            border-radius: 10px;
-            padding: 15px;
-            text-align: center;
-            transition: all 0.3s;
+            background: #0d1117; border: 2px solid #1a2332;
+            border-radius: 10px; padding: 15px; text-align: center; transition: all 0.3s;
         }
         .test-step.pass { border-color: #00ff9d; }
         .test-step.fail { border-color: #ff4444; }
         .test-step.pending { border-color: #ffaa00; }
         .test-step .step-num {
-            width: 30px; height: 30px;
-            border-radius: 50%;
-            background: #1a2332;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 10px;
-            font-weight: bold;
+            width: 30px; height: 30px; border-radius: 50%; background: #1a2332;
+            display: inline-flex; align-items: center; justify-content: center;
+            margin-bottom: 10px; font-weight: bold;
         }
         .test-step.pass .step-num { background: #00ff9d; color: #000; }
         .test-step.fail .step-num { background: #ff4444; color: #fff; }
         
-        /* Controls */
-        .controls {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin: 15px 0;
-        }
+        .controls { display: flex; gap: 10px; flex-wrap: wrap; margin: 15px 0; }
         button {
-            background: #1a2332;
-            color: #00ff9d;
-            border: 1px solid #2a3a4a;
-            padding: 10px 20px;
-            cursor: pointer;
-            font-family: monospace;
-            border-radius: 5px;
-            font-size: 13px;
-            transition: all 0.2s;
+            background: #1a2332; color: #00ff9d; border: 1px solid #2a3a4a;
+            padding: 10px 20px; cursor: pointer; font-family: monospace;
+            border-radius: 5px; font-size: 13px; transition: all 0.2s;
         }
         button:hover { background: #2a3a4a; border-color: #00ff9d; }
         button:disabled { opacity: 0.3; cursor: not-allowed; }
         button.primary { background: #00ff9d; color: #000; border-color: #00ff9d; font-weight: bold; }
-        button.danger { border-color: #ff4444; color: #ff4444; }
         
-        /* Logs */
-        .log-panels {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
-        }
+        .log-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
         .log-panel {
-            background: #000;
-            border: 1px solid #1a2332;
-            border-radius: 10px;
-            padding: 15px;
-            height: 350px;
-            overflow-y: auto;
-            font-size: 11px;
+            background: #000; border: 1px solid #1a2332;
+            border-radius: 10px; padding: 15px; height: 350px; overflow-y: auto; font-size: 11px;
         }
-        .log-entry {
-            padding: 3px 8px;
-            margin: 2px 0;
-            border-left: 3px solid #333;
-        }
+        .log-entry { padding: 3px 8px; margin: 2px 0; border-left: 3px solid #333; }
         .log-info { border-left-color: #3498db; }
         .log-success { border-left-color: #00ff9d; color: #00ff9d; }
         .log-error { border-left-color: #ff4444; color: #ff4444; }
@@ -152,31 +92,22 @@
         .log-rtp { border-left-color: #9b59b6; color: #9b59b6; }
         
         iframe { display: none; }
-        
-        .flow-indicator {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 11px;
-            margin: 5px 0;
-        }
-        .flow-dot {
-            width: 8px; height: 8px; border-radius: 50%;
-            background: #333;
-        }
-        .flow-dot.active { background: #00ff9d; box-shadow: 0 0 5px #00ff9d; }
-        .flow-dot.error { background: #ff4444; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🔍 Surf Voice - Full Architecture Diagnostic</h1>
         <div class="subtitle">
-            Pipeline: 💻 Browser → 🏄 Sandbox (GitHub Pages) → 🚪 Gateway (Render) → 🤖 Agent (HF) → 🧠 Vocal API (HF) → 🗣️ TTS
+            Pipeline: 💻 Browser → 🏄 Sandbox → 🚪 Gateway → 🤖 Agent → 🧠 Vocal → 🗣️ TTS
+        </div>
+        
+        <!-- Mode Indicator -->
+        <div style="text-align:center;">
+            <span class="mode-badge mode-offline" id="modeBadge">⚪ Offline</span>
         </div>
         
         <!-- Architecture Status -->
-        <div class="arch-diagram" id="archDiagram">
+        <div class="arch-diagram">
             <div class="arch-row">
                 <div class="arch-box" id="boxBrowser">💻<br>Browser</div>
                 <span class="arch-arrow">→</span>
@@ -184,16 +115,9 @@
                 <span class="arch-arrow">→</span>
                 <div class="arch-box" id="boxGateway">🚪<br>Gateway</div>
                 <span class="arch-arrow">→</span>
-                <div class="arch-box" id="boxAgent">🤖<br>Agent</div>
-                <span class="arch-arrow">→</span>
                 <div class="arch-box" id="boxVocal">🧠<br>Vocal API</div>
                 <span class="arch-arrow">→</span>
                 <div class="arch-box" id="boxTTS">🗣️<br>TTS</div>
-            </div>
-            <div class="arch-row" style="margin-top:10px;">
-                <div class="arch-box" id="boxSupabase">🗄️<br>Supabase</div>
-                <span class="arch-arrow">←→</span>
-                <div class="arch-box" id="boxAuth">🔐<br>Auth</div>
             </div>
         </div>
         
@@ -210,15 +134,14 @@
             <div class="stat-card">
                 <div class="value" id="statRTP">0</div>
                 <div class="label">RTP Packets</div>
-                <div class="status" id="rtpStatus"></div>
             </div>
             <div class="stat-card">
-                <div class="value" id="statAuth">--</div>
-                <div class="label">Auth Status</div>
+                <div class="value" id="statTranscripts">0</div>
+                <div class="label">Transcripts</div>
             </div>
             <div class="stat-card">
-                <div class="value" id="statRoom">--</div>
-                <div class="label">Room</div>
+                <div class="value" id="statResponses">0</div>
+                <div class="label">AI Responses</div>
             </div>
             <div class="stat-card">
                 <div class="value" id="statLatency">--</div>
@@ -235,22 +158,22 @@
             </div>
             <div class="test-step pending" id="step2">
                 <div class="step-num">2</div>
-                <div>Supabase Auth</div>
+                <div>REST Active</div>
                 <small id="step2Detail">Pending</small>
             </div>
             <div class="test-step pending" id="step3">
                 <div class="step-num">3</div>
-                <div>Gateway Connect</div>
+                <div>Mic Capture</div>
                 <small id="step3Detail">Pending</small>
             </div>
             <div class="test-step pending" id="step4">
                 <div class="step-num">4</div>
-                <div>Producer Create</div>
+                <div>Transcription</div>
                 <small id="step4Detail">Pending</small>
             </div>
             <div class="test-step pending" id="step5">
                 <div class="step-num">5</div>
-                <div>RTP Flowing</div>
+                <div>TTS Response</div>
                 <small id="step5Detail">Pending</small>
             </div>
         </div>
@@ -260,11 +183,9 @@
         <div class="controls">
             <button class="primary" onclick="runFullTest()">🚀 Run Full Diagnostic</button>
             <button onclick="loadSandbox()">🔄 Load Sandbox</button>
-            <button onclick="authenticate()">🔐 Get Token</button>
             <button onclick="startMic()">🎤 Start Mic</button>
             <button onclick="stopMic()">⏹️ Stop Mic</button>
             <button onclick="testGatewayHealth()">🏥 Gateway Health</button>
-            <button onclick="testVocalHealth()">🧠 Vocal Health</button>
             <button onclick="clearLogs()">🗑️ Clear Logs</button>
         </div>
         
@@ -291,11 +212,9 @@
         const SANDBOX_URL = "https://ashirafnewton-ait.github.io/extension/";
         const GATEWAY_URL = "https://surf-gateway.onrender.com";
         const VOCAL_URL = "https://surf-ait-surf-vocal.hf.space";
-        const SUPABASE_URL = "https://ljksgzttnufecxohwtwm.supabase.co";
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk";
         
-        let accessToken = null;
-        let stats = { sent: 0, recv: 0, rtp: 0, auth: false, room: null, startTime: 0 };
+        let stats = { sent: 0, recv: 0, rtp: 0, transcripts: 0, responses: 0, startTime: 0 };
+        let currentMode = 'offline';
         
         function log(container, msg, type = 'info') {
             const el = document.getElementById(container);
@@ -310,13 +229,22 @@
         
         function updateBox(id, active) {
             const box = document.getElementById('box' + id);
-            box.className = 'arch-box ' + (active ? 'active' : '');
+            if (box) box.className = 'arch-box ' + (active ? 'active' : '');
         }
         
         function updateStep(num, status, detail) {
             const step = document.getElementById('step' + num);
-            step.className = 'test-step ' + status;
-            document.getElementById('step' + num + 'Detail').textContent = detail;
+            if (step) {
+                step.className = 'test-step ' + status;
+                document.getElementById('step' + num + 'Detail').textContent = detail;
+            }
+        }
+        
+        function setMode(mode) {
+            currentMode = mode;
+            const badge = document.getElementById('modeBadge');
+            badge.className = 'mode-badge mode-' + mode;
+            badge.textContent = mode === 'rest' ? '🟡 REST Mode' : mode === 'sfu' ? '🟢 SFU Mode' : '⚪ Offline';
         }
         
         function sendToSandbox(type, data = {}) {
@@ -325,7 +253,6 @@
             frame.contentWindow.postMessage({ type, ...data }, '*');
             stats.sent++;
             updateStat('statSent', stats.sent);
-            log('clientLogs', `📤 Sent: ${type}`, 'info');
             return true;
         }
         
@@ -334,47 +261,69 @@
             updateStat('statRecv', stats.recv);
             const data = event.data;
             
-            if (data.type === 'sandbox_ready') {
-                log('sandboxLogs', '🏄 Sandbox ready', 'success');
-                updateBox('Sandbox', true);
-                updateStep(1, 'pass', 'Loaded');
-            }
-            if (data.type === 'log') {
-                const type = data.level === 'success' ? 'success' : data.level === 'error' ? 'error' : 'info';
-                log('sandboxLogs', `[${data.level}] ${data.message}`, type);
-            }
-            if (data.message?.includes('Authenticated')) {
-                stats.auth = true;
-                updateStat('statAuth', '✅');
-                updateBox('Auth', true);
-                updateStep(2, 'pass', 'Authenticated');
-            }
-            if (data.message?.includes('Gateway connected')) {
-                updateBox('Gateway', true);
-                updateStep(3, 'pass', 'Connected');
-            }
-            if (data.message?.includes('Room:')) {
-                stats.room = data.message.split('Room: ')[1]?.split(' ')[0];
-                updateStat('statRoom', stats.room?.slice(-8) || '--');
-            }
-            if (data.message?.includes('Producer created')) {
-                updateStep(4, 'pass', 'Created');
-            }
-            if (data.type === 'streaming') {
-                log('sandboxLogs', `🎙️ Streaming: ${data.mode}`, 'success');
-                updateBox('Gateway', true);
-            }
-            if (data.type === 'transcript') {
-                log('sandboxLogs', `📝 ${data.text}`, 'success');
-                stats.startTime = stats.startTime || Date.now();
-            }
-            if (data.type === 'response') {
-                log('sandboxLogs', `🤖 ${data.text}`, 'success');
-                if (stats.startTime) {
-                    const latency = Date.now() - stats.startTime;
-                    updateStat('statLatency', (latency/1000).toFixed(1) + 's');
-                    stats.startTime = 0;
-                }
+            switch(data.type) {
+                case 'sandbox_ready':
+                    log('sandboxLogs', '🏄 Sandbox ready', 'success');
+                    updateBox('Sandbox', true);
+                    updateStep(1, 'pass', 'Loaded');
+                    break;
+                    
+                case 'streaming':
+                    if (data.mode === 'rest') {
+                        setMode('rest');
+                        updateStep(2, 'pass', 'REST Active');
+                        updateBox('Gateway', true);
+                        log('sandboxLogs', '🟡 REST streaming active', 'success');
+                    } else if (data.mode === 'sfu') {
+                        setMode('sfu');
+                        updateStep(2, 'pass', 'SFU Active');
+                    }
+                    break;
+                    
+                case 'log':
+                    const type = data.level === 'success' ? 'success' : data.level === 'error' ? 'error' : 'info';
+                    log('sandboxLogs', `[${data.level}] ${data.message}`, type);
+                    
+                    // Detect mode from log messages
+                    if (data.message.includes('REST mode active')) {
+                        setMode('rest');
+                        updateStep(2, 'pass', 'REST Active');
+                        updateBox('Gateway', true);
+                    }
+                    if (data.message.includes('SFU fully connected')) {
+                        setMode('sfu');
+                        updateStep(2, 'pass', 'SFU Active');
+                    }
+                    if (data.message.includes('Gateway connected')) {
+                        updateBox('Gateway', true);
+                    }
+                    if (data.message.includes('Mic:')) {
+                        updateStep(3, 'pass', 'Mic Ready');
+                    }
+                    break;
+                    
+                case 'transcript':
+                    stats.transcripts++;
+                    updateStat('statTranscripts', stats.transcripts);
+                    log('sandboxLogs', `📝 "${data.text}"`, 'success');
+                    updateStep(4, 'pass', 'Transcribed');
+                    stats.startTime = Date.now();
+                    break;
+                    
+                case 'response':
+                    stats.responses++;
+                    updateStat('statResponses', stats.responses);
+                    log('sandboxLogs', `🤖 "${data.text}"`, 'success');
+                    updateStep(5, 'pass', 'Responded');
+                    if (stats.startTime) {
+                        updateStat('statLatency', ((Date.now() - stats.startTime)/1000).toFixed(1) + 's');
+                        stats.startTime = 0;
+                    }
+                    break;
+                    
+                case 'status':
+                    // Status updates
+                    break;
             }
         }
         
@@ -386,34 +335,14 @@
             frame.onload = () => log('clientLogs', '✅ Sandbox iframe loaded', 'success');
             log('clientLogs', '🔄 Loading sandbox...', 'info');
             updateStep(1, 'pending', 'Loading...');
+            setMode('offline');
         }
         
-        async function authenticate() {
-            log('clientLogs', '🔐 Fetching Supabase token...', 'info');
-            try {
-                const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-                    method: 'POST',
-                    headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: 'surf@testuser.com', password: 'Test1234!' })
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    accessToken = data.access_token;
-                    log('clientLogs', `✅ Token: ${accessToken.substring(0, 40)}...`, 'success');
-                    sendToSandbox('auth_token', { token: accessToken });
-                    updateStep(2, 'pending', 'Verifying...');
-                } else {
-                    log('clientLogs', `❌ Auth failed: ${res.status}`, 'error');
-                    updateStep(2, 'fail', 'Failed');
-                }
-            } catch(e) { log('clientLogs', `❌ ${e.message}`, 'error'); }
+        function startMic() { 
+            sendToSandbox('start_mic'); 
+            updateStep(2, 'pending', 'Starting...');
         }
-        
-        function startMic() {
-            sendToSandbox('start_mic');
-            updateStep(3, 'pending', 'Connecting...');
-        }
-        function stopMic() { sendToSandbox('stop_mic'); }
+        function stopMic() { sendToSandbox('stop_mic'); setMode('offline'); }
         
         async function testGatewayHealth() {
             try {
@@ -423,65 +352,47 @@
                 updateBox('Gateway', data.status === 'healthy');
             } catch(e) {
                 log('clientLogs', `❌ Gateway offline: ${e.message}`, 'error');
-                updateBox('Gateway', false);
-            }
-        }
-        
-        async function testVocalHealth() {
-            try {
-                const res = await fetch(`${VOCAL_URL}/health`);
-                const data = await res.json();
-                log('clientLogs', `🧠 Vocal: ${JSON.stringify(data)}`, 'success');
-                updateBox('Vocal', data.status === 'ready');
-            } catch(e) {
-                log('clientLogs', `❌ Vocal offline: ${e.message}`, 'error');
             }
         }
         
         function clearLogs() {
             document.getElementById('clientLogs').innerHTML = '';
             document.getElementById('sandboxLogs').innerHTML = '';
+            stats = { sent: 0, recv: 0, rtp: 0, transcripts: 0, responses: 0, startTime: 0 };
+            updateStat('statSent', 0); updateStat('statRecv', 0);
+            updateStat('statTranscripts', 0); updateStat('statResponses', 0);
+            updateStat('statLatency', '--');
         }
         
         async function runFullTest() {
             log('clientLogs', '🚀 STARTING FULL DIAGNOSTIC', 'success');
             log('clientLogs', '━'.repeat(60), 'info');
             
-            // Step 1: Load Sandbox
             log('clientLogs', '📋 Step 1: Loading Sandbox', 'info');
             loadSandbox();
             await sleep(3000);
             
-            // Step 2: Check services
-            log('clientLogs', '📋 Step 2: Health Checks', 'info');
+            log('clientLogs', '📋 Step 2: Health Check', 'info');
             await testGatewayHealth();
-            await testVocalHealth();
             await sleep(1000);
             
-            // Step 3: Authenticate
-            log('clientLogs', '📋 Step 3: Authentication', 'info');
-            await authenticate();
-            await sleep(3000);
-            
-            // Step 4: Start Mic
-            log('clientLogs', '📋 Step 4: Start Microphone', 'info');
+            log('clientLogs', '📋 Step 3: Start Microphone (REST Mode)', 'info');
             startMic();
             await sleep(5000);
             
-            // Step 5: Summary
             log('clientLogs', '━'.repeat(60), 'info');
             log('clientLogs', '✅ DIAGNOSTIC COMPLETE', 'success');
-            log('clientLogs', `   Sandbox: ${stats.recv > 0 ? '✅' : '❌'}`, 'info');
-            log('clientLogs', `   Auth: ${stats.auth ? '✅' : '❌'}`, 'info');
-            log('clientLogs', `   Room: ${stats.room || '❌'}`, 'info');
-            log('clientLogs', '   Check Gateway logs for RTP forwarding', 'info');
+            log('clientLogs', `   Mode: ${currentMode.toUpperCase()}`, 'info');
+            log('clientLogs', `   Transcripts: ${stats.transcripts}`, 'info');
+            log('clientLogs', `   Responses: ${stats.responses}`, 'info');
+            log('clientLogs', '   Speak now and watch for transcription!', 'info');
         }
         
         function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
         
         window.addEventListener('load', () => {
             log('clientLogs', '🔍 Surf Voice Diagnostic Ready', 'success');
-            log('clientLogs', 'Architecture: Browser → Sandbox → Gateway → Agent → Vocal → TTS', 'info');
+            log('clientLogs', 'Mode: REST (WebRTC RTP unavailable on this platform)', 'info');
         });
     </script>
 </body>
