@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔍 Surf Voice - Pipeline Diagnostic</title>
+    <title>🔍 Surf Voice - Full Architecture Diagnostic</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -11,19 +11,73 @@
             background: #0a0f0f;
             color: #00ff9d;
             padding: 20px;
+            min-height: 100vh;
         }
-        .container { max-width: 1400px; margin: 0 auto; }
-        h1 { color: #00ffcc; margin-bottom: 5px; }
+        .container { max-width: 1500px; margin: 0 auto; }
+        h1 { color: #00ffcc; margin-bottom: 5px; font-size: 24px; }
         h2 { color: #00ffcc; font-size: 16px; margin: 15px 0 10px 0; }
+        .subtitle { color: #666; margin-bottom: 20px; font-size: 12px; }
         
-        .pipeline {
+        /* Architecture Diagram */
+        .arch-diagram {
+            background: #0d1117;
+            border: 1px solid #1a2332;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            font-size: 13px;
+            line-height: 2;
+        }
+        .arch-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .arch-box {
+            background: #1a2332;
+            border: 2px solid #2a3a4a;
+            border-radius: 8px;
+            padding: 8px 16px;
+            min-width: 100px;
+            text-align: center;
+        }
+        .arch-box.active { border-color: #00ff9d; box-shadow: 0 0 10px rgba(0,255,157,0.3); }
+        .arch-box.error { border-color: #ff4444; box-shadow: 0 0 10px rgba(255,68,68,0.3); }
+        .arch-arrow { color: #00ff9d; font-size: 18px; }
+        .arch-arrow.blocked { color: #ff4444; }
+        
+        /* Stats Grid */
+        .stats-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
             margin: 20px 0;
         }
+        .stat-card {
+            background: #0d1117;
+            border: 1px solid #1a2332;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        .stat-card .value { font-size: 32px; font-weight: bold; color: #00ff9d; }
+        .stat-card .label { font-size: 10px; color: #666; text-transform: uppercase; margin-top: 5px; }
+        .stat-card .status { font-size: 11px; margin-top: 5px; }
+        .stat-card .status.ok { color: #00ff9d; }
+        .stat-card .status.warn { color: #ffaa00; }
+        .stat-card .status.err { color: #ff4444; }
         
-        .node {
+        /* Test Steps */
+        .test-steps {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .test-step {
             background: #0d1117;
             border: 2px solid #1a2332;
             border-radius: 10px;
@@ -31,245 +85,296 @@
             text-align: center;
             transition: all 0.3s;
         }
-        
-        .node.active { border-color: #00ff9d; box-shadow: 0 0 20px rgba(0,255,157,0.2); }
-        .node.error { border-color: #ff4444; box-shadow: 0 0 20px rgba(255,68,68,0.2); }
-        .node.warning { border-color: #ffaa00; box-shadow: 0 0 20px rgba(255,170,0,0.2); }
-        
-        .node-icon { font-size: 40px; margin-bottom: 10px; }
-        .node-name { font-weight: bold; margin-bottom: 5px; }
-        .node-status { font-size: 12px; }
-        
-        .arrow {
-            display: flex;
+        .test-step.pass { border-color: #00ff9d; }
+        .test-step.fail { border-color: #ff4444; }
+        .test-step.pending { border-color: #ffaa00; }
+        .test-step .step-num {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            background: #1a2332;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            color: #333;
-            font-size: 24px;
+            margin-bottom: 10px;
+            font-weight: bold;
         }
+        .test-step.pass .step-num { background: #00ff9d; color: #000; }
+        .test-step.fail .step-num { background: #ff4444; color: #fff; }
         
-        .arrow.flowing { color: #00ff9d; animation: pulse 1s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-        
-        .log-panel {
-            background: #000;
-            border: 1px solid #1a2332;
-            border-radius: 10px;
-            padding: 15px;
-            height: 400px;
-            overflow-y: auto;
-            margin-top: 15px;
-            font-size: 12px;
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 0;
         }
-        
-        .log-entry {
-            padding: 4px 8px;
-            margin: 2px 0;
-            border-left: 3px solid #333;
-        }
-        
-        .log-client { border-left-color: #3498db; }
-        .log-sandbox { border-left-color: #9b59b6; }
-        .log-gateway { border-left-color: #f39c12; }
-        .log-agent { border-left-color: #2ecc71; }
-        .log-error { border-left-color: #e74c3c; color: #e74c3c; }
-        .log-success { border-left-color: #00ff9d; color: #00ff9d; }
-        
         button {
             background: #1a2332;
             color: #00ff9d;
             border: 1px solid #2a3a4a;
             padding: 10px 20px;
-            margin: 5px;
             cursor: pointer;
             font-family: monospace;
             border-radius: 5px;
+            font-size: 13px;
+            transition: all 0.2s;
         }
-        button:hover { background: #2a3a4a; }
-        button:disabled { opacity: 0.3; }
+        button:hover { background: #2a3a4a; border-color: #00ff9d; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+        button.primary { background: #00ff9d; color: #000; border-color: #00ff9d; font-weight: bold; }
         button.danger { border-color: #ff4444; color: #ff4444; }
-        button.success { border-color: #00ff9d; }
         
-        .stats {
+        /* Logs */
+        .log-panels {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin: 15px 0;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
         }
-        
-        .stat-card {
-            background: #0d1117;
-            border: 1px solid #1a2332;
-            border-radius: 8px;
-            padding: 12px;
-            text-align: center;
-        }
-        
-        .stat-value { font-size: 28px; font-weight: bold; color: #00ff9d; }
-        .stat-label { font-size: 10px; color: #666; text-transform: uppercase; }
-        
-        .test-section {
-            background: #0d1117;
+        .log-panel {
+            background: #000;
             border: 1px solid #1a2332;
             border-radius: 10px;
             padding: 15px;
-            margin: 15px 0;
+            height: 350px;
+            overflow-y: auto;
+            font-size: 11px;
         }
+        .log-entry {
+            padding: 3px 8px;
+            margin: 2px 0;
+            border-left: 3px solid #333;
+        }
+        .log-info { border-left-color: #3498db; }
+        .log-success { border-left-color: #00ff9d; color: #00ff9d; }
+        .log-error { border-left-color: #ff4444; color: #ff4444; }
+        .log-warn { border-left-color: #ffaa00; color: #ffaa00; }
+        .log-rtp { border-left-color: #9b59b6; color: #9b59b6; }
         
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        iframe { display: none; }
+        
+        .flow-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            margin: 5px 0;
+        }
+        .flow-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #333;
+        }
+        .flow-dot.active { background: #00ff9d; box-shadow: 0 0 5px #00ff9d; }
+        .flow-dot.error { background: #ff4444; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔍 Surf Voice - Pipeline Diagnostic</h1>
-        <p style="color:#666">Tracing data flow: Client → Sandbox → Gateway → Agent</p>
+        <h1>🔍 Surf Voice - Full Architecture Diagnostic</h1>
+        <div class="subtitle">
+            Pipeline: 💻 Browser → 🏄 Sandbox (GitHub Pages) → 🚪 Gateway (Render) → 🤖 Agent (HF) → 🧠 Vocal API (HF) → 🗣️ TTS
+        </div>
         
-        <!-- Pipeline Status -->
-        <div class="pipeline">
-            <div class="node" id="nodeClient">
-                <div class="node-icon">💻</div>
-                <div class="node-name">Client</div>
-                <div class="node-status" id="statusClient">Waiting</div>
+        <!-- Architecture Status -->
+        <div class="arch-diagram" id="archDiagram">
+            <div class="arch-row">
+                <div class="arch-box" id="boxBrowser">💻<br>Browser</div>
+                <span class="arch-arrow">→</span>
+                <div class="arch-box" id="boxSandbox">🏄<br>Sandbox</div>
+                <span class="arch-arrow">→</span>
+                <div class="arch-box" id="boxGateway">🚪<br>Gateway</div>
+                <span class="arch-arrow">→</span>
+                <div class="arch-box" id="boxAgent">🤖<br>Agent</div>
+                <span class="arch-arrow">→</span>
+                <div class="arch-box" id="boxVocal">🧠<br>Vocal API</div>
+                <span class="arch-arrow">→</span>
+                <div class="arch-box" id="boxTTS">🗣️<br>TTS</div>
             </div>
-            <div class="arrow" id="arrow1">→</div>
-            <div class="node" id="nodeSandbox">
-                <div class="node-icon">🏄</div>
-                <div class="node-name">Sandbox</div>
-                <div class="node-status" id="statusSandbox">Waiting</div>
-            </div>
-            <div class="arrow" id="arrow2">→</div>
-            <div class="node" id="nodeGateway">
-                <div class="node-icon">🚪</div>
-                <div class="node-name">Gateway</div>
-                <div class="node-status" id="statusGateway">Waiting</div>
-            </div>
-            <div class="arrow" id="arrow3">→</div>
-            <div class="node" id="nodeAgent">
-                <div class="node-icon">🤖</div>
-                <div class="node-name">Agent</div>
-                <div class="node-status" id="statusAgent">Waiting</div>
+            <div class="arch-row" style="margin-top:10px;">
+                <div class="arch-box" id="boxSupabase">🗄️<br>Supabase</div>
+                <span class="arch-arrow">←→</span>
+                <div class="arch-box" id="boxAuth">🔐<br>Auth</div>
             </div>
         </div>
         
         <!-- Stats -->
-        <div class="stats">
+        <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-value" id="statMessagesOut">0</div>
-                <div class="stat-label">Messages Sent</div>
+                <div class="value" id="statSent">0</div>
+                <div class="label">Messages Sent</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" id="statMessagesIn">0</div>
-                <div class="stat-label">Messages Received</div>
+                <div class="value" id="statRecv">0</div>
+                <div class="label">Messages Recv</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" id="statRTPPackets">0</div>
-                <div class="stat-label">RTP Packets</div>
+                <div class="value" id="statRTP">0</div>
+                <div class="label">RTP Packets</div>
+                <div class="status" id="rtpStatus"></div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" id="statAudioChunks">0</div>
-                <div class="stat-label">Audio Chunks</div>
+                <div class="value" id="statAuth">--</div>
+                <div class="label">Auth Status</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="statRoom">--</div>
+                <div class="label">Room</div>
+            </div>
+            <div class="stat-card">
+                <div class="value" id="statLatency">--</div>
+                <div class="label">Last Latency</div>
+            </div>
+        </div>
+        
+        <!-- Test Steps -->
+        <div class="test-steps">
+            <div class="test-step pending" id="step1">
+                <div class="step-num">1</div>
+                <div>Sandbox Load</div>
+                <small id="step1Detail">Pending</small>
+            </div>
+            <div class="test-step pending" id="step2">
+                <div class="step-num">2</div>
+                <div>Supabase Auth</div>
+                <small id="step2Detail">Pending</small>
+            </div>
+            <div class="test-step pending" id="step3">
+                <div class="step-num">3</div>
+                <div>Gateway Connect</div>
+                <small id="step3Detail">Pending</small>
+            </div>
+            <div class="test-step pending" id="step4">
+                <div class="step-num">4</div>
+                <div>Producer Create</div>
+                <small id="step4Detail">Pending</small>
+            </div>
+            <div class="test-step pending" id="step5">
+                <div class="step-num">5</div>
+                <div>RTP Flowing</div>
+                <small id="step5Detail">Pending</small>
             </div>
         </div>
         
         <!-- Controls -->
-        <div class="test-section">
-            <h2>🎮 Controls</h2>
-            <button onclick="loadSandbox()" class="success">🔄 Load Sandbox</button>
-            <button onclick="authenticate()">🔐 Authenticate</button>
-            <button onclick="startMic()" class="success">🎤 Start Mic</button>
-            <button onclick="stopMic()" class="danger">⏹️ Stop Mic</button>
-            <button onclick="testREST()">📡 Test REST API</button>
+        <h2>🎮 Controls</h2>
+        <div class="controls">
+            <button class="primary" onclick="runFullTest()">🚀 Run Full Diagnostic</button>
+            <button onclick="loadSandbox()">🔄 Load Sandbox</button>
+            <button onclick="authenticate()">🔐 Get Token</button>
+            <button onclick="startMic()">🎤 Start Mic</button>
+            <button onclick="stopMic()">⏹️ Stop Mic</button>
             <button onclick="testGatewayHealth()">🏥 Gateway Health</button>
-            <button onclick="testAgentHealth()">🤖 Agent Health</button>
-            <button onclick="runFullDiagnostic()">🚀 Run Full Diagnostic</button>
+            <button onclick="testVocalHealth()">🧠 Vocal Health</button>
+            <button onclick="clearLogs()">🗑️ Clear Logs</button>
         </div>
         
         <!-- Logs -->
-        <div class="grid-2">
+        <div class="log-panels">
             <div>
-                <h2>📝 Client Logs (This Page)</h2>
+                <h2>📝 Client Events</h2>
                 <div class="log-panel" id="clientLogs">
-                    <div class="log-entry log-success">[System] Ready. Click 'Load Sandbox' to start diagnostic.</div>
+                    <div class="log-entry log-info">[System] Ready. Click 'Run Full Diagnostic'.</div>
                 </div>
             </div>
             <div>
-                <h2>🏄 Sandbox Messages (postMessage)</h2>
+                <h2>🏄 Sandbox Messages</h2>
                 <div class="log-panel" id="sandboxLogs">
-                    <div class="log-entry">[System] Waiting for sandbox messages...</div>
+                    <div class="log-entry log-info">[System] Waiting for sandbox...</div>
                 </div>
             </div>
         </div>
         
-        <iframe id="sandboxFrame" src="about:blank" style="display:none;" allow="microphone; autoplay"></iframe>
+        <iframe id="sandboxFrame" src="about:blank" allow="microphone; autoplay"></iframe>
     </div>
 
     <script>
         const SANDBOX_URL = "https://ashirafnewton-ait.github.io/extension/";
         const GATEWAY_URL = "https://surf-gateway.onrender.com";
+        const VOCAL_URL = "https://surf-ait-surf-vocal.hf.space";
         const SUPABASE_URL = "https://ljksgzttnufecxohwtwm.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk";
         
         let accessToken = null;
-        let stats = { out: 0, in: 0, rtp: 0, audio: 0 };
+        let stats = { sent: 0, recv: 0, rtp: 0, auth: false, room: null, startTime: 0 };
         
-        function addLog(container, message, type = '') {
+        function log(container, msg, type = 'info') {
+            const el = document.getElementById(container);
             const div = document.createElement('div');
             div.className = `log-entry log-${type}`;
-            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-            document.getElementById(container).appendChild(div);
-            document.getElementById(container).scrollTop = document.getElementById(container).scrollHeight;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            el.appendChild(div);
+            el.scrollTop = el.scrollHeight;
         }
         
-        function updateNode(id, status, className = 'active') {
-            const node = document.getElementById('node' + id);
-            const statusEl = document.getElementById('status' + id);
-            node.className = 'node ' + className;
-            statusEl.textContent = status;
+        function updateStat(id, value) { document.getElementById(id).textContent = value; }
+        
+        function updateBox(id, active) {
+            const box = document.getElementById('box' + id);
+            box.className = 'arch-box ' + (active ? 'active' : '');
         }
         
-        function updateStat(id, value) {
-            document.getElementById(id).textContent = value;
+        function updateStep(num, status, detail) {
+            const step = document.getElementById('step' + num);
+            step.className = 'test-step ' + status;
+            document.getElementById('step' + num + 'Detail').textContent = detail;
         }
         
         function sendToSandbox(type, data = {}) {
             const frame = document.getElementById('sandboxFrame');
-            if (!frame?.contentWindow) {
-                addLog('clientLogs', '❌ Sandbox not loaded', 'error');
-                return false;
-            }
+            if (!frame?.contentWindow) { log('clientLogs', '❌ Sandbox not loaded', 'error'); return false; }
             frame.contentWindow.postMessage({ type, ...data }, '*');
-            stats.out++;
-            updateStat('statMessagesOut', stats.out);
-            addLog('clientLogs', `📤 ${type} ${JSON.stringify(data)}`, 'client');
+            stats.sent++;
+            updateStat('statSent', stats.sent);
+            log('clientLogs', `📤 Sent: ${type}`, 'info');
             return true;
         }
         
         function handleSandboxMessage(event) {
-            stats.in++;
-            updateStat('statMessagesIn', stats.in);
-            
+            stats.recv++;
+            updateStat('statRecv', stats.recv);
             const data = event.data;
-            const msg = JSON.stringify(data).substring(0, 150);
             
-            if (data.type === 'log') {
-                addLog('sandboxLogs', `[${data.level}] ${data.message}`, 'sandbox');
-            } else {
-                addLog('sandboxLogs', `${data.type}: ${msg}`, 'sandbox');
-            }
-            
-            // Update pipeline nodes based on messages
             if (data.type === 'sandbox_ready') {
-                updateNode('Sandbox', 'Ready', 'active');
-            } else if (data.type === 'streaming' && data.mode === 'sfu') {
-                updateNode('Sandbox', 'Streaming (SFU)', 'active');
-                document.getElementById('arrow1').className = 'arrow flowing';
-            } else if (data.message?.includes('Gateway connected')) {
-                updateNode('Gateway', 'Connected', 'active');
-                document.getElementById('arrow2').className = 'arrow flowing';
-            } else if (data.message?.includes('Authenticated')) {
-                updateNode('Gateway', 'Authenticated', 'active');
-            } else if (data.message?.includes('Producer created')) {
-                updateNode('Gateway', 'Producer Active', 'active');
+                log('sandboxLogs', '🏄 Sandbox ready', 'success');
+                updateBox('Sandbox', true);
+                updateStep(1, 'pass', 'Loaded');
+            }
+            if (data.type === 'log') {
+                const type = data.level === 'success' ? 'success' : data.level === 'error' ? 'error' : 'info';
+                log('sandboxLogs', `[${data.level}] ${data.message}`, type);
+            }
+            if (data.message?.includes('Authenticated')) {
+                stats.auth = true;
+                updateStat('statAuth', '✅');
+                updateBox('Auth', true);
+                updateStep(2, 'pass', 'Authenticated');
+            }
+            if (data.message?.includes('Gateway connected')) {
+                updateBox('Gateway', true);
+                updateStep(3, 'pass', 'Connected');
+            }
+            if (data.message?.includes('Room:')) {
+                stats.room = data.message.split('Room: ')[1]?.split(' ')[0];
+                updateStat('statRoom', stats.room?.slice(-8) || '--');
+            }
+            if (data.message?.includes('Producer created')) {
+                updateStep(4, 'pass', 'Created');
+            }
+            if (data.type === 'streaming') {
+                log('sandboxLogs', `🎙️ Streaming: ${data.mode}`, 'success');
+                updateBox('Gateway', true);
+            }
+            if (data.type === 'transcript') {
+                log('sandboxLogs', `📝 ${data.text}`, 'success');
+                stats.startTime = stats.startTime || Date.now();
+            }
+            if (data.type === 'response') {
+                log('sandboxLogs', `🤖 ${data.text}`, 'success');
+                if (stats.startTime) {
+                    const latency = Date.now() - stats.startTime;
+                    updateStat('statLatency', (latency/1000).toFixed(1) + 's');
+                    stats.startTime = 0;
+                }
             }
         }
         
@@ -277,128 +382,106 @@
             const frame = document.getElementById('sandboxFrame');
             window.removeEventListener('message', handleSandboxMessage);
             window.addEventListener('message', handleSandboxMessage);
-            
             frame.src = SANDBOX_URL;
-            frame.onload = () => {
-                addLog('clientLogs', '✅ Sandbox loaded', 'success');
-                updateNode('Sandbox', 'Loaded', 'active');
-            };
-            addLog('clientLogs', '🔄 Loading sandbox...', 'client');
+            frame.onload = () => log('clientLogs', '✅ Sandbox iframe loaded', 'success');
+            log('clientLogs', '🔄 Loading sandbox...', 'info');
+            updateStep(1, 'pending', 'Loading...');
         }
         
         async function authenticate() {
-            addLog('clientLogs', '🔐 Getting Supabase token...', 'client');
-            
+            log('clientLogs', '🔐 Fetching Supabase token...', 'info');
             try {
                 const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: 'surf@testuser.com', password: 'Test1234!' })
                 });
-                
                 if (res.ok) {
                     const data = await res.json();
                     accessToken = data.access_token;
-                    addLog('clientLogs', `✅ Token: ${accessToken.substring(0, 40)}...`, 'success');
+                    log('clientLogs', `✅ Token: ${accessToken.substring(0, 40)}...`, 'success');
                     sendToSandbox('auth_token', { token: accessToken });
+                    updateStep(2, 'pending', 'Verifying...');
                 } else {
-                    addLog('clientLogs', `❌ Auth failed: ${res.status}`, 'error');
+                    log('clientLogs', `❌ Auth failed: ${res.status}`, 'error');
+                    updateStep(2, 'fail', 'Failed');
                 }
-            } catch(e) {
-                addLog('clientLogs', `❌ ${e.message}`, 'error');
-            }
+            } catch(e) { log('clientLogs', `❌ ${e.message}`, 'error'); }
         }
         
-        function startMic() { sendToSandbox('start_mic'); }
+        function startMic() {
+            sendToSandbox('start_mic');
+            updateStep(3, 'pending', 'Connecting...');
+        }
         function stopMic() { sendToSandbox('stop_mic'); }
-        
-        async function testREST() {
-            addLog('clientLogs', '📡 Testing REST /voice endpoint...', 'client');
-            
-            try {
-                const res = await fetch(`${GATEWAY_URL}/health`);
-                const data = await res.json();
-                addLog('clientLogs', `✅ Gateway health: ${JSON.stringify(data)}`, 'success');
-                updateNode('Gateway', 'Healthy', 'active');
-            } catch(e) {
-                addLog('clientLogs', `❌ ${e.message}`, 'error');
-                updateNode('Gateway', 'Offline', 'error');
-            }
-        }
         
         async function testGatewayHealth() {
             try {
                 const res = await fetch(`${GATEWAY_URL}/health`);
                 const data = await res.json();
-                addLog('clientLogs', `🏥 Gateway: ${JSON.stringify(data)}`, 'success');
-                updateNode('Gateway', data.status, 'active');
-                
-                // Also check status
-                const statusRes = await fetch(`${GATEWAY_URL}/status`);
-                const statusData = await statusRes.json();
-                addLog('clientLogs', `📊 Status: ${JSON.stringify(statusData)}`, 'client');
+                log('clientLogs', `🏥 Gateway: ${JSON.stringify(data)}`, 'success');
+                updateBox('Gateway', data.status === 'healthy');
             } catch(e) {
-                addLog('clientLogs', `❌ Gateway offline: ${e.message}`, 'error');
-                updateNode('Gateway', 'Offline', 'error');
+                log('clientLogs', `❌ Gateway offline: ${e.message}`, 'error');
+                updateBox('Gateway', false);
             }
         }
         
-        async function testAgentHealth() {
+        async function testVocalHealth() {
             try {
-                const res = await fetch('https://surf-ait-surf-agent.hf.space/health');
+                const res = await fetch(`${VOCAL_URL}/health`);
                 const data = await res.json();
-                addLog('clientLogs', `🤖 Agent: ${JSON.stringify(data)}`, 'success');
-                updateNode('Agent', 'Healthy', 'active');
+                log('clientLogs', `🧠 Vocal: ${JSON.stringify(data)}`, 'success');
+                updateBox('Vocal', data.status === 'ready');
             } catch(e) {
-                addLog('clientLogs', `❌ Agent offline: ${e.message}`, 'error');
-                updateNode('Agent', 'Offline', 'error');
+                log('clientLogs', `❌ Vocal offline: ${e.message}`, 'error');
             }
         }
         
-        async function runFullDiagnostic() {
-            addLog('clientLogs', '🚀 STARTING FULL DIAGNOSTIC', 'success');
-            addLog('clientLogs', '━'.repeat(50), 'client');
+        function clearLogs() {
+            document.getElementById('clientLogs').innerHTML = '';
+            document.getElementById('sandboxLogs').innerHTML = '';
+        }
+        
+        async function runFullTest() {
+            log('clientLogs', '🚀 STARTING FULL DIAGNOSTIC', 'success');
+            log('clientLogs', '━'.repeat(60), 'info');
             
-            // Step 1: Load sandbox
-            addLog('clientLogs', '📋 Step 1: Load Sandbox', 'client');
+            // Step 1: Load Sandbox
+            log('clientLogs', '📋 Step 1: Loading Sandbox', 'info');
             loadSandbox();
             await sleep(3000);
             
-            // Step 2: Check Gateway
-            addLog('clientLogs', '📋 Step 2: Check Gateway', 'client');
+            // Step 2: Check services
+            log('clientLogs', '📋 Step 2: Health Checks', 'info');
             await testGatewayHealth();
+            await testVocalHealth();
             await sleep(1000);
             
-            // Step 3: Check Agent
-            addLog('clientLogs', '📋 Step 3: Check Agent', 'client');
-            await testAgentHealth();
-            await sleep(1000);
-            
-            // Step 4: Authenticate
-            addLog('clientLogs', '📋 Step 4: Authenticate', 'client');
+            // Step 3: Authenticate
+            log('clientLogs', '📋 Step 3: Authentication', 'info');
             await authenticate();
             await sleep(3000);
             
-            // Step 5: Start Mic
-            addLog('clientLogs', '📋 Step 5: Start Microphone', 'client');
+            // Step 4: Start Mic
+            log('clientLogs', '📋 Step 4: Start Microphone', 'info');
             startMic();
             await sleep(5000);
             
-            // Step 6: Summary
-            addLog('clientLogs', '━'.repeat(50), 'client');
-            addLog('clientLogs', '✅ DIAGNOSTIC COMPLETE', 'success');
-            addLog('clientLogs', `   Messages Sent: ${stats.out}`, 'client');
-            addLog('clientLogs', `   Messages Received: ${stats.in}`, 'client');
-            addLog('clientLogs', '   Check Gateway logs for RTP forwarding', 'client');
-            addLog('clientLogs', '   Check Agent logs for packet processing', 'client');
+            // Step 5: Summary
+            log('clientLogs', '━'.repeat(60), 'info');
+            log('clientLogs', '✅ DIAGNOSTIC COMPLETE', 'success');
+            log('clientLogs', `   Sandbox: ${stats.recv > 0 ? '✅' : '❌'}`, 'info');
+            log('clientLogs', `   Auth: ${stats.auth ? '✅' : '❌'}`, 'info');
+            log('clientLogs', `   Room: ${stats.room || '❌'}`, 'info');
+            log('clientLogs', '   Check Gateway logs for RTP forwarding', 'info');
         }
         
         function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
         
-        // Auto-load sandbox
         window.addEventListener('load', () => {
-            addLog('clientLogs', '🌊 Pipeline Diagnostic Ready', 'success');
-            addLog('clientLogs', 'Click "Run Full Diagnostic" to start', 'client');
+            log('clientLogs', '🔍 Surf Voice Diagnostic Ready', 'success');
+            log('clientLogs', 'Architecture: Browser → Sandbox → Gateway → Agent → Vocal → TTS', 'info');
         });
     </script>
 </body>
