@@ -3,87 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Surf Voice - Sandbox VAD</title>
+    <title>Surf Voice - Sandbox Client</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
-        h1 { color: #00ff9d; margin-bottom: 5px; }
-        #status { padding: 6px 16px; border-radius: 20px; font-size: 13px; margin-bottom: 10px; background: #333; transition: all 0.3s; }
-        #status.connected { background: #00ff9d33; color: #00ff9d; }
-        #status.listening { background: #ffaa0033; color: #ffaa00; }
-        #status.speaking { background: #00aaff33; color: #00aaff; }
-        #chat-box { width: 100%; max-width: 500px; height: 220px; overflow-y: auto; background: #16213e; border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid #333; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { color: #00ff9d; margin-bottom: 10px; }
+        #status-bar {
+            display: flex; gap: 12px; align-items: center; margin-bottom: 15px;
+            background: #16213e; padding: 10px 20px; border-radius: 30px;
+        }
+        #status-dot {
+            width: 10px; height: 10px; border-radius: 50%; background: #ff4444;
+            transition: all 0.3s;
+        }
+        #status-dot.connected { background: #00ff9d; box-shadow: 0 0 10px #00ff9d; }
+        #status-dot.sfu { background: #00aaff; box-shadow: 0 0 10px #00aaff; }
+        #status-text { font-size: 13px; }
+        #mode-badge {
+            font-size: 10px; padding: 2px 10px; border-radius: 12px;
+            background: #1a2332; color: #888;
+        }
+        #mode-badge.active { background: #00ff9d22; color: #00ff9d; }
+
+        #chat-box {
+            width: 100%; max-width: 500px; height: 260px;
+            overflow-y: auto; background: #16213e; border-radius: 12px;
+            padding: 15px; margin-bottom: 15px; border: 1px solid #333;
+        }
         .msg { margin-bottom: 6px; padding: 5px 10px; border-radius: 8px; max-width: 85%; font-size: 13px; }
         .msg.user { background: #00ff9d22; border: 1px solid #00ff9d44; margin-left: auto; }
         .msg.ai { background: #333; margin-right: auto; }
         .msg.system { text-align: center; font-size: 10px; color: #666; }
         .msg .time { font-size: 9px; color: #555; display: block; }
-        #input-area { display: flex; width: 100%; max-width: 500px; gap: 8px; margin-bottom: 10px; }
-        #text-input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #16213e; color: #fff; font-size: 14px; }
-        button { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; }
-        #send-btn { background: #00ff9d; color: #000; }
-        #mic-btn { background: #333; color: #fff; min-width: 50px; font-size: 20px; user-select: none; }
-        #mic-btn.active { background: #ff8800; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-        #voice-select { padding: 8px; border-radius: 6px; background: #16213e; color: #fff; border: 1px solid #444; margin-bottom: 10px; font-size: 14px; }
-        #sandbox-status { font-size: 11px; color: #888; margin-bottom: 10px; }
-        #debug-panel { width: 100%; max-width: 500px; background: #0d1117; border: 1px solid #333; border-radius: 8px; padding: 10px; font-family: 'SF Mono', monospace; font-size: 10px; max-height: 100px; overflow-y: auto; }
-        #debug-panel .log-line { padding: 1px 0; border-bottom: 1px solid #0a0a0a; }
-        .log-line.info{color:#8a9aaa}.log-line.success{color:#00ff9d}.log-line.warn{color:#ffaa00}.log-line.error{color:#ff4444}.log-line.vad{color:#ff88cc}
-        .log-line .ts { color: #444; margin-right: 6px; }
+
+        #input-area {
+            display: flex; width: 100%; max-width: 500px; gap: 8px; margin-bottom: 10px;
+        }
+        #text-input {
+            flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #444;
+            background: #16213e; color: #fff; font-size: 14px;
+        }
+        button {
+            padding: 10px 18px; border: none; border-radius: 8px;
+            cursor: pointer; font-weight: 600; font-size: 14px;
+        }
+        #mic-start { background: #00ff9d; color: #000; }
+        #mic-stop { background: #ff4444; color: #fff; }
+        #text-send { background: #333; color: #fff; }
+
+        #sandbox-frame {
+            width: 100%; max-width: 500px; height: 60px;
+            border: 1px solid #333; border-radius: 8px;
+            background: #0d1117;
+        }
+
+        #debug-panel {
+            width: 100%; max-width: 500px; background: #0d1117;
+            border: 1px solid #333; border-radius: 8px; padding: 10px;
+            font-family: monospace; font-size: 10px; max-height: 120px;
+            overflow-y: auto; margin-top: 10px;
+        }
+        #debug-panel div { padding: 1px 0; border-bottom: 1px solid #0a0a0a; }
+        .log-sent { color: #ffaa00; } .log-recv { color: #00aaff; } .log-err { color: #ff4444; }
+        .log-info { color: #8a9aaa; }
     </style>
 </head>
 <body>
-    <h1>🏄 Surf Voice (Sandbox VAD)</h1>
-    <div id="status">Initializing sandbox...</div>
-    <div id="sandbox-status">⏳ Waiting for sandbox to load...</div>
+    <h1>🏄 Surf Voice</h1>
 
-    <select id="voice-select">
-        <option value="en-US-AriaNeural">🇺🇸 Aria</option>
-        <option value="en-US-GuyNeural">🇺🇸 Guy</option>
-        <option value="en-GB-SoniaNeural">🇬🇧 Sonia</option>
-        <option value="en-GB-RyanNeural">🇬🇧 Ryan</option>
-    </select>
+    <div id="status-bar">
+        <div id="status-dot"></div>
+        <span id="status-text">Loading sandbox...</span>
+        <span id="mode-badge">--</span>
+    </div>
 
     <div id="chat-box"></div>
 
     <div id="input-area">
-        <button id="mic-btn">🎤</button>
+        <button id="mic-start">🎤 Start Mic</button>
+        <button id="mic-stop" style="display:none">⏹️ Stop</button>
         <input id="text-input" placeholder="Type a message..." />
-        <button id="send-btn">Send</button>
+        <button id="text-send">Send</button>
     </div>
 
-    <div id="debug-panel"></div>
+    <!-- Hidden sandbox iframe -->
+    <iframe id="sandbox-frame" src="https://ashirafnewton-ait.github.io/extension/" allow="microphone; autoplay"></iframe>
 
-    <!-- Hidden iframe for sandbox -->
-    <iframe id="sandbox-iframe" src="https://ashirafnewton-ait.github.io/extension/" 
-            style="width:0;height:0;border:0;position:absolute;visibility:hidden"
-            allow="microphone; autoplay"></iframe>
+    <div id="debug-panel"></div>
 
     <script>
         const GATEWAY = 'https://surf-gateway.onrender.com';
         const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
         const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
+        const SANDBOX_URL = 'https://ashirafnewton-ait.github.io/extension/';
 
         let authToken = null;
         let sandboxReady = false;
-        let vadActive = false;
-        let currentAudio = null;
+        let micActive = false;
 
-        const statusEl = document.getElementById('status');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const modeBadge = document.getElementById('mode-badge');
         const chatBox = document.getElementById('chat-box');
         const textInput = document.getElementById('text-input');
-        const sendBtn = document.getElementById('send-btn');
-        const micBtn = document.getElementById('mic-btn');
-        const voiceSelect = document.getElementById('voice-select');
-        const sandboxStatus = document.getElementById('sandbox-status');
+        const micStartBtn = document.getElementById('mic-start');
+        const micStopBtn = document.getElementById('mic-stop');
+        const textSendBtn = document.getElementById('text-send');
+        const sandboxFrame = document.getElementById('sandbox-frame');
         const debugPanel = document.getElementById('debug-panel');
-        const iframe = document.getElementById('sandbox-iframe');
 
-        function debug(msg, level = 'info') {
+        function debug(msg, cls = 'log-info') {
             const ts = new Date().toLocaleTimeString();
-            debugPanel.innerHTML += `<div class="log-line ${level}"><span class="ts">${ts}</span>${msg}</div>`;
+            debugPanel.innerHTML += `<div class="${cls}">[${ts}] ${msg}</div>`;
             debugPanel.scrollTop = debugPanel.scrollHeight;
+            console.log(msg);
         }
 
         function log(text, type = 'system') {
@@ -92,71 +134,11 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        function setStatus(text, cls = '') { statusEl.textContent = text; statusEl.className = cls; }
-
-        // Send message INTO the sandbox
-        function sendToSandbox(data) {
-            if (iframe.contentWindow) {
-                iframe.contentWindow.postMessage(data, 'https://ashirafnewton-ait.github.io');
-                debug(`→ sandbox: ${data.type}`, 'vad');
-            }
+        // ════════════ POST MESSAGE TO SANDBOX ════════════
+        function postToSandbox(data) {
+            debug(`→ sandbox: ${data.type}`, 'log-sent');
+            sandboxFrame.contentWindow.postMessage(data, '*');
         }
-
-        // ════════════ LISTEN FOR MESSAGES FROM SANDBOX ════════════
-        window.addEventListener('message', (event) => {
-            // Accept messages from sandbox origin
-            if (!event.origin.includes('ashirafnewton-ait.github.io')) return;
-            
-            const msg = event.data;
-            
-            switch (msg.type) {
-                case 'sandbox_ready':
-                    sandboxReady = true;
-                    sandboxStatus.textContent = '✅ Sandbox loaded';
-                    setStatus('Connected ✅', 'connected');
-                    debug('Sandbox ready', 'success');
-                    // Send auth token immediately
-                    if (authToken) sendToSandbox({ type: 'auth_token', token: authToken });
-                    break;
-                    
-                case 'status':
-                    sandboxStatus.textContent = '📡 ' + msg.text;
-                    break;
-                    
-                case 'streaming':
-                    sandboxStatus.textContent = '🎙️ VAD: ' + (msg.mode || 'active');
-                    break;
-                    
-                case 'log':
-                    debug(`[SB] ${msg.message}`, msg.level || 'info');
-                    break;
-                    
-                case 'vad_debug':
-                    debug(`[VAD] ${msg.message}`, 'vad');
-                    break;
-                    
-                case 'transcript':
-                    log('📝 ' + msg.text, 'user');
-                    break;
-                    
-                case 'response':
-                    log('🤖 ' + msg.text, 'ai');
-                    break;
-                    
-                case 'vad':
-                    sandboxStatus.textContent = msg.speaking ? '🗣️ Speaking...' : '🔇 Silent';
-                    break;
-                    
-                case 'disconnected':
-                    vadActive = false;
-                    micBtn.classList.remove('active');
-                    setStatus('Connected ✅', 'connected');
-                    break;
-                    
-                default:
-                    debug(`[SB] ${msg.type}`, 'info');
-            }
-        });
 
         // ════════════ AUTH ════════════
         async function login() {
@@ -169,11 +151,15 @@
                 const data = await res.json();
                 if (data.access_token) {
                     authToken = data.access_token;
-                    debug('Logged in', 'success');
-                    // Send to sandbox if already ready
-                    if (sandboxReady) sendToSandbox({ type: 'auth_token', token: authToken });
+                    debug('✅ Auth ready', 'log-info');
+                    // Send token to sandbox
+                    if (sandboxReady) {
+                        postToSandbox({ type: 'auth_token', token: authToken });
+                    }
                 }
-            } catch (e) { debug(`Login: ${e.message}`, 'error'); }
+            } catch (e) {
+                debug(`Auth error: ${e.message}`, 'log-err');
+            }
         }
 
         // ════════════ TEXT CHAT ════════════
@@ -185,62 +171,123 @@
                 const res = await fetch(`${GATEWAY}/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-                    body: JSON.stringify({ text, voice: voiceSelect.value })
+                    body: JSON.stringify({ text, voice: 'en-US-AriaNeural' })
                 });
                 const data = await res.json();
                 if (data.response) log('🤖 ' + data.response, 'ai');
-                if (data.audio_base64) await playAudio(data.audio_base64);
-            } catch (e) { debug(`Chat: ${e.message}`, 'error'); }
+                if (data.audio_base64) playAudio(data.audio_base64);
+            } catch (e) {
+                debug(`Chat error: ${e.message}`, 'log-err');
+            }
         }
 
-        // ════════════ TOGGLE SANDBOX VAD ════════════
-        micBtn.addEventListener('click', () => {
-            if (!sandboxReady) { debug('Sandbox not ready', 'warn'); return; }
-            
-            if (vadActive) {
-                // Stop VAD
-                sendToSandbox({ type: 'stop_mic' });
-                vadActive = false;
-                micBtn.classList.remove('active');
-                setStatus('Connected ✅', 'connected');
-                debug('VAD stopped', 'info');
+        function playAudio(encoded) {
+            if (!encoded) return;
+            const isBase64 = /[+/=A-Z]/.test(encoded.substring(0, 4)) || encoded.includes('=');
+            let bytes;
+            if (isBase64) {
+                const b = atob(encoded); bytes = new Uint8Array(b.length);
+                for (let i = 0; i < b.length; i++) bytes[i] = b.charCodeAt(i);
             } else {
-                // Start VAD
-                sendToSandbox({ type: 'set_voice', voice: voiceSelect.value });
-                setTimeout(() => sendToSandbox({ type: 'start_mic' }), 200);
-                vadActive = true;
-                micBtn.classList.add('active');
-                setStatus('⚡ VAD listening...', 'listening');
-                debug('VAD started (sandbox)', 'success');
-                log('⚡ Speak — sandbox Silero VAD listening', 'system');
+                bytes = new Uint8Array(encoded.match(/.{1,2}/g).map(b => parseInt(b, 16)));
+            }
+            const blob = new Blob([bytes], { type: 'audio/mpeg' });
+            const audio = new Audio(URL.createObjectURL(blob));
+            audio.play();
+        }
+
+        // ════════════ MIC CONTROL ════════════
+        function startMic() {
+            if (!sandboxReady || !authToken) return debug('Sandbox not ready', 'log-err');
+            postToSandbox({ type: 'start_mic' });
+            micActive = true;
+            micStartBtn.style.display = 'none';
+            micStopBtn.style.display = 'inline-block';
+            debug('🎤 Start command sent to sandbox', 'log-sent');
+        }
+
+        function stopMic() {
+            postToSandbox({ type: 'stop_mic' });
+            micActive = false;
+            micStartBtn.style.display = 'inline-block';
+            micStopBtn.style.display = 'none';
+            debug('⏹️ Stop command sent to sandbox', 'log-sent');
+        }
+
+        // ════════════ LISTEN FOR SANDBOX MESSAGES ════════════
+        window.addEventListener('message', (event) => {
+            // Accept messages from sandbox origin
+            if (!event.origin.includes('ashirafnewton-ait.github.io')) return;
+
+            const msg = event.data;
+            debug(`← sandbox: ${msg.type}`, 'log-recv');
+
+            switch (msg.type) {
+                case 'sandbox_ready':
+                    sandboxReady = true;
+                    statusDot.className = 'connected';
+                    statusText.textContent = 'Sandbox Ready';
+                    modeBadge.textContent = 'SANDBOX';
+                    modeBadge.classList.add('active');
+                    debug('✅ Sandbox ready', 'log-info');
+                    log('✅ Sandbox loaded & ready');
+                    // Send auth if we have it
+                    if (authToken) {
+                        postToSandbox({ type: 'auth_token', token: authToken });
+                    }
+                    break;
+
+                case 'status':
+                    statusText.textContent = msg.text;
+                    break;
+
+                case 'streaming':
+                    statusDot.className = msg.mode === 'sfu' ? 'sfu' : 'connected';
+                    modeBadge.textContent = (msg.mode || 'REST').toUpperCase();
+                    break;
+
+                case 'transcript':
+                    log('📝 ' + msg.text, 'user');
+                    break;
+
+                case 'response':
+                    log('🤖 ' + msg.text, 'ai');
+                    break;
+
+                case 'tts_playing':
+                    statusText.textContent = '🔊 Speaking...';
+                    break;
+
+                case 'disconnected':
+                    statusDot.className = '';
+                    modeBadge.textContent = '--';
+                    modeBadge.classList.remove('active');
+                    statusText.textContent = 'Disconnected';
+                    micActive = false;
+                    micStartBtn.style.display = 'inline-block';
+                    micStopBtn.style.display = 'none';
+                    break;
+
+                case 'error':
+                    debug(`Sandbox error: ${msg.message}`, 'log-err');
+                    log('⚠️ ' + msg.message, 'system');
+                    break;
+
+                case 'log':
+                    // Sandbox debug logs
+                    debug(`[sandbox] ${msg.message}`, 'log-info');
+                    break;
             }
         });
 
-        // ════════════ TTS ════════════
-        async function playAudio(encoded) {
-            if (!encoded) return;
-            if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-            try {
-                const isBase64 = /[+/=A-Z]/.test(encoded.substring(0,4)) || encoded.includes('=');
-                let bytes;
-                if (isBase64) { const b = atob(encoded); bytes = new Uint8Array(b.length); for(let i=0;i<b.length;i++) bytes[i]=b.charCodeAt(i); }
-                else { bytes = new Uint8Array(encoded.match(/.{1,2}/g).map(b=>parseInt(b,16))); }
-                const blob = new Blob([bytes], { type: 'audio/mpeg' }), url = URL.createObjectURL(blob);
-                const audio = new Audio(url); currentAudio = audio;
-                audio.onplay = () => setStatus('🔊 Speaking...', 'speaking');
-                audio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; setStatus(vadActive?'⚡ Listening...':'Connected ✅', vadActive?'listening':'connected'); };
-                audio.onerror = () => { URL.revokeObjectURL(url); currentAudio = null; };
-                await audio.play();
-            } catch(e) { debug(`Audio: ${e.message}`, 'error'); }
-        }
+        // ════════════ BUTTON EVENTS ════════════
+        micStartBtn.onclick = startMic;
+        micStopBtn.onclick = stopMic;
+        textSendBtn.onclick = () => sendText(textInput.value);
+        textInput.onkeydown = (e) => { if (e.key === 'Enter') sendText(textInput.value); };
 
-        // ════════════ EVENTS ════════════
-        sendBtn.onclick = () => sendText(textInput.value);
-        textInput.onkeydown = (e) => { if (e.key==='Enter') sendText(textInput.value); };
-        voiceSelect.onchange = () => { if (vadActive) sendToSandbox({ type: 'set_voice', voice: voiceSelect.value }); };
-
-        // ════════════ START ════════════
-        debug('Loading sandbox iframe...', 'info');
+        // ════════════ INIT ════════════
+        debug('Client ready — loading sandbox...', 'log-info');
         login();
     </script>
 </body>
