@@ -17,33 +17,19 @@
             align-items: center;
         }
         h1 { color: #00ff9d; margin-bottom: 5px; font-size: 1.4rem; }
-        #status-bar {
-            display: flex; gap: 10px; align-items: center; margin-bottom: 12px;
-            background: #16213e; padding: 8px 16px; border-radius: 20px;
-        }
+        #status-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; background: #16213e; padding: 8px 16px; border-radius: 20px; }
         #status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff4444; }
         #status-dot.on { background: #00ff9d; box-shadow: 0 0 8px #00ff9d; }
         #status-dot.recording { background: #ff4444; animation: pulse 0.8s infinite; }
         #status-text { font-size: 12px; color: #aaa; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-        #mode-tabs {
-            display: flex; gap: 4px; margin-bottom: 10px;
-            background: #16213e; border-radius: 10px; padding: 3px;
-        }
-        .mode-tab {
-            padding: 7px 16px; border: none; border-radius: 8px;
-            cursor: pointer; font-size: 13px; font-weight: 600;
-            background: transparent; color: #777; transition: all 0.2s;
-        }
+        #mode-tabs { display: flex; gap: 4px; margin-bottom: 10px; background: #16213e; border-radius: 10px; padding: 3px; }
+        .mode-tab { padding: 7px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; background: transparent; color: #777; transition: all 0.2s; }
         .mode-tab.active { background: #00ff9d; color: #000; }
         .mode-tab:disabled { opacity: 0.3; cursor: not-allowed; }
 
-        #chat-box {
-            width: 100%; max-width: 500px; height: 220px;
-            overflow-y: auto; background: #16213e; border-radius: 12px;
-            padding: 12px; margin-bottom: 8px; border: 1px solid #333;
-        }
+        #chat-box { width: 100%; max-width: 500px; height: 220px; overflow-y: auto; background: #16213e; border-radius: 12px; padding: 12px; margin-bottom: 8px; border: 1px solid #333; }
         .msg { margin-bottom: 5px; padding: 5px 10px; border-radius: 8px; max-width: 85%; font-size: 13px; }
         .msg.user { background: #00ff9d22; border: 1px solid #00ff9d44; margin-left: auto; }
         .msg.ai { background: #2a2a3e; margin-right: auto; }
@@ -51,23 +37,11 @@
         .msg .time { font-size: 9px; color: #555; display: block; }
 
         #input-area { display: flex; width: 100%; max-width: 500px; gap: 8px; margin-bottom: 8px; }
-        #text-input {
-            flex: 1; padding: 10px 14px; border-radius: 8px;
-            border: 1px solid #444; background: #16213e; color: #fff; font-size: 14px;
-        }
+        #text-input { flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid #444; background: #16213e; color: #fff; font-size: 14px; }
         #text-input:disabled { opacity: 0.4; }
-        #action-btn {
-            padding: 10px 20px; border: none; border-radius: 8px;
-            cursor: pointer; font-weight: 600; font-size: 14px; min-width: 80px;
-            transition: all 0.15s;
-        }
+        #action-btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; min-width: 80px; transition: all 0.15s; }
 
-        #debug-panel {
-            width: 100%; max-width: 500px; background: #0d1117;
-            border: 1px solid #2a2a3e; border-radius: 8px; padding: 8px 10px;
-            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-            font-size: 10px; max-height: 120px; overflow-y: auto;
-        }
+        #debug-panel { width: 100%; max-width: 500px; background: #0d1117; border: 1px solid #2a2a3e; border-radius: 8px; padding: 8px 10px; font-family: 'SF Mono', 'Monaco', 'Consolas', monospace; font-size: 10px; max-height: 120px; overflow-y: auto; }
         #debug-panel .log-line { padding: 1px 0; border-bottom: 1px solid #0a0a0a; white-space: nowrap; }
         .log-sent { color: #ffaa00; } .log-recv { color: #00aaff; }
         .log-info { color: #8a9aaa; } .log-err { color: #ff4444; }
@@ -107,12 +81,8 @@
         const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
         const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
 
-        let authToken = null;
-        let sandboxReady = false;
-        let authSent = false;
-        let currentMode = null;
-        let micActive = false;
-        let pttHeld = false;
+        let authToken = null, sandboxReady = false, authSent = false;
+        let currentMode = null, micActive = false, pttHeld = false;
 
         const statusDot = document.getElementById('status-dot');
         const statusText = document.getElementById('status-text');
@@ -128,11 +98,11 @@
             debugPanel.innerHTML += `<div class="log-line ${cls}"><span class="ts">${ts}</span>${msg}</div>`;
             debugPanel.scrollTop = debugPanel.scrollHeight;
             while (debugPanel.children.length > 50) debugPanel.removeChild(debugPanel.children[0]);
-            console.log(`[${cls}]`, msg);
+            console.log(msg);
         }
 
         function post(msg) {
-            debug(`→ ${msg.type}${msg.mode ? ' (' + msg.mode + ')' : ''}`, 'log-sent');
+            debug(`→ ${msg.type} (${msg.mode || '—'})`, 'log-sent');
             sandboxFrame.contentWindow.postMessage(msg, '*');
         }
 
@@ -147,21 +117,16 @@
             textInput.disabled = false;
             actionBtn.disabled = false;
             setMode('text');
-            document.querySelector('.mode-tab[data-mode="text"]').classList.add('active');
         }
 
         function cleanupCurrentMode() {
-            if (micActive) {
-                post({ type: 'stop_mic' });
-                micActive = false;
-                debug('Cleaned up: stopped mic', 'log-info');
-            }
+            if (micActive) { post({ type: 'stop_mic', mode: currentMode }); micActive = false; }
             pttHeld = false;
             statusDot.className = 'on';
         }
 
         function setMode(mode) {
-            if (!sandboxReady) { debug('Cannot switch: sandbox not ready', 'log-err'); return; }
+            if (!sandboxReady) return;
             cleanupCurrentMode();
             modeTabs.forEach(t => t.classList.remove('active'));
             document.querySelector(`.mode-tab[data-mode="${mode}"]`).classList.add('active');
@@ -173,87 +138,78 @@
             actionBtn.onpointerleave = null;
             actionBtn.onclick = null;
 
-            switch (mode) {
-                case 'text':
-                    textInput.disabled = false;
-                    textInput.placeholder = 'Type a message...';
-                    actionBtn.textContent = 'Send';
-                    actionBtn.style.background = '#00ff9d'; actionBtn.style.color = '#000';
-                    actionBtn.onclick = () => sendText(textInput.value);
-                    statusText.textContent = 'Text Chat';
-                    log('💬 Text Chat mode', 'system');
-                    break;
+            if (mode === 'text') {
+                textInput.disabled = false;
+                textInput.placeholder = 'Type a message...';
+                actionBtn.textContent = 'Send';
+                actionBtn.style.background = '#00ff9d'; actionBtn.style.color = '#000';
+                actionBtn.onclick = () => sendText(textInput.value);
+                statusText.textContent = 'Text Chat';
+                statusDot.className = 'on';
+            }
 
-                case 'ptt':
-                    textInput.disabled = true;
-                    textInput.placeholder = 'Hold button to talk...';
+            else if (mode === 'ptt') {
+                textInput.disabled = true;
+                textInput.placeholder = 'Hold button to talk...';
+                actionBtn.textContent = '🎤 Hold';
+                actionBtn.style.background = '#333'; actionBtn.style.color = '#fff';
+                actionBtn.onpointerdown = () => {
+                    if (!sandboxReady || !authToken) return;
+                    pttHeld = true;
+                    post({ type: 'start_mic', mode: 'ptt' });
+                    micActive = true;
+                    actionBtn.style.background = '#ff4444';
+                    actionBtn.textContent = '🎤 Release';
+                    statusDot.className = 'recording';
+                    statusText.textContent = 'Recording...';
+                };
+                actionBtn.onpointerup = () => {
+                    if (!pttHeld) return;
+                    pttHeld = false;
+                    post({ type: 'stop_mic', mode: 'ptt' });
+                    micActive = false;
+                    actionBtn.style.background = '#333';
                     actionBtn.textContent = '🎤 Hold';
-                    actionBtn.style.background = '#333'; actionBtn.style.color = '#fff';
-
-                    actionBtn.onpointerdown = () => {
-                        if (!sandboxReady || !authToken) { debug('Not ready', 'log-err'); return; }
-                        pttHeld = true;
-                        // Send mode so sandbox knows this is PTT (no VAD silence detection)
-                        post({ type: 'start_mic', mode: 'ptt' });
-                        micActive = true;
-                        actionBtn.style.background = '#ff4444';
-                        actionBtn.textContent = '🎤 Release';
-                        statusDot.className = 'recording';
-                        statusText.textContent = 'Recording...';
-                    };
-
-                    actionBtn.onpointerup = () => {
-                        if (!pttHeld) return;
-                        pttHeld = false;
-                        post({ type: 'stop_mic' });
-                        micActive = false;
-                        actionBtn.style.background = '#333';
-                        actionBtn.textContent = '🎤 Hold';
-                        statusDot.className = 'on';
-                        statusText.textContent = 'Push-to-Talk';
-                    };
-
-                    actionBtn.onpointerleave = () => { if (pttHeld) actionBtn.onpointerup(); };
+                    statusDot.className = 'on';
                     statusText.textContent = 'Push-to-Talk';
-                    log('🎤 Push-to-Talk mode', 'system');
-                    break;
+                };
+                actionBtn.onpointerleave = () => { if (pttHeld) actionBtn.onpointerup(); };
+                statusText.textContent = 'Push-to-Talk';
+                statusDot.className = 'on';
+                log('🎤 Push-to-Talk mode', 'system');
+            }
 
-                case 'vad':
-                    textInput.disabled = true;
-                    textInput.placeholder = 'Real-time VAD active...';
-                    actionBtn.textContent = '▶️ Start';
-                    actionBtn.style.background = '#ff8800'; actionBtn.style.color = '#fff';
-
-                    actionBtn.onclick = () => {
-                        if (!sandboxReady || !authToken) { debug('Not ready', 'log-err'); return; }
-                        if (micActive) {
-                            post({ type: 'stop_mic' });
-                            micActive = false;
-                            actionBtn.textContent = '▶️ Start';
-                            actionBtn.style.background = '#ff8800';
-                            statusDot.className = 'on';
-                            statusText.textContent = 'Real-time (stopped)';
-                        } else {
-                            // Send mode so sandbox knows this is VAD (use silence detection)
-                            post({ type: 'start_mic', mode: 'vad' });
-                            micActive = true;
-                            actionBtn.textContent = '⏹️ Stop';
-                            actionBtn.style.background = '#ff4444';
-                            statusDot.className = 'recording';
-                            statusText.textContent = 'Listening...';
-                        }
-                    };
-                    statusText.textContent = 'Real-time (stopped)';
-                    log('⚡ Real-time VAD mode', 'system');
-                    break;
+            else if (mode === 'vad') {
+                textInput.disabled = true;
+                textInput.placeholder = 'Real-time VAD active...';
+                actionBtn.textContent = '▶️ Start';
+                actionBtn.style.background = '#ff8800'; actionBtn.style.color = '#fff';
+                actionBtn.onclick = () => {
+                    if (!sandboxReady || !authToken) return;
+                    if (micActive) {
+                        post({ type: 'stop_mic', mode: 'vad' });
+                        micActive = false;
+                        actionBtn.textContent = '▶️ Start';
+                        actionBtn.style.background = '#ff8800';
+                        statusDot.className = 'on';
+                        statusText.textContent = 'Real-time (stopped)';
+                    } else {
+                        post({ type: 'start_mic', mode: 'vad' });
+                        micActive = true;
+                        actionBtn.textContent = '⏹️ Stop';
+                        actionBtn.style.background = '#ff4444';
+                        statusDot.className = 'recording';
+                        statusText.textContent = 'Listening...';
+                    }
+                };
+                statusText.textContent = 'Real-time (stopped)';
+                statusDot.className = 'on';
+                log('⚡ Real-time VAD mode', 'system');
             }
         }
 
         modeTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                if (!sandboxReady) return;
-                setMode(tab.dataset.mode);
-            });
+            tab.addEventListener('click', () => { if (sandboxReady) setMode(tab.dataset.mode); });
         });
 
         async function sendText(text) {
@@ -284,7 +240,6 @@
             new Audio(URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }))).play();
         }
 
-        // ════════════ SANDBOX MESSAGES ════════════
         window.addEventListener('message', (e) => {
             if (!e.origin.includes('ashirafnewton-ait.github.io')) return;
             const m = e.data;
@@ -299,32 +254,19 @@
                     enableUI();
                     if (authToken && !authSent) { post({ type: 'auth_token', token: authToken }); authSent = true; }
                     break;
-                case 'token_received':
-                    break;
-                case 'status':
-                    statusText.textContent = m.text;
-                    break;
-                case 'streaming':
-                    statusDot.className = 'recording';
-                    break;
-                case 'transcript':
-                    log('📝 ' + m.text, 'user');
-                    break;
-                case 'response':
-                    log('🤖 ' + m.text, 'ai');
-                    break;
-                case 'tts_playing':
-                    statusText.textContent = '🔊 Speaking...';
-                    break;
+                case 'token_received': break;
+                case 'status': statusText.textContent = m.text; break;
+                case 'streaming': statusDot.className = 'recording'; break;
+                case 'transcript': log('📝 ' + m.text, 'user'); break;
+                case 'response': log('🤖 ' + m.text, 'ai'); break;
+                case 'tts_playing': statusText.textContent = '🔊 Speaking...'; break;
                 case 'disconnected':
                     micActive = false; pttHeld = false;
                     if (currentMode === 'vad') { actionBtn.textContent = '▶️ Start'; actionBtn.style.background = '#ff8800'; }
                     if (currentMode === 'ptt') { actionBtn.textContent = '🎤 Hold'; actionBtn.style.background = '#333'; }
                     statusDot.className = 'on'; statusText.textContent = 'Stopped';
                     break;
-                case 'error':
-                    log('⚠️ ' + m.message, 'system');
-                    break;
+                case 'error': log('⚠️ ' + m.message, 'system'); break;
             }
         });
 
@@ -340,10 +282,9 @@
                     authToken = data.access_token;
                     if (sandboxReady && !authSent) { post({ type: 'auth_token', token: authToken }); authSent = true; }
                 }
-            } catch (e) { debug(`Auth error: ${e.message}`, 'log-err'); }
+            } catch (e) {}
         }
 
-        debug('Client ready', 'log-success');
         login();
     </script>
 </body>
