@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Surf Voice - VAD Studio (Real-time Listening)</title>
+    <title>Surf Voice - VAD Studio (Silero Sandbox)</title>
     <style>
         * {
             margin: 0;
@@ -21,7 +21,6 @@
             padding: 20px;
         }
 
-        /* glass-panel */
         .vad-container {
             max-width: 580px;
             width: 100%;
@@ -159,7 +158,6 @@
             box-shadow: 0 0 6px #00ff9d;
         }
 
-        /* VAD main sphere */
         .vad-sphere {
             background: #0A0F1E;
             border-radius: 2rem;
@@ -313,11 +311,10 @@
 <body>
 <div class="vad-container">
     <div class="header">
-        <h1>🎙️ VAD Mode · always listening</h1>
-        <div class="badge">real-time · auto-turn</div>
+        <h1>🎙️ VAD Mode · Silero AI</h1>
+        <div class="badge">sandbox VAD · real-time</div>
     </div>
 
-    <!-- status area -->
     <div id="global-status">
         <div class="status-led">
             <div class="led" id="connection-led"></div>
@@ -329,7 +326,6 @@
         </div>
     </div>
 
-    <!-- voice & sensitivity -->
     <div class="voice-config">
         <select id="voice-select">
             <option value="en-US-AriaNeural">🇺🇸 Aria (Female)</option>
@@ -338,13 +334,12 @@
             <option value="en-GB-RyanNeural">🇬🇧 Ryan</option>
         </select>
         <div class="sensitivity-control">
-            <span>🎚️ Sensitivity</span>
-            <input type="range" id="sensitivity-slider" min="5" max="25" step="1" value="12">
-            <span id="sens-value">12</span>
+            <span>🎚️ Silence delay (s)</span>
+            <input type="range" id="silence-slider" min="0.5" max="2.5" step="0.1" value="1.2">
+            <span id="silence-value">1.2</span>
         </div>
     </div>
 
-    <!-- VAD core card -->
     <div class="vad-sphere">
         <div class="mic-icon" id="mic-animation">🎤</div>
         <div class="vad-status-text" id="vadPhrase">⚡ Idle</div>
@@ -353,26 +348,27 @@
         </div>
         <button class="btn-vad" id="vadToggleBtn">▶️ START REAL-TIME VAD</button>
         <div class="vad-note">
-            🧠 Speech detection & auto-send after silence (1.2s) • no push-to-talk
+            🧠 Silero VAD in sandbox • auto-send after silence • no push-to-talk
         </div>
     </div>
 
-    <!-- conversation panel -->
     <div class="conversation-box" id="chatBox">
         <div class="message ai">
             <div class="timestamp">✨ system</div>
-            <div class="bubble">VAD mode active. Click START, speak naturally — I'll respond when you pause. 🔈</div>
+            <div class="bubble">Silero VAD active. Click START, speak naturally — AI responds when you pause. 🔈</div>
         </div>
     </div>
 
-    <!-- debug panel -->
     <div class="debug-console" id="debugConsole">
-        <div>🔍 [ready] session waiting</div>
+        <div>🔍 [ready] loading Silero VAD in sandbox...</div>
     </div>
 </div>
 
+<!-- Hidden sandbox iframe for Silero VAD -->
+<iframe id="vad-sandbox" src="about:blank" style="display: none;" sandbox="allow-same-origin allow-scripts"></iframe>
+
 <script>
-    // ---------- CONFIGURATION (gateway & supabase) ----------
+    // ========== CONFIGURATION ==========
     const GATEWAY = 'https://surf-gateway.onrender.com';
     const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
     const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
@@ -385,15 +381,15 @@
     let analyserNode = null;
     let mediaRecorder = null;
     let audioChunks = [];
-    let vadActive = false;          // engine running?
-    let speakingFlag = false;       // currently voice active?
+    let vadActive = false;
+    let speakingFlag = false;
     let silenceTimeout = null;
     let animationRequest = null;
-    let isRecordingSegment = false;  // avoid double recordings
+    let isRecordingSegment = false;
+    let vadSandbox = null;
+    let sandboxReady = false;
     
-    // VAD params
-    let sensitivityThreshold = 12;    // default 12 (avg loudness)
-    const SILENCE_DELAY_MS = 1200;    // 1.2 seconds pause = auto-send
+    let silenceDelayMs = 1200; // 1.2 seconds
     
     // DOM elements
     const statusTextSpan = document.getElementById('status-text');
@@ -407,14 +403,15 @@
     const chatBox = document.getElementById('chatBox');
     const debugConsole = document.getElementById('debugConsole');
     const voiceSelect = document.getElementById('voice-select');
-    const sensitivitySlider = document.getElementById('sensitivity-slider');
-    const sensSpan = document.getElementById('sens-value');
+    const silenceSlider = document.getElementById('silence-slider');
+    const silenceSpan = document.getElementById('silence-value');
     
-    // helpers
+    // ========== HELPER FUNCTIONS ==========
     function debugLog(msg, level = 'info') {
         const time = new Date().toLocaleTimeString();
         const div = document.createElement('div');
-        div.style.color = level === 'error' ? '#ff9090' : (level === 'success' ? '#a0ffc0' : '#b8c7e7');
+        const colors = { error: '#ff9090', success: '#a0ffc0', warn: '#ffaa66', vad: '#88ffcc', info: '#b8c7e7' };
+        div.style.color = colors[level] || colors.info;
         div.innerHTML = `[${time}] ${msg}`;
         debugConsole.appendChild(div);
         debugConsole.scrollTop = debugConsole.scrollHeight;
@@ -438,11 +435,9 @@
         msgDiv.appendChild(bubble);
         chatBox.appendChild(msgDiv);
         chatBox.scrollTop = chatBox.scrollHeight;
-        // keep last 30 messages clean
         while(chatBox.children.length > 45) chatBox.removeChild(chatBox.children[0]);
     }
     
-    // Update UI energy & mic emotion
     function updateEnergyBar(avgLoudness) {
         let intensity = Math.min(100, Math.floor((avgLoudness / 35) * 100));
         if (intensity < 3) intensity = 0;
@@ -456,7 +451,6 @@
         }
     }
     
-    // function to send audio blob to gateway
     async function sendVoiceBlob(blob) {
         if (!authToken) {
             debugLog("⚠️ No auth token, cannot send audio", "error");
@@ -499,7 +493,6 @@
         }
     }
     
-    // play TTS audio
     async function playAudioFromBase64(encoded) {
         if (!encoded) return;
         if (currentAudio) {
@@ -544,23 +537,6 @@
         }
     }
     
-    // ---------- VAD CORE ----------
-    async function initVADEngine() {
-        if (mediaStream) {
-            // already have stream, just re-use
-            return true;
-        }
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaStream = stream;
-            debugLog("🎙️ microphone acquired", "success");
-            return true;
-        } catch (err) {
-            debugLog(`Microphone error: ${err.message}`, "error");
-            return false;
-        }
-    }
-    
     function resetSilenceTimer() {
         if (silenceTimeout) clearTimeout(silenceTimeout);
         silenceTimeout = null;
@@ -575,7 +551,6 @@
         isRecordingSegment = true;
         try {
             mediaRecorder.stop();
-            // wait for ondataavailable final event
             await new Promise(resolve => {
                 const checkStop = () => {
                     if (mediaRecorder.state === 'inactive') resolve();
@@ -586,7 +561,6 @@
             if (audioChunks.length === 0) {
                 debugLog("empty audio chunk, skip", "warn");
                 isRecordingSegment = false;
-                // restart recorder
                 if (vadActive && mediaStream) {
                     audioChunks = [];
                     mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
@@ -597,7 +571,6 @@
             }
             const blob = new Blob(audioChunks, { type: 'audio/webm' });
             audioChunks = [];
-            // restart mediaRecorder for next segment
             if (vadActive && mediaStream) {
                 mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
                 mediaRecorder.ondataavailable = (e) => { if (e.data.size) audioChunks.push(e.data); };
@@ -615,77 +588,242 @@
         }
     }
     
-    function startVADLoop() {
-        if (!vadActive) return;
-        if (!analyserNode || !audioContext) {
-            debugLog("VAD loop: analyser not ready", "error");
-            return;
-        }
-        const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
-        analyserNode.getByteTimeDomainData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-            const val = (dataArray[i] - 128) / 128;
-            sum += Math.abs(val);
-        }
-        let avgLoudness = (sum / dataArray.length) * 100;
-        const threshold = sensitivityThreshold / 100;  // map [5..25] -> [0.05..0.25]
-        const normalized = avgLoudness / 100;
-        const isTalking = normalized > threshold;
+    // ========== SANDBOX VAD SETUP ==========
+    async function setupSandboxVAD() {
+        vadSandbox = document.getElementById('vad-sandbox');
         
-        updateEnergyBar(avgLoudness);
-        
-        if (isTalking && !speakingFlag) {
-            // speech started
-            speakingFlag = true;
-            resetSilenceTimer();
-            vadPhrase.innerText = "🎙️ SPEAKING...";
-            vadLed.classList.remove('active-led');
-            vadLed.classList.add('speak-led');
-            micAnimation.innerHTML = "🎙️🔊";
-            debugLog(`🎤 voice onset (loudness:${avgLoudness.toFixed(1)})`, "vad");
-            if (silenceTimeout) clearTimeout(silenceTimeout);
-        } 
-        else if (!isTalking && speakingFlag) {
-            // silence after speech
-            if (!silenceTimeout) {
-                silenceTimeout = setTimeout(async () => {
-                    if (speakingFlag && vadActive) {
-                        debugLog(`⏸️ silence reached (${SILENCE_DELAY_MS}ms) → sending utterance`, "vad");
-                        speakingFlag = false;
-                        vadPhrase.innerText = "⏳ Processing...";
-                        micAnimation.innerHTML = "🎤💭";
-                        vadLed.classList.remove('speak-led');
-                        vadLed.classList.add('active-led');
-                        if (mediaRecorder && mediaRecorder.state === 'recording') {
-                            await finalizeAndSendSegment();
-                        }
-                        resetSilenceTimer();
-                        vadPhrase.innerText = "🎧 Listening...";
-                    } else {
-                        speakingFlag = false;
-                        resetSilenceTimer();
-                    }
-                }, SILENCE_DELAY_MS);
+        // Create sandbox HTML content
+        const sandboxHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+    <script type="importmap">
+        {
+            "imports": {
+                "onnxruntime-web": "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/esm/ort.min.js"
             }
-        } else if (!isTalking && !speakingFlag) {
-            // idle
-            if (vadActive) vadPhrase.innerText = "🎧 Awaiting speech";
+        }
+    </script>
+</head>
+<body>
+<script type="module">
+    import * as ort from 'onnxruntime-web';
+    
+    let session = null;
+    let state = null;
+    let sr = null;
+    let prevSpeech = false;
+    let frameCount = 0;
+    
+    async function init() {
+        try {
+            // Try to load from local path first, fallback to CDN
+            let modelUrl = './lib/silero_vad.onnx';
+            try {
+                const testResponse = await fetch(modelUrl, { method: 'HEAD' });
+                if (!testResponse.ok) throw new Error('Local model not found');
+            } catch(e) {
+                modelUrl = 'https://ashirafnewton-ait.github.io/extension/lib/silero_vad.onnx';
+            }
+            
+            session = await ort.InferenceSession.create(modelUrl, {
+                executionProviders: ['wasm', 'cpu']
+            });
+            
+            // Initialize state: [2, 1, 128]
+            state = new Float32Array(2 * 1 * 128);
+            sr = new ort.Tensor('int64', [16000n]);
+            
+            window.parent.postMessage({ type: 'vad_ready', success: true }, '*');
+        } catch(err) {
+            window.parent.postMessage({ type: 'vad_ready', success: false, error: err.message }, '*');
+        }
+    }
+    
+    async function detectSpeech(float32Data) {
+        if (!session) return false;
+        
+        const inputTensor = new ort.Tensor('float32', float32Data, [1, float32Data.length]);
+        const stateTensor = new ort.Tensor('float32', state, [2, 1, 128]);
+        
+        const feeds = { input: inputTensor, state: stateTensor, sr: sr };
+        const results = await session.run(feeds);
+        
+        // Update state for next call (CRITICAL!)
+        state = results.state.data;
+        const probability = results.output.data[0];
+        const isSpeech = probability > 0.5;
+        
+        frameCount++;
+        if (frameCount % 30 === 0) {
+            window.parent.postMessage({ type: 'vad_debug', message: \`prob: \${probability.toFixed(3)}, speech: \${isSpeech}\` }, '*');
         }
         
-        animationRequest = requestAnimationFrame(() => startVADLoop());
+        return isSpeech;
+    }
+    
+    window.addEventListener('message', async (event) => {
+        if (event.data.type === 'audio_chunk') {
+            const uint8 = new Uint8Array(event.data.data);
+            const float32 = new Float32Array(uint8.length);
+            for (let i = 0; i < uint8.length; i++) {
+                float32[i] = (uint8[i] - 128) / 128.0;
+            }
+            
+            const isSpeech = await detectSpeech(float32);
+            
+            if (isSpeech !== prevSpeech) {
+                window.parent.postMessage({ 
+                    type: 'speech_state', 
+                    isSpeaking: isSpeech,
+                    probability: isSpeech ? 'speech' : 'silence'
+                }, '*');
+                prevSpeech = isSpeech;
+            }
+        }
+    });
+    
+    init();
+</script>
+</body>
+</html>
+        `;
+        
+        const blob = new Blob([sandboxHTML], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        vadSandbox.src = url;
+        URL.revokeObjectURL(url);
+        
+        // Listen for messages from sandbox
+        window.addEventListener('message', handleSandboxMessages);
+    }
+    
+    function handleSandboxMessages(event) {
+        if (event.data.type === 'vad_ready') {
+            sandboxReady = event.data.success;
+            if (sandboxReady) {
+                debugLog("✅ Silero VAD sandbox ready!", "success");
+                statusTextSpan.innerText = "VAD ready";
+                connectionLed.classList.add('active-led');
+            } else {
+                debugLog(`❌ Sandbox error: ${event.data.error}`, "error");
+            }
+        }
+        if (event.data.type === 'vad_debug') {
+            debugLog(`[Silero] ${event.data.message}`, "vad");
+        }
+        if (event.data.type === 'speech_state') {
+            // Speech state from sandbox
+            if (event.data.isSpeaking && !speakingFlag) {
+                // Speech started
+                speakingFlag = true;
+                resetSilenceTimer();
+                vadPhrase.innerText = "🎙️ SPEAKING...";
+                vadLed.classList.remove('active-led');
+                vadLed.classList.add('speak-led');
+                micAnimation.innerHTML = "🎙️🔊";
+                debugLog(`🎤 Silero: SPEECH DETECTED`, "vad");
+            } 
+            else if (!event.data.isSpeaking && speakingFlag) {
+                // Silence after speech - start timer
+                if (!silenceTimeout) {
+                    silenceTimeout = setTimeout(async () => {
+                        if (speakingFlag && vadActive) {
+                            debugLog(`⏸️ Silence (${silenceDelayMs}ms) → sending utterance`, "vad");
+                            speakingFlag = false;
+                            vadPhrase.innerText = "⏳ Processing...";
+                            micAnimation.innerHTML = "🎤💭";
+                            vadLed.classList.remove('speak-led');
+                            vadLed.classList.add('active-led');
+                            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                                await finalizeAndSendSegment();
+                            }
+                            resetSilenceTimer();
+                            vadPhrase.innerText = "🎧 Listening...";
+                        } else {
+                            speakingFlag = false;
+                            resetSilenceTimer();
+                        }
+                    }, silenceDelayMs);
+                }
+            }
+        }
+    }
+    
+    // ========== AUDIO CAPTURE & VAD LOOP ==========
+    async function initMicrophone() {
+        if (mediaStream) return true;
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaStream = stream;
+            debugLog("🎙️ Microphone acquired", "success");
+            return true;
+        } catch (err) {
+            debugLog(`Microphone error: ${err.message}`, "error");
+            return false;
+        }
+    }
+    
+    function startAudioProcessing() {
+        if (!vadActive) return;
+        if (!analyserNode || !audioContext) return;
+        
+        const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
+        
+        function processFrame() {
+            if (!vadActive) return;
+            if (!analyserNode) return;
+            
+            analyserNode.getByteTimeDomainData(dataArray);
+            
+            // Calculate energy for UI
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                const val = (dataArray[i] - 128) / 128;
+                sum += Math.abs(val);
+            }
+            const avgLoudness = (sum / dataArray.length) * 100;
+            updateEnergyBar(avgLoudness);
+            
+            // Send audio chunk to sandbox for real VAD
+            if (sandboxReady && vadSandbox && vadSandbox.contentWindow) {
+                vadSandbox.contentWindow.postMessage({
+                    type: 'audio_chunk',
+                    data: Array.from(dataArray)
+                }, '*');
+            }
+            
+            animationRequest = requestAnimationFrame(processFrame);
+        }
+        
+        processFrame();
     }
     
     async function fullStartVAD() {
         if (vadActive) return;
-        const ok = await initVADEngine();
-        if (!ok) {
-            debugLog("Cannot start VAD, mic unavailable", "error");
+        
+        const micOk = await initMicrophone();
+        if (!micOk) {
+            debugLog("Cannot start VAD: microphone unavailable", "error");
             return;
         }
+        
+        if (!sandboxReady) {
+            debugLog("Waiting for sandbox VAD to load...", "warn");
+            await new Promise(resolve => {
+                const checkReady = setInterval(() => {
+                    if (sandboxReady) {
+                        clearInterval(checkReady);
+                        resolve();
+                    }
+                }, 100);
+            });
+        }
+        
         if (audioContext && audioContext.state !== 'closed') {
             await audioContext.close();
         }
+        
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         await audioContext.resume();
         analyserNode = audioContext.createAnalyser();
@@ -701,23 +839,23 @@
         vadActive = true;
         speakingFlag = false;
         resetSilenceTimer();
-        startVADLoop();
+        startAudioProcessing();
         
-        // UI updates
         vadToggleBtn.classList.add('active');
         vadToggleBtn.innerHTML = '⏹️ STOP REAL-TIME VAD';
-        vadStateLabel.innerText = '🎙️ VAD active';
+        vadStateLabel.innerText = '🎙️ VAD active (Silero)';
         vadLed.classList.add('active-led');
-        statusTextSpan.innerText = "🎧 Listening (auto-send)";
+        statusTextSpan.innerText = "🎧 Listening (Silero VAD)";
         vadPhrase.innerText = "🎧 Listening...";
         micAnimation.innerHTML = "🎤";
-        debugLog("✅ VAD engine LIVE — speak naturally, pause to send", "success");
-        addMessage("🔊 VAD active: I'll respond when you finish talking.", "ai");
+        debugLog("✅ Silero VAD engine LIVE — speak naturally", "success");
+        addMessage("🔊 Silero VAD active: AI responds when you finish talking.", "ai");
     }
     
     async function fullStopVAD() {
         if (!vadActive) return;
         vadActive = false;
+        
         if (animationRequest) cancelAnimationFrame(animationRequest);
         if (silenceTimeout) clearTimeout(silenceTimeout);
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
@@ -731,6 +869,7 @@
             mediaStream.getTracks().forEach(t => t.stop());
             mediaStream = null;
         }
+        
         vadToggleBtn.classList.remove('active');
         vadToggleBtn.innerHTML = '▶️ START REAL-TIME VAD';
         vadStateLabel.innerText = '⚡ VAD off';
@@ -740,10 +879,9 @@
         micAnimation.innerHTML = "🎤";
         energyFill.style.width = "0%";
         speakingFlag = false;
-        debugLog("🛑 VAD stopped, mic released", "info");
+        debugLog("🛑 VAD stopped", "info");
     }
     
-    // toggle VAD on button click
     function toggleVAD() {
         if (vadActive) {
             fullStopVAD();
@@ -752,15 +890,15 @@
         }
     }
     
-    // sensitivity slider
-    function updateSensitivity() {
-        const val = parseInt(sensitivitySlider.value);
-        sensitivityThreshold = val;
-        sensSpan.innerText = val;
-        debugLog(`sensitivity set to ${val} (threshold ~${(val/100).toFixed(2)})`, "info");
+    // ========== SILENCE DELAY CONTROL ==========
+    function updateSilenceDelay() {
+        const val = parseFloat(silenceSlider.value);
+        silenceDelayMs = val * 1000;
+        silenceSpan.innerText = val;
+        debugLog(`silence delay set to ${val}s`, "info");
     }
     
-    // ---------- AUTH (supabase) ----------
+    // ========== AUTH ==========
     async function performAuth() {
         try {
             const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
@@ -774,7 +912,7 @@
                 connectionLed.classList.add('active-led');
                 statusTextSpan.innerText = "Authenticated ✅";
                 debugLog("Auth success! Ready for VAD mode", "success");
-                addMessage("✅ Connected to Surf Gateway. Click START to enable real-time VAD.", "ai");
+                addMessage("✅ Connected to Surf Gateway. Click START to enable Silero VAD.", "ai");
             } else {
                 debugLog(`Auth failure: ${JSON.stringify(data)}`, "error");
                 statusTextSpan.innerText = "Auth error";
@@ -784,12 +922,13 @@
         }
     }
     
-    // Event listeners
+    // ========== INITIALIZATION ==========
     vadToggleBtn.addEventListener('click', toggleVAD);
-    sensitivitySlider.addEventListener('input', updateSensitivity);
+    silenceSlider.addEventListener('input', updateSilenceDelay);
     voiceSelect.addEventListener('change', () => debugLog(`voice preset: ${voiceSelect.value}`, "info"));
     
-    // initialize
+    // Setup sandbox and auth
+    setupSandboxVAD();
     performAuth();
     
     window.addEventListener('beforeunload', () => {
@@ -797,7 +936,7 @@
         if (audioContext) audioContext.close();
     });
     
-    debugLog("🔥 Surf VAD Module ready | pure real-time voice detection", "success");
+    debugLog("🔥 Surf VAD Module with Silero Sandbox ready", "success");
 </script>
 </body>
 </html>
