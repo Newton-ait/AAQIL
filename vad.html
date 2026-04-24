@@ -6,174 +6,87 @@
     <title>Surf Voice - All Modes</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            background: #1a1a2e;
-            color: #eee;
-            padding: 20px;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
         h1 { color: #00ff9d; margin-bottom: 5px; }
-        #status {
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-size: 13px;
-            margin-bottom: 10px;
-            background: #333;
-            transition: all 0.3s;
-        }
+        #status { padding: 6px 16px; border-radius: 20px; font-size: 13px; margin-bottom: 10px; background: #333; transition: all 0.3s; }
         #status.connected { background: #00ff9d33; color: #00ff9d; }
         #status.recording { background: #ff444433; color: #ff4444; }
         #status.speaking { background: #00aaff33; color: #00aaff; }
         #status.listening { background: #ffaa0033; color: #ffaa00; }
-
-        #mode-tabs {
-            display: flex; gap: 4px; margin-bottom: 12px;
-            background: #16213e; border-radius: 10px; padding: 4px;
-        }
-        .mode-tab {
-            padding: 8px 16px; border: none; border-radius: 8px;
-            cursor: pointer; font-size: 13px; font-weight: 600;
-            background: transparent; color: #888; transition: all 0.2s;
-        }
+        #mode-tabs { display: flex; gap: 4px; margin-bottom: 12px; background: #16213e; border-radius: 10px; padding: 4px; }
+        .mode-tab { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; background: transparent; color: #888; transition: all 0.2s; }
         .mode-tab.active { background: #00ff9d; color: #000; }
-
-        #chat-box {
-            width: 100%; max-width: 500px; height: 220px;
-            overflow-y: auto; background: #16213e; border-radius: 12px;
-            padding: 15px; margin-bottom: 15px; border: 1px solid #333;
-        }
+        #chat-box { width: 100%; max-width: 500px; height: 220px; overflow-y: auto; background: #16213e; border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid #333; }
         .msg { margin-bottom: 6px; padding: 5px 10px; border-radius: 8px; max-width: 85%; font-size: 13px; }
         .msg.user { background: #00ff9d22; border: 1px solid #00ff9d44; margin-left: auto; }
         .msg.ai { background: #333; margin-right: auto; }
         .msg.system { text-align: center; font-size: 10px; color: #666; }
         .msg.vad { background: #ffaa0011; color: #ffaa00; text-align: center; font-size: 10px; }
         .msg .time { font-size: 9px; color: #555; display: block; }
-
-        #input-area {
-            display: flex; width: 100%; max-width: 500px; gap: 8px; margin-bottom: 10px;
-        }
-        #text-input {
-            flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #444;
-            background: #16213e; color: #fff; font-size: 14px;
-        }
-        button {
-            padding: 10px 18px; border: none; border-radius: 8px;
-            cursor: pointer; font-weight: 600; font-size: 14px;
-        }
+        #input-area { display: flex; width: 100%; max-width: 500px; gap: 8px; margin-bottom: 10px; }
+        #text-input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #16213e; color: #fff; font-size: 14px; }
+        button { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; }
         #send-btn { background: #00ff9d; color: #000; }
-        #mic-btn {
-            background: #333; color: #fff; min-width: 50px;
-            font-size: 20px; user-select: none;
-        }
+        #mic-btn { background: #333; color: #fff; min-width: 50px; font-size: 20px; user-select: none; }
         #mic-btn.recording { background: #ff4444; animation: pulse 1s infinite; }
         #mic-btn.active-vad { background: #ff8800; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-
-        #voice-select {
-            padding: 8px; border-radius: 6px; background: #16213e;
-            color: #fff; border: 1px solid #444; margin-bottom: 10px; font-size: 14px;
-        }
-
-        #vad-indicator {
-            display: none; font-size: 12px; color: #ffaa00;
-            margin-bottom: 6px; text-align: center;
-        }
-        #vad-indicator.active { display: block; animation: pulse 2s infinite; }
-
-        #energy-display {
-            width: 100%; max-width: 500px; height: 6px;
-            background: #1E2A3A; border-radius: 20px; overflow: hidden; margin-bottom: 10px;
-        }
-        #energy-fill {
-            width: 0%; height: 100%;
-            background: linear-gradient(90deg, #00ff9d, #2de0b5);
-            transition: width 0.05s linear;
-        }
-
-        /* DEBUG PANEL */
-        #debug-panel {
-            width: 100%; max-width: 500px; background: #0d1117;
-            border: 1px solid #333; border-radius: 8px; padding: 10px;
-            font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-            font-size: 10px; max-height: 120px; overflow-y: auto;
-        }
+        #voice-select { padding: 8px; border-radius: 6px; background: #16213e; color: #fff; border: 1px solid #444; margin-bottom: 10px; font-size: 14px; }
+        #vad-indicator { display: none; font-size: 12px; color: #ffaa00; margin-bottom: 6px; text-align: center; }
+        #vad-indicator.active { display: block; }
+        #energy-display { width: 100%; max-width: 500px; height: 6px; background: #1E2A3A; border-radius: 20px; overflow: hidden; margin-bottom: 10px; }
+        #energy-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #00ff9d, #2de0b5); transition: width 0.05s linear; }
+        #debug-panel { width: 100%; max-width: 500px; background: #0d1117; border: 1px solid #333; border-radius: 8px; padding: 10px; font-family: 'SF Mono', 'Monaco', 'Consolas', monospace; font-size: 10px; max-height: 100px; overflow-y: auto; }
         #debug-panel .log-line { padding: 1px 0; border-bottom: 1px solid #0a0a0a; }
-        .log-line.info { color: #8a9aaa; }
-        .log-line.success { color: #00ff9d; }
-        .log-line.warn { color: #ffaa00; }
-        .log-line.error { color: #ff4444; }
-        .log-line.audio { color: #00aaff; }
-        .log-line.vad { color: #ff88cc; }
+        .log-line.info { color: #8a9aaa; } .log-line.success { color: #00ff9d; } .log-line.warn { color: #ffaa00; } .log-line.error { color: #ff4444; } .log-line.audio { color: #00aaff; } .log-line.vad { color: #ff88cc; }
         .log-line .ts { color: #444; margin-right: 6px; }
     </style>
 </head>
 <body>
     <h1>🏄 Surf Voice</h1>
     <div id="status">Disconnected</div>
-
     <div id="mode-tabs">
         <button class="mode-tab active" data-mode="text">💬 Text</button>
         <button class="mode-tab" data-mode="ptt">🎤 Push-to-Talk</button>
         <button class="mode-tab" data-mode="vad">⚡ Real-time</button>
     </div>
-
     <select id="voice-select">
         <option value="en-US-AriaNeural">🇺🇸 Aria</option>
         <option value="en-US-GuyNeural">🇺🇸 Guy</option>
         <option value="en-GB-SoniaNeural">🇬🇧 Sonia</option>
         <option value="en-GB-RyanNeural">🇬🇧 Ryan</option>
     </select>
-
     <div id="vad-indicator">🎙️ Listening... speak naturally</div>
     <div id="energy-display"><div id="energy-fill"></div></div>
-
     <div id="chat-box"></div>
-
     <div id="input-area">
         <button id="mic-btn" style="display:none">🎤</button>
         <input id="text-input" placeholder="Type a message..." />
         <button id="send-btn">Send</button>
     </div>
-
     <div id="debug-panel"></div>
 
     <script>
-        // ═══════════════════ CONFIG ═══════════════════
         const GATEWAY = 'https://surf-gateway.onrender.com';
         const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
         const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
 
-        // ═══════════════════ TUNED VAD THRESHOLD (from Colab testing) ═══════════════════
-        const VAD_THRESHOLD = 0.10;  // Optimized for real speech (was 0.3)
-        const SILENCE_TIMEOUT = 1500; // ms of silence before auto-send
+        const VAD_THRESHOLD = 0.10;
+        const SILENCE_TIMEOUT = 1500;
+        const MIN_SPEECH_FRAMES = 8;  // Must speak for ~8 frames (~250ms) before auto-send
+        const MIN_CHUNK_SIZE = 3000;  // Minimum bytes to send
 
-        // ═══════════════════ STATE ═══════════════════
-        let authToken = null;
-        let currentMode = 'text';
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let isRecording = false;
-        let audioContext = null;
-        let analyser = null;
-        let isSpeaking = false;
-        let silenceTimer = null;
-        let vadRunning = false;
-        let vadStream = null;
-        let animationFrame = null;
+        let authToken = null, currentMode = 'text';
+        let mediaRecorder = null, audioChunks = [], isRecording = false;
+        let audioContext = null, analyser = null;
+        let isSpeaking = false, silenceTimer = null, speechFrameCount = 0;
+        let vadRunning = false, vadStream = null, animationFrame = null;
         let currentAudio = null;
 
-        const statusEl = document.getElementById('status');
-        const chatBox = document.getElementById('chat-box');
-        const textInput = document.getElementById('text-input');
-        const sendBtn = document.getElementById('send-btn');
-        const micBtn = document.getElementById('mic-btn');
-        const voiceSelect = document.getElementById('voice-select');
-        const vadIndicator = document.getElementById('vad-indicator');
-        const energyFill = document.getElementById('energy-fill');
+        const statusEl = document.getElementById('status'), chatBox = document.getElementById('chat-box');
+        const textInput = document.getElementById('text-input'), sendBtn = document.getElementById('send-btn');
+        const micBtn = document.getElementById('mic-btn'), voiceSelect = document.getElementById('voice-select');
+        const vadIndicator = document.getElementById('vad-indicator'), energyFill = document.getElementById('energy-fill');
         const debugPanel = document.getElementById('debug-panel');
 
         function debug(msg, level = 'info') {
@@ -182,42 +95,28 @@
             debugPanel.scrollTop = debugPanel.scrollHeight;
             console.log(`[${level}]`, msg);
         }
-
         function log(text, type = 'system') {
             const time = new Date().toLocaleTimeString();
             chatBox.innerHTML += `<div class="msg ${type}"><span class="time">${time}</span>${text}</div>`;
             chatBox.scrollTop = chatBox.scrollHeight;
         }
+        function setStatus(text, cls = '') { statusEl.textContent = text; statusEl.className = cls; }
 
-        function setStatus(text, cls = '') {
-            statusEl.textContent = text;
-            statusEl.className = cls;
-        }
-
-        // ═══════════════════ COMBINED ENERGY+ZCR VAD (optimized threshold) ═══════════════════
         function detectSpeech(dataArray) {
-            // Energy calculation
             let sum = 0;
             for (let i = 0; i < dataArray.length; i++) sum += Math.abs(dataArray[i] - 128);
             const energy = sum / dataArray.length;
-
-            // Zero-crossing rate
             let zcr = 0;
             for (let i = 1; i < dataArray.length; i++) {
                 if ((dataArray[i] - 128) * (dataArray[i-1] - 128) < 0) zcr++;
             }
             zcr = zcr / dataArray.length;
-
-            // Combined score (matching Colab formula)
             const score = Math.min(1.0, (energy * 0.05 + zcr * 1.5));
-
-            // Update energy bar
             energyFill.style.width = Math.min(100, energy * 3) + '%';
-
             return { score, energy, zcr, speech: score > VAD_THRESHOLD };
         }
 
-        // ═══════════════════ MODE SWITCHING ═══════════════════
+        // ════════════ MODE SWITCHING ════════════
         document.querySelectorAll('.mode-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
@@ -227,187 +126,106 @@
         });
 
         function switchMode(mode) {
-            stopVAD();
-            if (isRecording) stopRecording();
-            if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-
-            currentMode = mode;
-            debug(`Mode → ${mode}`);
-            micBtn.classList.remove('recording', 'active-vad');
-
-            switch (mode) {
-                case 'text':
-                    micBtn.style.display = 'none';
-                    textInput.style.display = 'block';
-                    vadIndicator.classList.remove('active');
-                    energyFill.style.width = '0%';
-                    setStatus('Connected ✅', 'connected');
-                    break;
-                case 'ptt':
-                    micBtn.style.display = 'block';
-                    micBtn.textContent = '🎤';
-                    textInput.style.display = 'none';
-                    vadIndicator.classList.remove('active');
-                    energyFill.style.width = '0%';
-                    setStatus('Hold mic to talk', 'connected');
-                    break;
-                case 'vad':
-                    micBtn.style.display = 'block';
-                    micBtn.textContent = '▶️';
-                    textInput.style.display = 'none';
-                    vadIndicator.classList.add('active');
-                    setStatus('Click ▶️ to start', 'connected');
-                    break;
-            }
+            stopVAD(); if (isRecording) stopRecording(); if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+            currentMode = mode; micBtn.classList.remove('recording', 'active-vad');
+            if (mode === 'text') { micBtn.style.display = 'none'; textInput.style.display = 'block'; vadIndicator.classList.remove('active'); energyFill.style.width = '0%'; setStatus('Connected ✅', 'connected'); }
+            else if (mode === 'ptt') { micBtn.style.display = 'block'; micBtn.textContent = '🎤'; textInput.style.display = 'none'; vadIndicator.classList.remove('active'); energyFill.style.width = '0%'; setStatus('Hold mic to talk', 'connected'); }
+            else { micBtn.style.display = 'block'; micBtn.textContent = '▶️'; textInput.style.display = 'none'; vadIndicator.classList.add('active'); setStatus('Click ▶️ to start', 'connected'); }
         }
 
-        // ═══════════════════ AUTH ═══════════════════
+        // ════════════ AUTH ════════════
         async function login() {
             try {
-                const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'apikey': ANON_KEY },
-                    body: JSON.stringify({ email: 'surf@testuser.com', password: 'Test1234!' })
-                });
+                const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': ANON_KEY }, body: JSON.stringify({ email: 'surf@testuser.com', password: 'Test1234!' }) });
                 const data = await res.json();
-                if (data.access_token) {
-                    authToken = data.access_token;
-                    setStatus('Connected ✅', 'connected');
-                    debug('Logged in', 'success');
-                } else {
-                    debug(`Login failed: ${JSON.stringify(data)}`, 'error');
-                }
-            } catch (e) {
-                debug(`Login error: ${e.message}`, 'error');
-            }
+                if (data.access_token) { authToken = data.access_token; setStatus('Connected ✅', 'connected'); debug('Logged in', 'success'); }
+            } catch (e) { debug(`Login error: ${e.message}`, 'error'); }
         }
 
-        // ═══════════════════ TEXT CHAT ═══════════════════
+        // ════════════ TEXT CHAT ════════════
         async function sendText(text) {
             if (!authToken || !text.trim()) return;
-            log(text, 'user');
-            textInput.value = '';
-            debug(`Text: "${text.substring(0, 40)}"`);
-
+            log(text, 'user'); textInput.value = '';
             try {
-                const res = await fetch(`${GATEWAY}/chat`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-                    body: JSON.stringify({ text, voice: voiceSelect.value })
-                });
+                const res = await fetch(`${GATEWAY}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }, body: JSON.stringify({ text, voice: voiceSelect.value }) });
                 const data = await res.json();
                 if (data.response) log('🤖 ' + data.response, 'ai');
                 if (data.audio_base64) await playAudio(data.audio_base64);
-            } catch (e) {
-                debug(`Chat error: ${e.message}`, 'error');
-            }
+            } catch (e) { debug(`Chat error: ${e.message}`, 'error'); }
         }
 
-        // ═══════════════════ PUSH-TO-TALK ═══════════════════
+        // ════════════ PUSH-TO-TALK ════════════
         async function startRecording() {
             if (!authToken) return;
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                audioChunks = [];
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                audioChunks = []; mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
                 mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
-                mediaRecorder.onstop = async () => {
-                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                    debug(`PTT stopped: ${blob.size}B`, 'audio');
-                    await sendAudio(blob);
-                    stream.getTracks().forEach(t => t.stop());
-                };
-                mediaRecorder.start();
-                isRecording = true;
-                micBtn.classList.add('recording');
-                setStatus('🎤 Recording...', 'recording');
-            } catch (e) {
-                debug(`PTT error: ${e.message}`, 'error');
-            }
+                mediaRecorder.onstop = async () => { const blob = new Blob(audioChunks, { type: 'audio/webm' }); await sendAudio(blob); stream.getTracks().forEach(t => t.stop()); };
+                mediaRecorder.start(); isRecording = true; micBtn.classList.add('recording'); setStatus('🎤 Recording...', 'recording');
+            } catch (e) { debug(`PTT error: ${e.message}`, 'error'); }
         }
-
         function stopRecording() {
-            if (mediaRecorder && isRecording) {
-                mediaRecorder.stop();
-                isRecording = false;
-                micBtn.classList.remove('recording');
-                setStatus('Hold mic to talk', 'connected');
-            }
+            if (mediaRecorder && isRecording) { mediaRecorder.stop(); isRecording = false; micBtn.classList.remove('recording'); setStatus('Hold mic to talk', 'connected'); }
         }
 
         async function sendAudio(blob) {
             if (!authToken || blob.size < 800) return;
-            debug(`→ /voice ${blob.size}B`, 'audio');
-            const formData = new FormData();
-            formData.append('audio', blob, 'recording.webm');
-            formData.append('voice', voiceSelect.value);
-
+            const formData = new FormData(); formData.append('audio', blob, 'recording.webm'); formData.append('voice', voiceSelect.value);
             try {
-                const res = await fetch(`${GATEWAY}/voice`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${authToken}` },
-                    body: formData
-                });
+                const res = await fetch(`${GATEWAY}/voice`, { method: 'POST', headers: { 'Authorization': `Bearer ${authToken}` }, body: formData });
                 const data = await res.json();
-                if (data.transcript) { log('📝 ' + data.transcript, 'user'); debug(`Transcript: "${data.transcript}"`, 'success'); }
+                if (data.transcript) { log('📝 ' + data.transcript, 'user'); debug(`📝 ${data.transcript}`, 'success'); }
                 if (data.response) log('🤖 ' + data.response, 'ai');
-                if (data.audio_base64) { debug(`TTS: ${data.audio_base64.length} chars`, 'audio'); await playAudio(data.audio_base64); }
-            } catch (e) {
-                debug(`Voice error: ${e.message}`, 'error');
-            }
+                if (data.audio_base64) await playAudio(data.audio_base64);
+            } catch (e) { debug(`Voice error: ${e.message}`, 'error'); }
         }
 
-        // ═══════════════════ REAL-TIME VAD (optimized) ═══════════════════
+        // ════════════ REAL-TIME VAD (FIXED) ════════════
         async function startVAD() {
             if (!authToken || vadRunning) return;
-            debug('VAD starting (optimized threshold=' + VAD_THRESHOLD + ')...', 'vad');
-
             try {
                 vadStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                debug(`Mic: ${vadStream.getAudioTracks()[0].label}`, 'success');
-
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const source = audioContext.createMediaStreamSource(vadStream);
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 512;
-                source.connect(analyser);
-
-                audioChunks = [];
-                mediaRecorder = new MediaRecorder(vadStream, { mimeType: 'audio/webm' });
+                analyser = audioContext.createAnalyser(); analyser.fftSize = 512; source.connect(analyser);
+                audioChunks = []; mediaRecorder = new MediaRecorder(vadStream, { mimeType: 'audio/webm' });
                 mediaRecorder.ondataavailable = (e) => { if (e.data.size) audioChunks.push(e.data); };
                 mediaRecorder.start(300);
-
-                vadRunning = true;
-                micBtn.classList.add('active-vad');
-                micBtn.textContent = '⏹️';
-                setStatus('⚡ Listening...', 'listening');
-                log('⚡ Speak now - auto-sends on pause', 'vad');
-                debug('VAD loop started', 'vad');
-
+                vadRunning = true; isSpeaking = false; speechFrameCount = 0;
+                micBtn.classList.add('active-vad'); micBtn.textContent = '⏹️';
+                setStatus('⚡ Listening...', 'listening'); log('⚡ Speak now - pauses 1.5s to send', 'vad');
                 checkVAD();
-            } catch (e) {
-                debug(`VAD error: ${e.message}`, 'error');
-            }
+            } catch (e) { debug(`VAD error: ${e.message}`, 'error'); }
         }
 
         function stopVAD() {
             if (!vadRunning) return;
-            debug('VAD stopping', 'vad');
             vadRunning = false;
             if (animationFrame) cancelAnimationFrame(animationFrame);
             if (silenceTimer) clearTimeout(silenceTimer);
             if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
             if (audioContext) audioContext.close();
             if (vadStream) vadStream.getTracks().forEach(t => t.stop());
-            audioContext = null;
-            analyser = null;
-            vadStream = null;
-            mediaRecorder = null;
-            isSpeaking = false;
-            energyFill.style.width = '0%';
-            micBtn.classList.remove('active-vad');
-            micBtn.textContent = '▶️';
+            audioContext = null; analyser = null; vadStream = null; mediaRecorder = null;
+            isSpeaking = false; speechFrameCount = 0; energyFill.style.width = '0%';
+            micBtn.classList.remove('active-vad'); micBtn.textContent = '▶️';
             setStatus('Click ▶️ to start', 'connected');
+        }
+
+        async function sendVADChunk() {
+            if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
+            mediaRecorder.requestData();
+            await new Promise(r => setTimeout(r, 200));
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            audioChunks = [];
+            mediaRecorder.start(300);
+            if (blob.size > MIN_CHUNK_SIZE) {
+                debug(`VAD: sending ${blob.size}B`, 'audio');
+                await sendAudio(blob);
+            } else {
+                debug(`VAD: chunk too small (${blob.size}B)`, 'warn');
+            }
         }
 
         function checkVAD() {
@@ -415,35 +233,33 @@
 
             const dataArray = new Uint8Array(analyser.frequencyBinCount);
             analyser.getByteTimeDomainData(dataArray);
-            const { score, energy, zcr, speech } = detectSpeech(dataArray);
+            const { score, speech } = detectSpeech(dataArray);
 
-            if (speech && !isSpeaking) {
-                isSpeaking = true;
-                debug(`VAD: 🗣️ SPEECH (score=${score.toFixed(2)}, e=${energy.toFixed(1)}, z=${zcr.toFixed(2)})`, 'vad');
-                log('🎙️ Speaking...', 'vad');
+            if (speech) {
+                speechFrameCount++;
+                if (!isSpeaking && speechFrameCount >= MIN_SPEECH_FRAMES) {
+                    isSpeaking = true;
+                    debug(`VAD: 🗣️ SPEAKING (${speechFrameCount} frames, score=${score.toFixed(2)})`, 'vad');
+                    log('🎙️ Speaking...', 'vad');
+                }
+                // Clear any pending silence timer
                 if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
-            } else if (!speech && isSpeaking) {
-                if (!silenceTimer) {
-                    debug(`VAD: 🔇 silence, waiting ${SILENCE_TIMEOUT}ms... (score=${score.toFixed(2)})`, 'vad');
+            } else {
+                // Reset speech counter on silence
+                if (speechFrameCount < MIN_SPEECH_FRAMES) {
+                    speechFrameCount = 0;
+                }
+                // Only start silence timer if we were actually speaking
+                if (isSpeaking && !silenceTimer) {
+                    debug(`VAD: 🔇 silence after ${speechFrameCount} speech frames — waiting ${SILENCE_TIMEOUT}ms`, 'vad');
                     silenceTimer = setTimeout(async () => {
-                        isSpeaking = false;
                         silenceTimer = null;
-                        debug('VAD: ⏰ timeout — sending chunk', 'vad');
-                        log('📤 Sending...', 'vad');
-
-                        if (mediaRecorder && mediaRecorder.state === 'recording') {
-                            mediaRecorder.requestData();
-                            await new Promise(r => setTimeout(r, 200));
-
-                            const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                            audioChunks = [];
-                            mediaRecorder.start(300);
-
-                            if (blob.size > 2000) {
-                                await sendAudio(blob);
-                            } else {
-                                debug(`VAD: chunk too small (${blob.size}B), skipped`, 'warn');
-                            }
+                        if (isSpeaking && vadRunning) {
+                            isSpeaking = false;
+                            speechFrameCount = 0;
+                            debug('VAD: ⏰ silence confirmed — sending', 'vad');
+                            log('📤 Sending...', 'vad');
+                            await sendVADChunk();
                         }
                     }, SILENCE_TIMEOUT);
                 }
@@ -452,65 +268,37 @@
             animationFrame = requestAnimationFrame(checkVAD);
         }
 
-        // ═══════════════════ TTS PLAYBACK ═══════════════════
+        // ════════════ TTS ════════════
         async function playAudio(encoded) {
             if (!encoded) return;
             if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-
             try {
                 const isBase64 = /[+/=A-Z]/.test(encoded.substring(0, 4)) || encoded.includes('=');
                 let bytes;
-                if (isBase64) {
-                    const binary = atob(encoded);
-                    bytes = new Uint8Array(binary.length);
-                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                } else {
-                    bytes = new Uint8Array(encoded.match(/.{1,2}/g).map(b => parseInt(b, 16)));
-                }
-
-                const blob = new Blob([bytes], { type: 'audio/mpeg' });
-                const url = URL.createObjectURL(blob);
-                const audio = new Audio(url);
-                currentAudio = audio;
-
+                if (isBase64) { const b = atob(encoded); bytes = new Uint8Array(b.length); for (let i=0;i<b.length;i++) bytes[i]=b.charCodeAt(i); }
+                else { bytes = new Uint8Array(encoded.match(/.{1,2}/g).map(b=>parseInt(b,16))); }
+                const blob = new Blob([bytes], { type: 'audio/mpeg' }), url = URL.createObjectURL(blob);
+                const audio = new Audio(url); currentAudio = audio;
                 audio.onplay = () => setStatus('🔊 Speaking...', 'speaking');
-                audio.onended = () => {
-                    URL.revokeObjectURL(url);
-                    currentAudio = null;
-                    if (currentMode === 'vad') setStatus('⚡ Listening...', 'listening');
-                    else setStatus('Connected ✅', 'connected');
-                };
-                audio.onerror = () => {
-                    URL.revokeObjectURL(url);
-                    currentAudio = null;
-                };
-
+                audio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; if (currentMode==='vad') setStatus('⚡ Listening...','listening'); else setStatus('Connected ✅','connected'); };
+                audio.onerror = () => { URL.revokeObjectURL(url); currentAudio = null; };
                 await audio.play();
-            } catch (e) {
-                debug(`Audio error: ${e.message}`, 'error');
-            }
+            } catch (e) { debug(`Audio: ${e.message}`, 'error'); }
         }
 
-        // ═══════════════════ EVENTS ═══════════════════
-        sendBtn.onclick = () => {
-            if (currentMode === 'text') sendText(textInput.value);
-            else { const txt = textInput.value || prompt('Type:'); if (txt) sendText(txt); }
-        };
-        textInput.onkeydown = (e) => { if (e.key === 'Enter' && currentMode === 'text') sendText(textInput.value); };
+        // ════════════ EVENTS ════════════
+        sendBtn.onclick = () => { if (currentMode==='text') sendText(textInput.value); else { const t = textInput.value || prompt('Type:'); if (t) sendText(t); } };
+        textInput.onkeydown = (e) => { if (e.key==='Enter' && currentMode==='text') sendText(textInput.value); };
+        micBtn.onmousedown = () => { if (currentMode==='ptt') startRecording(); };
+        micBtn.onmouseup = () => { if (currentMode==='ptt') stopRecording(); };
+        micBtn.onmouseleave = () => { if (currentMode==='ptt' && isRecording) stopRecording(); };
+        micBtn.ontouchstart = (e) => { if (currentMode==='ptt') { e.preventDefault(); startRecording(); } };
+        micBtn.ontouchend = () => { if (currentMode==='ptt') stopRecording(); };
+        micBtn.addEventListener('click', (e) => { if (currentMode==='vad') { vadRunning ? stopVAD() : startVAD(); } });
 
-        micBtn.onmousedown = () => { if (currentMode === 'ptt') startRecording(); };
-        micBtn.onmouseup = () => { if (currentMode === 'ptt') stopRecording(); };
-        micBtn.onmouseleave = () => { if (currentMode === 'ptt' && isRecording) stopRecording(); };
-        micBtn.ontouchstart = (e) => { if (currentMode === 'ptt') { e.preventDefault(); startRecording(); } };
-        micBtn.ontouchend = () => { if (currentMode === 'ptt') stopRecording(); };
-        micBtn.addEventListener('click', (e) => {
-            if (currentMode === 'vad') { vadRunning ? stopVAD() : startVAD(); }
-        });
-
-        // ═══════════════════ START ═══════════════════
-        debug('Client ready (VAD threshold=' + VAD_THRESHOLD + ')', 'success');
-        switchMode('text');
-        login();
+        // ════════════ START ════════════
+        debug('Ready — VAD needs ' + MIN_SPEECH_FRAMES + ' speech frames + ' + (SILENCE_TIMEOUT/1000) + 's silence', 'success');
+        switchMode('text'); login();
     </script>
 </body>
 </html>
