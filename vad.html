@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Surf Voice - VAD Studio (Real-time Listening)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: radial-gradient(circle at 10% 20%, #0B1120, #0A0F1A);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* glass-panel */
+        .vad-container {
+            max-width: 580px;
+            width: 100%;
+            background: rgba(18, 25, 45, 0.75);
+            backdrop-filter: blur(12px);
+            border-radius: 3rem;
+            padding: 1.5rem;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 255, 157, 0.15);
+            border: 1px solid rgba(0, 255, 157, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+            gap: 10px;
+        }
+
+        h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #C0FFE0, #00ff9d);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .badge {
+            background: #00ff9d22;
+            border-radius: 40px;
+            padding: 6px 14px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #00ff9d;
+            border: 1px solid #00ff9d55;
+        }
+
+        #global-status {
+            background: #0E1622;
+            border-radius: 2rem;
+            padding: 10px 18px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            border-left: 4px solid #00ff9d;
+            transition: all 0.2s;
+        }
+
+        .status-led {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+
+        .led {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4a5568;
+            transition: 0.2s;
+            box-shadow: 0 0 4px currentColor;
+        }
+
+        .led.active-led {
+            background: #00ff9d;
+            box-shadow: 0 0 10px #00ff9d;
+            animation: pulse-led 1.2s infinite;
+        }
+
+        .led.speak-led {
+            background: #ffaa44;
+            box-shadow: 0 0 12px #ffaa44;
+            animation: pulse-led 0.6s infinite;
+        }
+
+        @keyframes pulse-led {
+            0% { opacity: 0.5; transform: scale(0.9);}
+            100% { opacity: 1; transform: scale(1.2);}
+        }
+
+        .voice-config {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        select, .sensitivity-control {
+            background: #111827;
+            border: 1px solid #2d3a4e;
+            border-radius: 2rem;
+            padding: 8px 16px;
+            color: white;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .sensitivity-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #111827dd;
+        }
+
+        input[type="range"] {
+            width: 130px;
+            background: #00ff9d;
+            height: 3px;
+            border-radius: 3px;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]:focus {
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #00ff9d;
+            cursor: pointer;
+            box-shadow: 0 0 6px #00ff9d;
+        }
+
+        /* VAD main sphere */
+        .vad-sphere {
+            background: #0A0F1E;
+            border-radius: 2rem;
+            padding: 1.2rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            border: 1px solid #2a3a55;
+            transition: all 0.1s;
+        }
+
+        .mic-icon {
+            font-size: 4rem;
+            margin: 0.2rem 0;
+            transition: transform 0.1s ease;
+        }
+
+        .vad-status-text {
+            font-size: 1.2rem;
+            font-weight: 600;
+            background: #1F2A3E;
+            display: inline-block;
+            padding: 5px 18px;
+            border-radius: 40px;
+            margin-bottom: 12px;
+        }
+
+        .energy-bar {
+            width: 100%;
+            height: 8px;
+            background: #1E2A3A;
+            border-radius: 20px;
+            overflow: hidden;
+            margin: 12px 0;
+        }
+
+        .energy-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #00ff9d, #2de0b5);
+            border-radius: 20px;
+            transition: width 0.05s linear;
+        }
+
+        .btn-vad {
+            background: #1F2A42;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 3rem;
+            font-weight: 700;
+            font-size: 1rem;
+            color: #e2e8f0;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+            border: 1px solid #334155;
+        }
+
+        .btn-vad.active {
+            background: #00ff9d;
+            color: #0a0f1a;
+            box-shadow: 0 0 14px #00ff9d;
+            border-color: #00ff9d;
+        }
+
+        .conversation-box {
+            background: #0C1122cc;
+            border-radius: 1.5rem;
+            padding: 1rem;
+            height: 280px;
+            overflow-y: auto;
+            margin: 1rem 0;
+            border: 1px solid #253450;
+            font-size: 0.85rem;
+        }
+
+        .message {
+            margin-bottom: 14px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message.user {
+            align-items: flex-end;
+        }
+
+        .message.ai {
+            align-items: flex-start;
+        }
+
+        .bubble {
+            max-width: 85%;
+            padding: 8px 16px;
+            border-radius: 24px;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .user .bubble {
+            background: #00ff9d20;
+            border: 1px solid #00ff9d60;
+            color: #d4f5e3;
+            border-radius: 20px 20px 4px 20px;
+        }
+
+        .ai .bubble {
+            background: #1E293B;
+            border: 1px solid #3b4c6b;
+            color: #eef2ff;
+            border-radius: 20px 20px 20px 4px;
+        }
+
+        .timestamp {
+            font-size: 0.65rem;
+            color: #7f8ea3;
+            margin: 0 6px 4px 6px;
+        }
+
+        .vad-note {
+            font-size: 0.7rem;
+            color: #9bb2d0;
+            text-align: center;
+            margin-top: 10px;
+            background: #00000040;
+            border-radius: 60px;
+            padding: 6px;
+        }
+
+        .debug-console {
+            background: #03060c;
+            border-radius: 1rem;
+            margin-top: 1rem;
+            padding: 8px 12px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.7rem;
+            max-height: 110px;
+            overflow-y: auto;
+            color: #8da3c0;
+            border: 1px solid #1f2c3f;
+        }
+
+        button {
+            background: none;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+<div class="vad-container">
+    <div class="header">
+        <h1>🎙️ VAD Mode · always listening</h1>
+        <div class="badge">real-time · auto-turn</div>
+    </div>
+
+    <!-- status area -->
+    <div id="global-status">
+        <div class="status-led">
+            <div class="led" id="connection-led"></div>
+            <span id="status-text">Disconnected</span>
+        </div>
+        <div class="status-led">
+            <div class="led" id="vad-led"></div>
+            <span id="vad-state-label">⚡ VAD off</span>
+        </div>
+    </div>
+
+    <!-- voice & sensitivity -->
+    <div class="voice-config">
+        <select id="voice-select">
+            <option value="en-US-AriaNeural">🇺🇸 Aria (Female)</option>
+            <option value="en-US-GuyNeural">🇺🇸 Guy (Male)</option>
+            <option value="en-GB-SoniaNeural">🇬🇧 Sonia</option>
+            <option value="en-GB-RyanNeural">🇬🇧 Ryan</option>
+        </select>
+        <div class="sensitivity-control">
+            <span>🎚️ Sensitivity</span>
+            <input type="range" id="sensitivity-slider" min="5" max="25" step="1" value="12">
+            <span id="sens-value">12</span>
+        </div>
+    </div>
+
+    <!-- VAD core card -->
+    <div class="vad-sphere">
+        <div class="mic-icon" id="mic-animation">🎤</div>
+        <div class="vad-status-text" id="vadPhrase">⚡ Idle</div>
+        <div class="energy-bar">
+            <div class="energy-fill" id="energyFill"></div>
+        </div>
+        <button class="btn-vad" id="vadToggleBtn">▶️ START REAL-TIME VAD</button>
+        <div class="vad-note">
+            🧠 Speech detection & auto-send after silence (1.2s) • no push-to-talk
+        </div>
+    </div>
+
+    <!-- conversation panel -->
+    <div class="conversation-box" id="chatBox">
+        <div class="message ai">
+            <div class="timestamp">✨ system</div>
+            <div class="bubble">VAD mode active. Click START, speak naturally — I'll respond when you pause. 🔈</div>
+        </div>
+    </div>
+
+    <!-- debug panel -->
+    <div class="debug-console" id="debugConsole">
+        <div>🔍 [ready] session waiting</div>
+    </div>
+</div>
+
+<script>
+    // ---------- CONFIGURATION (gateway & supabase) ----------
+    const GATEWAY = 'https://surf-gateway.onrender.com';
+    const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
+    const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
+
+    let authToken = null;
+    let currentAudio = null;
+    let mediaStream = null;
+    let audioContext = null;
+    let sourceNode = null;
+    let analyserNode = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let vadActive = false;          // engine running?
+    let speakingFlag = false;       // currently voice active?
+    let silenceTimeout = null;
+    let animationRequest = null;
+    let isRecordingSegment = false;  // avoid double recordings
+    
+    // VAD params
+    let sensitivityThreshold = 12;    // default 12 (avg loudness)
+    const SILENCE_DELAY_MS = 1200;    // 1.2 seconds pause = auto-send
+    
+    // DOM elements
+    const statusTextSpan = document.getElementById('status-text');
+    const connectionLed = document.getElementById('connection-led');
+    const vadLed = document.getElementById('vad-led');
+    const vadStateLabel = document.getElementById('vad-state-label');
+    const vadToggleBtn = document.getElementById('vadToggleBtn');
+    const micAnimation = document.getElementById('mic-animation');
+    const vadPhrase = document.getElementById('vadPhrase');
+    const energyFill = document.getElementById('energyFill');
+    const chatBox = document.getElementById('chatBox');
+    const debugConsole = document.getElementById('debugConsole');
+    const voiceSelect = document.getElementById('voice-select');
+    const sensitivitySlider = document.getElementById('sensitivity-slider');
+    const sensSpan = document.getElementById('sens-value');
+    
+    // helpers
+    function debugLog(msg, level = 'info') {
+        const time = new Date().toLocaleTimeString();
+        const div = document.createElement('div');
+        div.style.color = level === 'error' ? '#ff9090' : (level === 'success' ? '#a0ffc0' : '#b8c7e7');
+        div.innerHTML = `[${time}] ${msg}`;
+        debugConsole.appendChild(div);
+        debugConsole.scrollTop = debugConsole.scrollHeight;
+        if (debugConsole.children.length > 35) debugConsole.removeChild(debugConsole.children[0]);
+        console.log(`[VAD][${level}]`, msg);
+    }
+    
+    function addMessage(text, role, transcriptRaw = null) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${role}`;
+        const timeSpan = document.createElement('div');
+        timeSpan.className = 'timestamp';
+        timeSpan.innerText = new Date().toLocaleTimeString();
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        let displayText = text;
+        if (role === 'user' && transcriptRaw) displayText = `🗣️ "${text}"`;
+        else if (role === 'user') displayText = `🎙️ ${text}`;
+        bubble.innerText = displayText;
+        msgDiv.appendChild(timeSpan);
+        msgDiv.appendChild(bubble);
+        chatBox.appendChild(msgDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        // keep last 30 messages clean
+        while(chatBox.children.length > 45) chatBox.removeChild(chatBox.children[0]);
+    }
+    
+    // Update UI energy & mic emotion
+    function updateEnergyBar(avgLoudness) {
+        let intensity = Math.min(100, Math.floor((avgLoudness / 35) * 100));
+        if (intensity < 3) intensity = 0;
+        energyFill.style.width = `${intensity}%`;
+        if (speakingFlag) {
+            micAnimation.style.transform = `scale(${1 + intensity/200})`;
+            micAnimation.style.textShadow = '0 0 6px #ffaa44';
+        } else {
+            micAnimation.style.transform = 'scale(1)';
+            micAnimation.style.textShadow = 'none';
+        }
+    }
+    
+    // function to send audio blob to gateway
+    async function sendVoiceBlob(blob) {
+        if (!authToken) {
+            debugLog("⚠️ No auth token, cannot send audio", "error");
+            return false;
+        }
+        if (blob.size < 800) {
+            debugLog(`🔇 audio too short (${blob.size} bytes) ignored`, "warn");
+            return false;
+        }
+        debugLog(`📤 sending VAD segment: ${(blob.size/1024).toFixed(1)} KB`, "success");
+        const formData = new FormData();
+        formData.append('audio', blob, 'vad_segment.webm');
+        formData.append('voice', voiceSelect.value);
+        try {
+            const response = await fetch(`${GATEWAY}/voice`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${authToken}` },
+                body: formData
+            });
+            const data = await response.json();
+            if (data.transcript) {
+                const transcript = data.transcript.trim();
+                if (transcript.length > 0) {
+                    addMessage(transcript, 'user', true);
+                    debugLog(`📝 transcript: "${transcript}"`, "info");
+                }
+            }
+            if (data.response) {
+                const aiReply = data.response;
+                addMessage(aiReply, 'ai');
+                debugLog(`🤖 AI: ${aiReply.substring(0, 70)}`, "success");
+            }
+            if (data.audio_base64) {
+                await playAudioFromBase64(data.audio_base64);
+            }
+            return true;
+        } catch (err) {
+            debugLog(`❌ voice API error: ${err.message}`, "error");
+            return false;
+        }
+    }
+    
+    // play TTS audio
+    async function playAudioFromBase64(encoded) {
+        if (!encoded) return;
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+        try {
+            let bytes;
+            const isBase64 = /^[A-Za-z0-9+/=]+$/.test(encoded.substring(0, 64));
+            if (isBase64 || encoded.includes('=')) {
+                const binary = atob(encoded);
+                bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            } else {
+                bytes = new Uint8Array(encoded.match(/.{1,2}/g).map(b => parseInt(b, 16)));
+            }
+            const blob = new Blob([bytes], { type: 'audio/mpeg' });
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            currentAudio = audio;
+            audio.onplay = () => {
+                statusTextSpan.innerText = "🔊 Speaking reply...";
+                vadLed.style.opacity = "0.5";
+            };
+            audio.onended = () => {
+                URL.revokeObjectURL(url);
+                currentAudio = null;
+                if (vadActive) {
+                    statusTextSpan.innerText = "🎧 Listening (VAD ready)";
+                    vadLed.classList.add('active-led');
+                } else {
+                    statusTextSpan.innerText = "VAD idle";
+                }
+            };
+            audio.onerror = () => {
+                URL.revokeObjectURL(url);
+                debugLog("audio playback error", "error");
+            };
+            await audio.play();
+        } catch(e) {
+            debugLog(`playback exception: ${e.message}`, "error");
+        }
+    }
+    
+    // ---------- VAD CORE ----------
+    async function initVADEngine() {
+        if (mediaStream) {
+            // already have stream, just re-use
+            return true;
+        }
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaStream = stream;
+            debugLog("🎙️ microphone acquired", "success");
+            return true;
+        } catch (err) {
+            debugLog(`Microphone error: ${err.message}`, "error");
+            return false;
+        }
+    }
+    
+    function resetSilenceTimer() {
+        if (silenceTimeout) clearTimeout(silenceTimeout);
+        silenceTimeout = null;
+    }
+    
+    async function finalizeAndSendSegment() {
+        if (!mediaRecorder || mediaRecorder.state !== 'recording') {
+            debugLog("cannot finalize: no active recorder", "warn");
+            return;
+        }
+        if (isRecordingSegment) return;
+        isRecordingSegment = true;
+        try {
+            mediaRecorder.stop();
+            // wait for ondataavailable final event
+            await new Promise(resolve => {
+                const checkStop = () => {
+                    if (mediaRecorder.state === 'inactive') resolve();
+                    else setTimeout(checkStop, 20);
+                };
+                checkStop();
+            });
+            if (audioChunks.length === 0) {
+                debugLog("empty audio chunk, skip", "warn");
+                isRecordingSegment = false;
+                // restart recorder
+                if (vadActive && mediaStream) {
+                    audioChunks = [];
+                    mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
+                    mediaRecorder.ondataavailable = (e) => { if (e.data.size) audioChunks.push(e.data); };
+                    mediaRecorder.start(300);
+                }
+                return;
+            }
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            audioChunks = [];
+            // restart mediaRecorder for next segment
+            if (vadActive && mediaStream) {
+                mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size) audioChunks.push(e.data); };
+                mediaRecorder.start(300);
+            }
+            isRecordingSegment = false;
+            if (blob.size > 800) {
+                await sendVoiceBlob(blob);
+            } else {
+                debugLog(`silent segment too small (${blob.size}B), ignored`, "info");
+            }
+        } catch (err) {
+            debugLog(`finalize error: ${err.message}`, "error");
+            isRecordingSegment = false;
+        }
+    }
+    
+    function startVADLoop() {
+        if (!vadActive) return;
+        if (!analyserNode || !audioContext) {
+            debugLog("VAD loop: analyser not ready", "error");
+            return;
+        }
+        const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
+        analyserNode.getByteTimeDomainData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+            const val = (dataArray[i] - 128) / 128;
+            sum += Math.abs(val);
+        }
+        let avgLoudness = (sum / dataArray.length) * 100;
+        const threshold = sensitivityThreshold / 100;  // map [5..25] -> [0.05..0.25]
+        const normalized = avgLoudness / 100;
+        const isTalking = normalized > threshold;
+        
+        updateEnergyBar(avgLoudness);
+        
+        if (isTalking && !speakingFlag) {
+            // speech started
+            speakingFlag = true;
+            resetSilenceTimer();
+            vadPhrase.innerText = "🎙️ SPEAKING...";
+            vadLed.classList.remove('active-led');
+            vadLed.classList.add('speak-led');
+            micAnimation.innerHTML = "🎙️🔊";
+            debugLog(`🎤 voice onset (loudness:${avgLoudness.toFixed(1)})`, "vad");
+            if (silenceTimeout) clearTimeout(silenceTimeout);
+        } 
+        else if (!isTalking && speakingFlag) {
+            // silence after speech
+            if (!silenceTimeout) {
+                silenceTimeout = setTimeout(async () => {
+                    if (speakingFlag && vadActive) {
+                        debugLog(`⏸️ silence reached (${SILENCE_DELAY_MS}ms) → sending utterance`, "vad");
+                        speakingFlag = false;
+                        vadPhrase.innerText = "⏳ Processing...";
+                        micAnimation.innerHTML = "🎤💭";
+                        vadLed.classList.remove('speak-led');
+                        vadLed.classList.add('active-led');
+                        if (mediaRecorder && mediaRecorder.state === 'recording') {
+                            await finalizeAndSendSegment();
+                        }
+                        resetSilenceTimer();
+                        vadPhrase.innerText = "🎧 Listening...";
+                    } else {
+                        speakingFlag = false;
+                        resetSilenceTimer();
+                    }
+                }, SILENCE_DELAY_MS);
+            }
+        } else if (!isTalking && !speakingFlag) {
+            // idle
+            if (vadActive) vadPhrase.innerText = "🎧 Awaiting speech";
+        }
+        
+        animationRequest = requestAnimationFrame(() => startVADLoop());
+    }
+    
+    async function fullStartVAD() {
+        if (vadActive) return;
+        const ok = await initVADEngine();
+        if (!ok) {
+            debugLog("Cannot start VAD, mic unavailable", "error");
+            return;
+        }
+        if (audioContext && audioContext.state !== 'closed') {
+            await audioContext.close();
+        }
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        await audioContext.resume();
+        analyserNode = audioContext.createAnalyser();
+        analyserNode.fftSize = 512;
+        sourceNode = audioContext.createMediaStreamSource(mediaStream);
+        sourceNode.connect(analyserNode);
+        
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size) audioChunks.push(e.data); };
+        mediaRecorder.start(300);
+        
+        vadActive = true;
+        speakingFlag = false;
+        resetSilenceTimer();
+        startVADLoop();
+        
+        // UI updates
+        vadToggleBtn.classList.add('active');
+        vadToggleBtn.innerHTML = '⏹️ STOP REAL-TIME VAD';
+        vadStateLabel.innerText = '🎙️ VAD active';
+        vadLed.classList.add('active-led');
+        statusTextSpan.innerText = "🎧 Listening (auto-send)";
+        vadPhrase.innerText = "🎧 Listening...";
+        micAnimation.innerHTML = "🎤";
+        debugLog("✅ VAD engine LIVE — speak naturally, pause to send", "success");
+        addMessage("🔊 VAD active: I'll respond when you finish talking.", "ai");
+    }
+    
+    async function fullStopVAD() {
+        if (!vadActive) return;
+        vadActive = false;
+        if (animationRequest) cancelAnimationFrame(animationRequest);
+        if (silenceTimeout) clearTimeout(silenceTimeout);
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+        if (audioContext) await audioContext.close();
+        audioContext = null;
+        analyserNode = null;
+        sourceNode = null;
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(t => t.stop());
+            mediaStream = null;
+        }
+        vadToggleBtn.classList.remove('active');
+        vadToggleBtn.innerHTML = '▶️ START REAL-TIME VAD';
+        vadStateLabel.innerText = '⚡ VAD off';
+        vadLed.classList.remove('active-led', 'speak-led');
+        statusTextSpan.innerText = "VAD idle";
+        vadPhrase.innerText = "⚡ Idle";
+        micAnimation.innerHTML = "🎤";
+        energyFill.style.width = "0%";
+        speakingFlag = false;
+        debugLog("🛑 VAD stopped, mic released", "info");
+    }
+    
+    // toggle VAD on button click
+    function toggleVAD() {
+        if (vadActive) {
+            fullStopVAD();
+        } else {
+            fullStartVAD();
+        }
+    }
+    
+    // sensitivity slider
+    function updateSensitivity() {
+        const val = parseInt(sensitivitySlider.value);
+        sensitivityThreshold = val;
+        sensSpan.innerText = val;
+        debugLog(`sensitivity set to ${val} (threshold ~${(val/100).toFixed(2)})`, "info");
+    }
+    
+    // ---------- AUTH (supabase) ----------
+    async function performAuth() {
+        try {
+            const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': ANON_KEY },
+                body: JSON.stringify({ email: 'surf@testuser.com', password: 'Test1234!' })
+            });
+            const data = await res.json();
+            if (data.access_token) {
+                authToken = data.access_token;
+                connectionLed.classList.add('active-led');
+                statusTextSpan.innerText = "Authenticated ✅";
+                debugLog("Auth success! Ready for VAD mode", "success");
+                addMessage("✅ Connected to Surf Gateway. Click START to enable real-time VAD.", "ai");
+            } else {
+                debugLog(`Auth failure: ${JSON.stringify(data)}`, "error");
+                statusTextSpan.innerText = "Auth error";
+            }
+        } catch(e) {
+            debugLog(`login error: ${e.message}`, "error");
+        }
+    }
+    
+    // Event listeners
+    vadToggleBtn.addEventListener('click', toggleVAD);
+    sensitivitySlider.addEventListener('input', updateSensitivity);
+    voiceSelect.addEventListener('change', () => debugLog(`voice preset: ${voiceSelect.value}`, "info"));
+    
+    // initialize
+    performAuth();
+    
+    window.addEventListener('beforeunload', () => {
+        if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+        if (audioContext) audioContext.close();
+    });
+    
+    debugLog("🔥 Surf VAD Module ready | pure real-time voice detection", "success");
+</script>
+</body>
+</html>
