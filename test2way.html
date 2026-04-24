@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surf Voice & Chat</title>
+    <title>Surf Voice - All Modes</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -27,11 +27,34 @@
         #status.connected { background: #00ff9d33; color: #00ff9d; }
         #status.recording { background: #ff444433; color: #ff4444; }
         #status.speaking { background: #00aaff33; color: #00aaff; }
+        #status.listening { background: #ffaa0033; color: #ffaa00; }
+
+        /* Mode tabs */
+        #mode-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 12px;
+            background: #16213e;
+            border-radius: 10px;
+            padding: 4px;
+        }
+        .mode-tab {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            background: transparent;
+            color: #888;
+            transition: all 0.2s;
+        }
+        .mode-tab.active { background: #00ff9d; color: #000; }
 
         #chat-box {
             width: 100%;
             max-width: 500px;
-            height: 300px;
+            height: 280px;
             overflow-y: auto;
             background: #16213e;
             border-radius: 12px;
@@ -44,6 +67,7 @@
         .msg.ai { background: #333; margin-right: auto; }
         .msg.system { text-align: center; font-size: 11px; color: #888; }
         .msg.error { background: #ff444422; color: #ff6666; text-align: center; font-size: 12px; }
+        .msg.vad { background: #ffaa0022; color: #ffaa00; text-align: center; font-size: 11px; }
         .msg .time { font-size: 10px; color: #666; display: block; }
 
         #input-area {
@@ -90,23 +114,37 @@
             margin-bottom: 10px;
             font-size: 14px;
         }
+
+        #vad-indicator {
+            display: none;
+            font-size: 11px;
+            color: #ffaa00;
+            margin-bottom: 8px;
+        }
     </style>
 </head>
 <body>
     <h1>🏄 Surf Voice</h1>
     <div id="status">Disconnected</div>
+    <div id="vad-indicator">🎙️ VAD listening...</div>
+
+    <div id="mode-tabs">
+        <button class="mode-tab active" data-mode="text">💬 Text Chat</button>
+        <button class="mode-tab" data-mode="ptt">🎤 Push-to-Talk</button>
+        <button class="mode-tab" data-mode="vad">⚡ Real-time VAD</button>
+    </div>
 
     <select id="voice-select">
-        <option value="en-US-AriaNeural">🇺🇸 Aria (Female)</option>
-        <option value="en-US-GuyNeural">🇺🇸 Guy (Male)</option>
-        <option value="en-GB-SoniaNeural">🇬🇧 Sonia (Female)</option>
-        <option value="en-GB-RyanNeural">🇬🇧 Ryan (Male)</option>
+        <option value="en-US-AriaNeural">🇺🇸 Aria</option>
+        <option value="en-US-GuyNeural">🇺🇸 Guy</option>
+        <option value="en-GB-SoniaNeural">🇬🇧 Sonia</option>
+        <option value="en-GB-RyanNeural">🇬🇧 Ryan</option>
     </select>
 
     <div id="chat-box"></div>
 
     <div id="input-area">
-        <button id="mic-btn">🎤</button>
+        <button id="mic-btn" style="display:none">🎤</button>
         <input id="text-input" placeholder="Type a message..." />
         <button id="send-btn">Send</button>
     </div>
@@ -120,9 +158,23 @@
         const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
 
         let authToken = null;
+        let currentMode = 'text'; // text | ptt | vad
+
+        // Recording
         let mediaRecorder = null;
         let audioChunks = [];
         let isRecording = false;
+
+        // VAD
+        let audioContext = null;
+        let analyser = null;
+        let isSpeaking = false;
+        let silenceTimer = null;
+        let vadRunning = false;
+        let vadStream = null;
+        let animationFrame = null;
+        const SILENCE_TIMEOUT = 1500; // ms
+
         let currentAudio = null;
 
         const statusEl = document.getElementById('status');
@@ -131,6 +183,7 @@
         const sendBtn = document.getElementById('send-btn');
         const micBtn = document.getElementById('mic-btn');
         const voiceSelect = document.getElementById('voice-select');
+        const vadIndicator = document.getElementById('vad-indicator');
 
         function log(text, type = 'system') {
             const time = new Date().toLocaleTimeString();
@@ -144,14 +197,60 @@
         }
 
         // ═══════════════════════════════════
+        // MODE SWITCHING
+        // ═══════════════════════════════════
+        document.querySelectorAll('.mode-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                switchMode(tab.dataset.mode);
+            });
+        });
+
+        function switchMode(mode) {
+            // Clean up previous mode
+            stopVAD();
+            if (isRecording) stopRecording();
+            currentAudio?.pause();
+
+            currentMode = mode;
+            log('--- ' + { text: '💬 Text Chat', ptt: '🎤 Push-to-Talk', vad: '⚡ Real-time VAD' }[mode] + ' ---');
+
+            switch (mode) {
+                case 'text':
+                    micBtn.style.display = 'none';
+                    textInput.style.display = 'block';
+                    sendBtn.textContent = 'Send';
+                    vadIndicator.style.display = 'none';
+                    setStatus('Connected ✅', 'connected');
+                    break;
+                case 'ptt':
+                    micBtn.style.display = 'block';
+                    textInput.style.display = 'none';
+                    sendBtn.textContent = 'Send Text';
+                    vadIndicator.style.display = 'none';
+                    setStatus('Hold to talk', 'connected');
+                    break;
+                case 'vad':
+                    micBtn.style.display = 'block';
+                    micBtn.textContent = '🎙️';
+                    textInput.style.display = 'none';
+                    sendBtn.textContent = 'Send Text';
+                    vadIndicator.style.display = 'block';
+                    setStatus('Click to start VAD', 'connected');
+                    break;
+            }
+        }
+
+        // ═══════════════════════════════════
         // AUTH
         // ═══════════════════════════════════
-        async function login(email, password) {
+        async function login() {
             try {
                 const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'apikey': ANON_KEY },
-                    body: JSON.stringify({ email, password })
+                    body: JSON.stringify({ email: 'surf@testuser.com', password: 'Test1234!' })
                 });
                 const data = await res.json();
                 if (data.access_token) {
@@ -169,7 +268,7 @@
         }
 
         // ═══════════════════════════════════
-        // TEXT CHAT
+        // MODE 1: TEXT CHAT
         // ═══════════════════════════════════
         async function sendText(text) {
             if (!authToken || !text.trim()) return;
@@ -179,24 +278,19 @@
             try {
                 const res = await fetch(`${GATEWAY}/chat`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
                     body: JSON.stringify({ text, voice: voiceSelect.value })
                 });
                 const data = await res.json();
-                console.log('CHAT RESPONSE:', JSON.stringify(data).substring(0, 300));
-
                 if (data.response) log('🤖 ' + data.response, 'ai');
                 if (data.audio_base64) await playAudio(data.audio_base64);
             } catch (e) {
-                log('❌ Chat error: ' + e.message, 'error');
+                log('❌ ' + e.message, 'error');
             }
         }
 
         // ═══════════════════════════════════
-        // VOICE RECORDING
+        // MODE 2: PUSH-TO-TALK
         // ═══════════════════════════════════
         async function startRecording() {
             if (!authToken) return log('❌ Login first', 'error');
@@ -229,7 +323,7 @@
                 mediaRecorder.stop();
                 isRecording = false;
                 micBtn.classList.remove('recording');
-                setStatus('Connected ✅', 'connected');
+                setStatus('Hold to talk', 'connected');
             }
         }
 
@@ -245,69 +339,135 @@
                     body: formData
                 });
                 const data = await res.json();
-                console.log('VOICE RESPONSE:', JSON.stringify(data).substring(0, 300));
-
                 if (data.transcript) log('📝 ' + data.transcript, 'user');
                 if (data.response) log('🤖 ' + data.response, 'ai');
                 if (data.audio_base64) await playAudio(data.audio_base64);
             } catch (e) {
-                log('❌ Voice error: ' + e.message, 'error');
+                log('❌ ' + e.message, 'error');
             }
         }
 
         // ═══════════════════════════════════
-        // TTS PLAYBACK - FIXED
+        // MODE 3: REAL-TIME VAD
+        // ═══════════════════════════════════
+        async function startVAD() {
+            if (!authToken) return log('❌ Login first', 'error');
+            if (vadRunning) return;
+
+            try {
+                vadStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(vadStream);
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 512;
+                source.connect(analyser);
+
+                // Start recording
+                audioChunks = [];
+                mediaRecorder = new MediaRecorder(vadStream, { mimeType: 'audio/webm' });
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+                mediaRecorder.start(500); // get data every 500ms
+
+                vadRunning = true;
+                micBtn.classList.add('recording');
+                micBtn.textContent = '⏹️';
+                setStatus('⚡ VAD listening...', 'listening');
+                log('⚡ VAD active - speak and pause to send', 'vad');
+
+                checkVAD();
+            } catch (e) {
+                log('❌ VAD error: ' + e.message, 'error');
+            }
+        }
+
+        function stopVAD() {
+            vadRunning = false;
+            if (animationFrame) cancelAnimationFrame(animationFrame);
+            if (silenceTimer) clearTimeout(silenceTimer);
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+            if (audioContext) audioContext.close();
+            if (vadStream) vadStream.getTracks().forEach(t => t.stop());
+            audioContext = null;
+            analyser = null;
+            vadStream = null;
+            mediaRecorder = null;
+            isSpeaking = false;
+            micBtn.classList.remove('recording');
+            micBtn.textContent = '🎙️';
+            setStatus('Click to start VAD', 'connected');
+            vadIndicator.style.display = 'block';
+        }
+
+        function checkVAD() {
+            if (!vadRunning) return;
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteTimeDomainData(dataArray);
+
+            // Simple energy-based VAD
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += Math.abs(dataArray[i] - 128);
+            }
+            const avg = sum / dataArray.length;
+            const talking = avg > 8; // threshold
+
+            if (talking && !isSpeaking) {
+                isSpeaking = true;
+                log('🎙️ Speaking...', 'vad');
+                if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+            } else if (!talking && isSpeaking) {
+                if (!silenceTimer) {
+                    silenceTimer = setTimeout(async () => {
+                        isSpeaking = false;
+                        silenceTimer = null;
+                        log('🔇 Silence detected - sending', 'vad');
+
+                        // Stop and restart recorder to send chunk
+                        if (mediaRecorder && mediaRecorder.state === 'recording') {
+                            mediaRecorder.requestData();
+                            await new Promise(r => setTimeout(r, 100));
+
+                            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                            audioChunks = [];
+
+                            // Restart recording
+                            mediaRecorder.start(500);
+
+                            // Send the chunk
+                            if (blob.size > 1000) {
+                                await sendAudio(blob);
+                            }
+                        }
+                    }, SILENCE_TIMEOUT);
+                }
+            }
+
+            animationFrame = requestAnimationFrame(checkVAD);
+        }
+
+        // ═══════════════════════════════════
+        // TTS PLAYBACK
         // ═══════════════════════════════════
         async function playAudio(encoded) {
             if (!encoded) return;
-
-            // Stop previous audio
-            if (currentAudio) {
-                currentAudio.pause();
-                currentAudio = null;
-            }
+            if (currentAudio) { currentAudio.pause(); currentAudio = null; }
 
             try {
-                // Dump first 50 chars for debugging
-                const preview = encoded.substring(0, 50);
-                console.log('AUDIO PREVIEW:', preview);
-                console.log('AUDIO LENGTH:', encoded.length);
-
                 let bytes;
-
-                // Check if it's hex (only 0-9, a-f)
                 if (/^[0-9a-f]+$/i.test(encoded)) {
-                    console.log('DETECTED: HEX format');
                     bytes = new Uint8Array(encoded.match(/.{1,2}/g).map(b => parseInt(b, 16)));
                 } else {
-                    console.log('DETECTED: BASE64 format');
                     const binary = atob(encoded);
                     bytes = new Uint8Array(binary.length);
                     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
                 }
 
-                console.log('BYTES:', bytes.length);
-
-                // Check magic bytes to detect format
-                const magic = Array.from(bytes.slice(0, 4)).map(b => b.toString(16).padStart(2, '0')).join(' ');
-                console.log('MAGIC BYTES:', magic);
-
-                // Determine mime type from magic bytes
-                let mimeType = 'audio/mpeg'; // default
-                if (bytes[0] === 0xFF && (bytes[1] & 0xE0) === 0xE0) {
-                    mimeType = 'audio/mpeg';
-                    console.log('FORMAT: MP3');
-                } else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) {
-                    mimeType = 'audio/wav';
-                    console.log('FORMAT: WAV');
-                } else if (bytes[0] === 0x4F && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) {
-                    mimeType = 'audio/ogg';
-                    console.log('FORMAT: OGG/OPUS');
-                } else {
-                    console.log('FORMAT: UNKNOWN, trying mp3');
-                }
-
-                const blob = new Blob([bytes], { type: mimeType });
+                const blob = new Blob([bytes], { type: 'audio/mpeg' });
                 const url = URL.createObjectURL(blob);
                 const audio = new Audio(url);
                 currentAudio = audio;
@@ -316,40 +476,75 @@
                 audio.onended = () => {
                     URL.revokeObjectURL(url);
                     currentAudio = null;
-                    setStatus('Connected ✅', 'connected');
+                    setStatus(currentMode === 'vad' ? '⚡ VAD listening...' : 'Connected ✅',
+                             currentMode === 'vad' ? 'listening' : 'connected');
                 };
-                audio.onerror = (e) => {
-                    console.error('AUDIO ERROR:', audio.error?.code, audio.error?.message);
+                audio.onerror = () => {
                     URL.revokeObjectURL(url);
                     currentAudio = null;
-                    setStatus('Connected ✅', 'connected');
-                    log('⚠️ Audio: ' + (audio.error?.message || 'format not supported'), 'error');
                 };
 
                 await audio.play();
             } catch (e) {
-                console.error('PLAYBACK ERROR:', e.message);
-                log('⚠️ Audio: ' + e.message, 'error');
+                console.error('Audio error:', e.message);
             }
         }
 
         // ═══════════════════════════════════
         // EVENTS
         // ═══════════════════════════════════
-        sendBtn.onclick = () => sendText(textInput.value);
-        textInput.onkeydown = (e) => { if (e.key === 'Enter') sendText(textInput.value); };
+        sendBtn.onclick = () => {
+            if (currentMode === 'text') {
+                sendText(textInput.value);
+            } else {
+                // In voice modes, send button sends text
+                const txt = textInput.value || prompt('Type message:');
+                if (txt) sendText(txt);
+            }
+        };
 
-        micBtn.onmousedown = startRecording;
-        micBtn.onmouseup = stopRecording;
-        micBtn.onmouseleave = () => { if (isRecording) stopRecording(); };
-        micBtn.ontouchstart = (e) => { e.preventDefault(); startRecording(); };
-        micBtn.ontouchend = stopRecording;
+        textInput.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                if (currentMode === 'text') sendText(textInput.value);
+            }
+        };
+
+        micBtn.onmousedown = () => {
+            if (currentMode === 'ptt') startRecording();
+        };
+        micBtn.onmouseup = () => {
+            if (currentMode === 'ptt') stopRecording();
+        };
+        micBtn.onmouseleave = () => {
+            if (currentMode === 'ptt' && isRecording) stopRecording();
+        };
+
+        // Click for VAD toggle
+        micBtn.addEventListener('click', (e) => {
+            if (currentMode === 'vad') {
+                // Only toggle on click (not drag)
+                if (e.detail === 1) {
+                    if (vadRunning) stopVAD();
+                    else startVAD();
+                }
+            }
+        });
+
+        // Touch support
+        micBtn.ontouchstart = (e) => {
+            if (currentMode === 'ptt') { e.preventDefault(); startRecording(); }
+        };
+        micBtn.ontouchend = () => {
+            if (currentMode === 'ptt') stopRecording();
+        };
 
         // ═══════════════════════════════════
         // START
         // ═══════════════════════════════════
-        log('🏄 Surf Voice Client ready');
-        login('surf@testuser.com', 'Test1234!');
+        log('🏄 Surf Voice - All Modes Ready');
+        log('💬 Text Chat | 🎤 Push-to-Talk | ⚡ Real-time VAD');
+        switchMode('text');
+        login();
     </script>
 </body>
 </html>
