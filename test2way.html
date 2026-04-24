@@ -90,8 +90,6 @@
             margin-bottom: 10px;
             font-size: 14px;
         }
-
-        #debug { font-size: 10px; color: #666; margin-top: 5px; max-width: 500px; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -106,7 +104,6 @@
     </select>
 
     <div id="chat-box"></div>
-    <div id="debug"></div>
 
     <div id="input-area">
         <button id="mic-btn">🎤</button>
@@ -134,12 +131,6 @@
         const sendBtn = document.getElementById('send-btn');
         const micBtn = document.getElementById('mic-btn');
         const voiceSelect = document.getElementById('voice-select');
-        const debugEl = document.getElementById('debug');
-
-        function debug(msg) {
-            debugEl.textContent = '🔍 ' + msg;
-            console.log('[DEBUG]', msg);
-        }
 
         function log(text, type = 'system') {
             const time = new Date().toLocaleTimeString();
@@ -166,13 +157,11 @@
                 if (data.access_token) {
                     authToken = data.access_token;
                     setStatus('Connected ✅', 'connected');
-                    log('🔐 Logged in as ' + email);
-                    debug('Token: ' + data.access_token.substring(0, 30) + '...');
+                    log('🔐 Logged in');
                     return true;
-                } else {
-                    log('❌ Login failed: ' + JSON.stringify(data), 'error');
-                    return false;
                 }
+                log('❌ Login failed', 'error');
+                return false;
             } catch (e) {
                 log('❌ Login error: ' + e.message, 'error');
                 return false;
@@ -183,12 +172,9 @@
         // TEXT CHAT
         // ═══════════════════════════════════
         async function sendText(text) {
-            if (!authToken) { log('❌ Not logged in', 'error'); return; }
-            if (!text.trim()) return;
-
+            if (!authToken || !text.trim()) return;
             log(text, 'user');
             textInput.value = '';
-            debug('Sending text to /chat...');
 
             try {
                 const res = await fetch(`${GATEWAY}/chat`, {
@@ -200,23 +186,12 @@
                     body: JSON.stringify({ text, voice: voiceSelect.value })
                 });
                 const data = await res.json();
-                debug('Chat response: ' + JSON.stringify(data).substring(0, 200));
+                console.log('CHAT RESPONSE:', JSON.stringify(data).substring(0, 300));
 
-                if (data.response) {
-                    log('🤖 ' + data.response, 'ai');
-                }
-                if (data.audio_base64) {
-                    debug('Audio received, length: ' + data.audio_base64.length);
-                    await playAudio(data.audio_base64);
-                } else if (data.audio) {
-                    debug('Audio (hex) received, length: ' + data.audio.length);
-                    await playAudio(data.audio);
-                } else {
-                    debug('No audio in response. Keys: ' + Object.keys(data).join(', '));
-                }
+                if (data.response) log('🤖 ' + data.response, 'ai');
+                if (data.audio_base64) await playAudio(data.audio_base64);
             } catch (e) {
                 log('❌ Chat error: ' + e.message, 'error');
-                debug('Error: ' + e.message);
             }
         }
 
@@ -224,8 +199,7 @@
         // VOICE RECORDING
         // ═══════════════════════════════════
         async function startRecording() {
-            if (!authToken) { log('❌ Login first', 'error'); return; }
-
+            if (!authToken) return log('❌ Login first', 'error');
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 audioChunks = [];
@@ -237,7 +211,6 @@
 
                 mediaRecorder.onstop = async () => {
                     const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                    debug('Recording stopped, blob size: ' + blob.size + ' bytes');
                     await sendAudio(blob);
                     stream.getTracks().forEach(t => t.stop());
                 };
@@ -246,10 +219,8 @@
                 isRecording = true;
                 micBtn.classList.add('recording');
                 setStatus('🎤 Recording...', 'recording');
-                debug('Recording started');
             } catch (e) {
                 log('❌ Mic error: ' + e.message, 'error');
-                debug('Mic error: ' + e.message);
             }
         }
 
@@ -267,8 +238,6 @@
             formData.append('audio', blob, 'recording.webm');
             formData.append('voice', voiceSelect.value);
 
-            debug('Sending audio to /voice...');
-
             try {
                 const res = await fetch(`${GATEWAY}/voice`, {
                     method: 'POST',
@@ -276,80 +245,91 @@
                     body: formData
                 });
                 const data = await res.json();
-                debug('Voice response: ' + JSON.stringify(data).substring(0, 200));
+                console.log('VOICE RESPONSE:', JSON.stringify(data).substring(0, 300));
 
                 if (data.transcript) log('📝 ' + data.transcript, 'user');
                 if (data.response) log('🤖 ' + data.response, 'ai');
-                if (data.audio_base64) {
-                    await playAudio(data.audio_base64);
-                } else if (data.audio) {
-                    await playAudio(data.audio);
-                } else {
-                    debug('No audio in voice response. Keys: ' + Object.keys(data).join(', '));
-                }
+                if (data.audio_base64) await playAudio(data.audio_base64);
             } catch (e) {
                 log('❌ Voice error: ' + e.message, 'error');
-                debug('Voice error: ' + e.message);
             }
         }
 
         // ═══════════════════════════════════
-        // TTS PLAYBACK (FIXED)
+        // TTS PLAYBACK - FIXED
         // ═══════════════════════════════════
         async function playAudio(encoded) {
-            if (!encoded) {
-                debug('playAudio: empty audio data');
-                return;
-            }
+            if (!encoded) return;
 
-            // Stop any currently playing audio
+            // Stop previous audio
             if (currentAudio) {
                 currentAudio.pause();
                 currentAudio = null;
             }
 
             try {
+                // Dump first 50 chars for debugging
+                const preview = encoded.substring(0, 50);
+                console.log('AUDIO PREVIEW:', preview);
+                console.log('AUDIO LENGTH:', encoded.length);
+
                 let bytes;
 
-                // Try base64 first
-                try {
+                // Check if it's hex (only 0-9, a-f)
+                if (/^[0-9a-f]+$/i.test(encoded)) {
+                    console.log('DETECTED: HEX format');
+                    bytes = new Uint8Array(encoded.match(/.{1,2}/g).map(b => parseInt(b, 16)));
+                } else {
+                    console.log('DETECTED: BASE64 format');
                     const binary = atob(encoded);
                     bytes = new Uint8Array(binary.length);
                     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                } catch {
-                    // Try hex
-                    bytes = new Uint8Array(encoded.match(/.{1,2}/g).map(b => parseInt(b, 16)));
                 }
 
-                debug('Decoded audio: ' + bytes.length + ' bytes');
+                console.log('BYTES:', bytes.length);
 
-                const blob = new Blob([bytes], { type: 'audio/mp3' });
+                // Check magic bytes to detect format
+                const magic = Array.from(bytes.slice(0, 4)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                console.log('MAGIC BYTES:', magic);
+
+                // Determine mime type from magic bytes
+                let mimeType = 'audio/mpeg'; // default
+                if (bytes[0] === 0xFF && (bytes[1] & 0xE0) === 0xE0) {
+                    mimeType = 'audio/mpeg';
+                    console.log('FORMAT: MP3');
+                } else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) {
+                    mimeType = 'audio/wav';
+                    console.log('FORMAT: WAV');
+                } else if (bytes[0] === 0x4F && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) {
+                    mimeType = 'audio/ogg';
+                    console.log('FORMAT: OGG/OPUS');
+                } else {
+                    console.log('FORMAT: UNKNOWN, trying mp3');
+                }
+
+                const blob = new Blob([bytes], { type: mimeType });
                 const url = URL.createObjectURL(blob);
                 const audio = new Audio(url);
                 currentAudio = audio;
 
-                audio.onplay = () => {
-                    setStatus('🔊 Speaking...', 'speaking');
-                    debug('Audio playing');
-                };
+                audio.onplay = () => setStatus('🔊 Speaking...', 'speaking');
                 audio.onended = () => {
                     URL.revokeObjectURL(url);
                     currentAudio = null;
                     setStatus('Connected ✅', 'connected');
-                    debug('Audio finished');
                 };
                 audio.onerror = (e) => {
+                    console.error('AUDIO ERROR:', audio.error?.code, audio.error?.message);
                     URL.revokeObjectURL(url);
                     currentAudio = null;
                     setStatus('Connected ✅', 'connected');
-                    debug('Audio error: ' + (audio.error?.message || 'unknown'));
-                    log('⚠️ Audio playback failed', 'error');
+                    log('⚠️ Audio: ' + (audio.error?.message || 'format not supported'), 'error');
                 };
 
                 await audio.play();
             } catch (e) {
-                debug('PlayAudio error: ' + e.message);
-                log('⚠️ Audio error: ' + e.message, 'error');
+                console.error('PLAYBACK ERROR:', e.message);
+                log('⚠️ Audio: ' + e.message, 'error');
             }
         }
 
@@ -362,7 +342,6 @@
         micBtn.onmousedown = startRecording;
         micBtn.onmouseup = stopRecording;
         micBtn.onmouseleave = () => { if (isRecording) stopRecording(); };
-        // Touch support
         micBtn.ontouchstart = (e) => { e.preventDefault(); startRecording(); };
         micBtn.ontouchend = stopRecording;
 
