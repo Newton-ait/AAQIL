@@ -3,504 +3,307 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌊 Surf Voice - Complete Message Protocol Test</title>
+    <title>Surf Voice & Chat</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Courier New', monospace;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Segoe UI', sans-serif;
+            background: #1a1a2e;
+            color: #eee;
             padding: 20px;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 20px;
-            border-radius: 10px;
+        h1 { color: #00ff9d; margin-bottom: 10px; }
+        #status {
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
             margin-bottom: 20px;
-            color: white;
-            text-align: center;
+            background: #333;
         }
-        
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .panel {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            overflow: hidden;
-        }
-        
-        .panel h2 {
-            color: #667eea;
+        #status.connected { background: #00ff9d33; color: #00ff9d; }
+        #status.recording { background: #ff444433; color: #ff4444; }
+
+        #chat-box {
+            width: 100%;
+            max-width: 500px;
+            height: 300px;
+            overflow-y: auto;
+            background: #16213e;
+            border-radius: 12px;
+            padding: 15px;
             margin-bottom: 15px;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 10px;
-            font-size: 18px;
+            border: 1px solid #333;
         }
-        
-        .panel h3 {
-            color: #764ba2;
-            margin: 15px 0 10px 0;
+        .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 8px; max-width: 85%; }
+        .msg.user { background: #00ff9d22; border: 1px solid #00ff9d44; margin-left: auto; }
+        .msg.ai { background: #333; margin-right: auto; }
+        .msg.system { text-align: center; font-size: 11px; color: #888; }
+        .msg .time { font-size: 10px; color: #666; }
+
+        #input-area {
+            display: flex;
+            width: 100%;
+            max-width: 500px;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        #text-input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background: #16213e;
+            color: #fff;
             font-size: 14px;
         }
-        
-        .controls {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-bottom: 15px;
-        }
-        
         button {
-            background: #667eea;
-            color: white;
+            padding: 10px 18px;
             border: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.3s;
-            font-family: monospace;
-        }
-        
-        button:hover {
-            background: #764ba2;
-            transform: translateY(-2px);
-        }
-        
-        button.success { background: #27ae60; }
-        button.danger { background: #e74c3c; }
-        button.warning { background: #f39c12; }
-        button.info { background: #3498db; }
-        button.voice { background: #9b59b6; }
-        
-        .log-container {
-            background: #1e1e1e;
-            color: #d4d4d4;
-            padding: 15px;
-            border-radius: 5px;
-            height: 400px;
-            overflow-y: auto;
-            font-family: monospace;
-            font-size: 11px;
-        }
-        
-        .log-entry {
-            padding: 4px;
-            margin-bottom: 2px;
-            border-left: 3px solid;
-            font-family: monospace;
-            word-break: break-all;
-        }
-        
-        .log-success { border-left-color: #27ae60; color: #27ae60; }
-        .log-error { border-left-color: #e74c3c; color: #e74c3c; }
-        .log-info { border-left-color: #3498db; color: #3498db; }
-        .log-warning { border-left-color: #f39c12; color: #f39c12; }
-        .log-message { border-left-color: #9b59b6; color: #9b59b6; }
-        
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            margin: 5px 5px 0 0;
-        }
-        
-        .status-good { background: #27ae60; color: white; }
-        .status-bad { background: #e74c3c; color: white; }
-        .status-warn { background: #f39c12; color: white; }
-        
-        iframe {
-            width: 100%;
-            height: 450px;
-            border: 2px solid #667eea;
             border-radius: 8px;
-            background: white;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
         }
-        
-        .message-counter {
-            display: inline-block;
-            background: #667eea;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 10px;
-            margin-left: 10px;
+        #send-btn { background: #00ff9d; color: #000; }
+        #mic-btn { 
+            background: #333; 
+            color: #fff;
+            width: 50px;
+            font-size: 20px;
         }
-        
-        .test-result {
-            margin-top: 10px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 5px;
-            font-size: 12px;
-        }
-        
-        input, select, textarea {
-            padding: 6px;
-            margin: 5px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 12px;
-        }
-        
-        textarea {
-            width: 100%;
-            height: 60px;
-            resize: vertical;
-        }
-        
-        .voice-badge {
-            background: #9b59b6;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 10px;
-            margin: 2px;
-            display: inline-block;
+        #mic-btn.recording { background: #ff4444; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+        #voice-select {
+            padding: 8px;
+            border-radius: 6px;
+            background: #16213e;
+            color: #fff;
+            border: 1px solid #444;
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🌊 Surf Voice - Complete Message Protocol Test</h1>
-            <p>Testing 23 message types between Extension → Sandbox → Extension</p>
-        </div>
-        
-        <div class="grid">
-            <!-- Left Panel: Extension Controls (Sender) -->
-            <div class="panel">
-                <h2>📱 Extension (Sender) 
-                    <span class="message-counter" id="sentCount">0</span>
-                </h2>
-                
-                <h3>🔐 Authentication</h3>
-                <div class="controls">
-                    <button onclick="sendAuthToken()" class="success">📤 auth_token</button>
-                    <button onclick="checkAuthStatus()">🔍 Check Auth</button>
-                </div>
-                
-                <h3>🎤 Audio Controls</h3>
-                <div class="controls">
-                    <button onclick="sendStartMic()" class="success">🎙️ start_mic</button>
-                    <button onclick="sendStopMic()" class="danger">⏹️ stop_mic</button>
-                    <button onclick="sendTranscribe()">📝 transcribe (test)</button>
-                </div>
-                
-                <h3>🎭 Voice Selection</h3>
-                <div class="controls">
-                    <button onclick="sendSetVoice('en-US-AriaNeural')" class="voice">🎤 Aria</button>
-                    <button onclick="sendSetVoice('en-US-JennyNeural')" class="voice">🎤 Jenny</button>
-                    <button onclick="sendSetVoice('en-US-GuyNeural')" class="voice">🎤 Guy</button>
-                    <button onclick="sendSetVoice('en-GB-SoniaNeural')" class="voice">🎤 Sonia</button>
-                    <button onclick="sendSetVoice('en-GB-RyanNeural')" class="voice">🎤 Ryan</button>
-                </div>
-                
-                <h3>📞 Calling</h3>
-                <div class="controls">
-                    <button onclick="sendStartCall()" class="info">📞 start_call</button>
-                    <button onclick="sendEndCall()" class="danger">📞 end_call</button>
-                </div>
-                
-                <h3>💬 Chat & AI Features</h3>
-                <div class="controls">
-                    <button onclick="sendChatMessage()">💬 chat_message</button>
-                    <button onclick="sendSummarize()">📄 summarize</button>
-                    <button onclick="sendQuiz()">📝 quiz</button>
-                </div>
-                
-                <h3>📝 Notes</h3>
-                <div class="controls">
-                    <button onclick="sendGetNotes()">📋 get_notes</button>
-                    <button onclick="sendSaveNote()">💾 save_note</button>
-                </div>
-                <textarea id="noteContent" placeholder="Enter note content...">Test note from extension</textarea>
-                
-                <h3>⚙️ Settings</h3>
-                <div class="controls">
-                    <button onclick="sendUpdateSettings()">⚙️ update_settings</button>
-                </div>
-                
-                <div class="test-result" id="testStats">
-                    <strong>📊 Test Stats:</strong><br>
-                    Messages Sent: <span id="sentTotal">0</span><br>
-                    Messages Received: <span id="receivedTotal">0</span><br>
-                    Status: <span id="connectionStatus" class="status-badge status-bad">Disconnected</span>
-                </div>
-            </div>
-            
-            <!-- Right Panel: Sandbox Iframe -->
-            <div class="panel">
-                <h2>🏄 Sandbox (Receiver) 
-                    <span class="message-counter" id="receivedCount">0</span>
-                </h2>
-                <iframe id="sandboxFrame" src="about:blank" allow="microphone; autoplay"></iframe>
-                <div style="margin-top: 10px; font-size: 11px; text-align: center;">
-                    Sandbox URL: https://ashirafnewton-ait.github.io/extension/
-                </div>
-            </div>
-        </div>
-        
-        <!-- Message Logs -->
-        <div class="panel">
-            <h2>📝 Message Logs (Extension ↔ Sandbox)</h2>
-            <div class="controls">
-                <button onclick="clearLogs()">🗑️ Clear Logs</button>
-                <button onclick="loadSandbox()" class="success">🔄 Load Sandbox</button>
-                <button onclick="runAllTests()" class="info">🚀 Run All Tests</button>
-            </div>
-            <div class="log-container" id="logContainer">
-                <div class="log-entry log-info">[System] Ready. Click 'Load Sandbox' to start</div>
-            </div>
-        </div>
+    <h1>🏄 Surf Voice</h1>
+    <div id="status">Disconnected</div>
+
+    <select id="voice-select">
+        <option value="en-US-AriaNeural">🇺🇸 Aria (Female)</option>
+        <option value="en-US-GuyNeural">🇺🇸 Guy (Male)</option>
+        <option value="en-GB-SoniaNeural">🇬🇧 Sonia (Female)</option>
+        <option value="en-GB-RyanNeural">🇬🇧 Ryan (Male)</option>
+    </select>
+
+    <div id="chat-box"></div>
+
+    <div id="input-area">
+        <button id="mic-btn" title="Hold to talk">🎤</button>
+        <input id="text-input" placeholder="Type a message..." />
+        <button id="send-btn">Send</button>
     </div>
-    
+
+    <script src="https://ljksgzttnufecxohwtwm.supabase.co/storage/v1/object/public/scripts/socket.io.min.js"></script>
     <script>
-        const SANDBOX_URL = "https://ashirafnewton-ait.github.io/extension/";
-        const SUPABASE_URL = "https://ljksgzttnufecxohwtwm.supabase.co";
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk";
-        
-        let sandboxFrame = null;
-        let accessToken = null;
-        let sentCount = 0;
-        let receivedCount = 0;
-        let testResults = [];
-        
-        function addLog(message, type = 'info') {
-            const logContainer = document.getElementById('logContainer');
-            const timestamp = new Date().toLocaleTimeString();
-            const logEntry = document.createElement('div');
-            logEntry.className = `log-entry log-${type}`;
-            logEntry.innerHTML = `[${timestamp}] ${message}`;
-            logContainer.appendChild(logEntry);
-            logContainer.scrollTop = logContainer.scrollHeight;
+        // ═══════════════════════════════════
+        // CONFIG
+        // ═══════════════════════════════════
+        const GATEWAY = 'https://surf-gateway.onrender.com';
+        const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
+        const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
+
+        // ═══════════════════════════════════
+        // STATE
+        // ═══════════════════════════════════
+        let authToken = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+
+        // ═══════════════════════════════════
+        // UI ELEMENTS
+        // ═══════════════════════════════════
+        const statusEl = document.getElementById('status');
+        const chatBox = document.getElementById('chat-box');
+        const textInput = document.getElementById('text-input');
+        const sendBtn = document.getElementById('send-btn');
+        const micBtn = document.getElementById('mic-btn');
+        const voiceSelect = document.getElementById('voice-select');
+
+        // ═══════════════════════════════════
+        // HELPERS
+        // ═══════════════════════════════════
+        function log(text, type = 'system') {
+            const time = new Date().toLocaleTimeString();
+            chatBox.innerHTML += `<div class="msg ${type}"><span class="time">${time}</span><br>${text}</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
         }
-        
-        function clearLogs() {
-            document.getElementById('logContainer').innerHTML = '<div class="log-entry log-info">[System] Logs cleared</div>';
-            addLog('Logs cleared', 'info');
+
+        function setStatus(text, cls = '') {
+            statusEl.textContent = text;
+            statusEl.className = cls;
         }
-        
-        function updateStats() {
-            document.getElementById('sentTotal').innerText = sentCount;
-            document.getElementById('receivedTotal').innerText = receivedCount;
-            document.getElementById('sentCount').innerText = sentCount;
-            document.getElementById('receivedCount').innerText = receivedCount;
-        }
-        
-        async function loadSandbox() {
-            addLog('Loading sandbox...', 'info');
-            sandboxFrame = document.getElementById('sandboxFrame');
-            
-            // Remove old listener
-            window.removeEventListener('message', handleSandboxMessage);
-            window.addEventListener('message', handleSandboxMessage);
-            
-            sandboxFrame.src = SANDBOX_URL;
-            
-            sandboxFrame.onload = () => {
-                addLog('✅ Sandbox iframe loaded', 'success');
-                document.getElementById('connectionStatus').className = 'status-badge status-good';
-                document.getElementById('connectionStatus').innerHTML = 'Sandbox Loaded';
-            };
-            
-            sandboxFrame.onerror = () => {
-                addLog('❌ Failed to load sandbox', 'error');
-            };
-        }
-        
-        function handleSandboxMessage(event) {
-            const data = event.data;
-            receivedCount++;
-            updateStats();
-            
-            addLog(`📨 Received: ${JSON.stringify(data)}`, 'message');
-            
-            // Handle different message types
-            switch(data.type) {
-                case 'sandbox_ready':
-                    addLog('🏄 Sandbox ready!', 'success');
-                    document.getElementById('connectionStatus').innerHTML = 'Sandbox Ready';
-                    break;
-                case 'auth_success':
-                    addLog(`✅ Auth success! User: ${data.userId}, Session: ${data.sessionId}`, 'success');
-                    document.getElementById('connectionStatus').innerHTML = 'Authenticated';
-                    testResults.push({type: 'auth_success', passed: true});
-                    break;
-                case 'auth_error':
-                    addLog(`❌ Auth error: ${data.error}`, 'error');
-                    testResults.push({type: 'auth_error', passed: false, error: data.error});
-                    break;
-                case 'transcript':
-                    addLog(`📝 Transcript: "${data.text}"`, 'success');
-                    break;
-                case 'response':
-                    addLog(`💬 AI Response: "${data.text}"`, 'success');
-                    break;
-                case 'tts_audio':
-                    addLog(`🔊 TTS audio received (${data.audio?.length || 0} bytes)`, 'success');
-                    break;
-                case 'status':
-                    addLog(`📊 Status: ${data.text}`, 'info');
-                    break;
-                case 'streaming':
-                    addLog(`🎙️ Streaming mode: ${data.mode}`, 'info');
-                    break;
-                case 'vad':
-                    addLog(`🎤 Voice Activity: ${data.speaking ? 'Speaking' : 'Silent'}`, 'info');
-                    break;
-                case 'notes_updated':
-                    addLog(`📝 Notes updated: ${JSON.stringify(data.notes)}`, 'success');
-                    break;
-                case 'settings_updated':
-                    addLog(`⚙️ Settings updated: ${JSON.stringify(data.settings)}`, 'success');
-                    break;
-                case 'disconnected':
-                    addLog(`🔌 Disconnected`, 'warning');
-                    document.getElementById('connectionStatus').innerHTML = 'Disconnected';
-                    break;
-                case 'error':
-                    addLog(`❌ Error: ${data.message}`, 'error');
-                    break;
-                default:
-                    addLog(`📨 Unknown type: ${data.type}`, 'info');
-            }
-        }
-        
-        function sendToSandbox(type, data = {}) {
-            if (!sandboxFrame || !sandboxFrame.contentWindow) {
-                addLog(`❌ Cannot send ${type} - sandbox not loaded`, 'error');
-                return false;
-            }
-            
-            const message = { type, ...data };
-            sandboxFrame.contentWindow.postMessage(message, '*');
-            sentCount++;
-            updateStats();
-            addLog(`📤 Sent: ${type} ${Object.keys(data).length ? JSON.stringify(data) : ''}`, 'info');
-            return true;
-        }
-        
-        // Extension → Sandbox message senders
-        async function sendAuthToken() {
-            addLog('🔐 Getting Supabase token...', 'info');
-            
+
+        // ═══════════════════════════════════
+        // AUTH
+        // ═══════════════════════════════════
+        async function login(email, password) {
             try {
-                const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
                     method: 'POST',
                     headers: {
-                        'apikey': SUPABASE_ANON_KEY,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'apikey': ANON_KEY
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (data.access_token) {
+                    authToken = data.access_token;
+                    setStatus('Connected ✅', 'connected');
+                    log('🔐 Logged in as ' + email);
+                    return true;
+                } else {
+                    log('❌ Login failed: ' + (data.error_description || JSON.stringify(data)));
+                    return false;
+                }
+            } catch (e) {
+                log('❌ Login error: ' + e.message);
+                return false;
+            }
+        }
+
+        // ═══════════════════════════════════
+        // TEXT CHAT
+        // ═══════════════════════════════════
+        async function sendText(text) {
+            if (!authToken) { log('❌ Not logged in'); return; }
+            if (!text.trim()) return;
+
+            log(text, 'user');
+            textInput.value = '';
+
+            try {
+                const res = await fetch(`${GATEWAY}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
                     },
                     body: JSON.stringify({
-                        email: 'surf@testuser.com',
-                        password: 'Test1234!'
+                        text: text,
+                        voice: voiceSelect.value
                     })
                 });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    accessToken = data.access_token;
-                    addLog(`✅ Got token: ${accessToken.substring(0, 50)}...`, 'success');
-                    sendToSandbox('auth_token', { token: accessToken });
-                } else {
-                    addLog(`❌ Auth failed: ${response.status}`, 'error');
+                const data = await res.json();
+
+                if (data.response) {
+                    log('🤖 ' + data.response, 'ai');
                 }
-            } catch(e) {
-                addLog(`❌ Auth error: ${e.message}`, 'error');
+                if (data.audio_base64) {
+                    playAudio(data.audio_base64);
+                }
+            } catch (e) {
+                log('❌ Chat error: ' + e.message);
             }
         }
-        
-        function sendStartMic() { sendToSandbox('start_mic'); }
-        function sendStopMic() { sendToSandbox('stop_mic'); }
-        function sendSetVoice(voice) { sendToSandbox('set_voice', { voice }); }
-        function sendStartCall() { sendToSandbox('start_call', { peerId: 'peer_' + Date.now() }); }
-        function sendEndCall() { sendToSandbox('end_call', { callId: 'call_' + Date.now() }); }
-        function sendChatMessage() { sendToSandbox('chat_message', { text: 'Hello from extension!' }); }
-        function sendTranscribe() { 
-            // Create test audio blob
-            const testBlob = new Blob(['test'], { type: 'audio/wav' });
-            sendToSandbox('transcribe', { audioBlob: testBlob });
-        }
-        function sendSummarize() { sendToSandbox('summarize', { text: 'This is a test conversation to summarize.' }); }
-        function sendQuiz() { sendToSandbox('quiz', { text: 'What is WebRTC?' }); }
-        function sendGetNotes() { sendToSandbox('get_notes'); }
-        function sendSaveNote() { 
-            const note = document.getElementById('noteContent').value;
-            sendToSandbox('save_note', { note });
-        }
-        function sendUpdateSettings() {
-            sendToSandbox('update_settings', { 
-                settings: { 
-                    theme: 'dark', 
-                    notifications: true,
-                    defaultVoice: 'en-US-AriaNeural'
-                } 
-            });
-        }
-        function checkAuthStatus() { sendToSandbox('ping'); }
-        
-        function runAllTests() {
-            addLog('🚀 Running all message tests...', 'warning');
-            testResults = [];
-            
-            const tests = [
-                { name: 'auth_token', fn: sendAuthToken, delay: 1000 },
-                { name: 'set_voice (Aria)', fn: () => sendSetVoice('en-US-AriaNeural'), delay: 500 },
-                { name: 'start_mic', fn: sendStartMic, delay: 500 },
-                { name: 'chat_message', fn: sendChatMessage, delay: 500 },
-                { name: 'summarize', fn: sendSummarize, delay: 500 },
-                { name: 'quiz', fn: sendQuiz, delay: 500 },
-                { name: 'get_notes', fn: sendGetNotes, delay: 500 },
-                { name: 'save_note', fn: sendSaveNote, delay: 500 },
-                { name: 'start_call', fn: sendStartCall, delay: 500 },
-                { name: 'stop_mic', fn: sendStopMic, delay: 500 },
-                { name: 'end_call', fn: sendEndCall, delay: 500 },
-                { name: 'update_settings', fn: sendUpdateSettings, delay: 500 }
-            ];
-            
-            let index = 0;
-            function runNext() {
-                if (index >= tests.length) {
-                    addLog(`✅ All tests complete! ${testResults.filter(r => r.passed).length}/${tests.length} passed`, 'success');
-                    return;
-                }
-                const test = tests[index];
-                addLog(`🧪 Testing: ${test.name}`, 'info');
-                test.fn();
-                index++;
-                setTimeout(runNext, test.delay);
+
+        // ═══════════════════════════════════
+        // VOICE RECORDING
+        // ═══════════════════════════════════
+        async function startRecording() {
+            if (!authToken) { log('❌ Login first'); return; }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioChunks = [];
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                    audioChunks = [];
+                    await sendAudio(blob);
+                    stream.getTracks().forEach(t => t.stop());
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+                micBtn.classList.add('recording');
+                setStatus('🎤 Recording...', 'recording');
+                log('🎤 Recording started...');
+            } catch (e) {
+                log('❌ Mic error: ' + e.message);
             }
-            
-            runNext();
         }
-        
-        // Load sandbox on page load
-        window.addEventListener('load', () => {
-            addLog('🌊 Surf Voice Message Protocol Tester Ready', 'success');
-            addLog('📋 Testing 23 message types', 'info');
-            setTimeout(() => loadSandbox(), 1000);
-        });
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                micBtn.classList.remove('recording');
+                setStatus('Connected ✅', 'connected');
+                log('🎤 Recording stopped');
+            }
+        }
+
+        async function sendAudio(blob) {
+            const formData = new FormData();
+            formData.append('audio', blob, 'recording.webm');
+            formData.append('voice', voiceSelect.value);
+
+            try {
+                const res = await fetch(`${GATEWAY}/voice`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` },
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (data.transcript) log('📝 ' + data.transcript, 'user');
+                if (data.response) log('🤖 ' + data.response, 'ai');
+                if (data.audio_base64) playAudio(data.audio_base64);
+            } catch (e) {
+                log('❌ Voice error: ' + e.message);
+            }
+        }
+
+        // ═══════════════════════════════════
+        // TTS PLAYBACK
+        // ═══════════════════════════════════
+        function playAudio(base64) {
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const blob = new Blob([bytes], { type: 'audio/mp3' });
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            audio.onended = () => URL.revokeObjectURL(url);
+            audio.play();
+        }
+
+        // ═══════════════════════════════════
+        // EVENTS
+        // ═══════════════════════════════════
+        sendBtn.onclick = () => sendText(textInput.value);
+        textInput.onkeydown = (e) => { if (e.key === 'Enter') sendText(textInput.value); };
+
+        micBtn.onmousedown = startRecording;
+        micBtn.onmouseup = stopRecording;
+        micBtn.onmouseleave = () => { if (isRecording) stopRecording(); };
+
+        // ═══════════════════════════════════
+        // START
+        // ═══════════════════════════════════
+        log('🏄 Surf Voice Client ready');
+        login('surf@testuser.com', 'Test1234!');
     </script>
 </body>
 </html>
