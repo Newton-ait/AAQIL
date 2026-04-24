@@ -23,6 +23,7 @@
             font-size: 13px;
             margin-bottom: 10px;
             background: #333;
+            transition: all 0.3s;
         }
         #status.connected { background: #00ff9d33; color: #00ff9d; }
         #status.recording { background: #ff444433; color: #ff4444; }
@@ -53,7 +54,7 @@
         #chat-box {
             width: 100%;
             max-width: 500px;
-            height: 250px;
+            height: 200px;
             overflow-y: auto;
             background: #16213e;
             border-radius: 12px;
@@ -61,13 +62,12 @@
             margin-bottom: 15px;
             border: 1px solid #333;
         }
-        .msg { margin-bottom: 8px; padding: 6px 10px; border-radius: 8px; max-width: 85%; font-size: 13px; }
+        .msg { margin-bottom: 6px; padding: 5px 10px; border-radius: 8px; max-width: 85%; font-size: 13px; }
         .msg.user { background: #00ff9d22; border: 1px solid #00ff9d44; margin-left: auto; }
         .msg.ai { background: #333; margin-right: auto; }
-        .msg.system { text-align: center; font-size: 10px; color: #888; }
-        .msg.error { background: #ff444422; color: #ff6666; text-align: center; font-size: 11px; }
-        .msg.vad { background: #ffaa0022; color: #ffaa00; text-align: center; font-size: 10px; }
-        .msg .time { font-size: 9px; color: #666; display: block; }
+        .msg.system { text-align: center; font-size: 10px; color: #666; }
+        .msg.vad { background: #ffaa0011; color: #ffaa00; text-align: center; font-size: 10px; }
+        .msg .time { font-size: 9px; color: #555; display: block; }
 
         #input-area {
             display: flex;
@@ -97,11 +97,12 @@
         #mic-btn { 
             background: #333; 
             color: #fff;
-            width: 50px;
+            min-width: 50px;
             font-size: 20px;
             user-select: none;
         }
         #mic-btn.recording { background: #ff4444; animation: pulse 1s infinite; }
+        #mic-btn.active-vad { background: #ff8800; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 
         #voice-select {
@@ -116,10 +117,12 @@
 
         #vad-indicator {
             display: none;
-            font-size: 11px;
+            font-size: 12px;
             color: #ffaa00;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
+            text-align: center;
         }
+        #vad-indicator.active { display: block; animation: pulse 2s infinite; }
 
         /* DEBUG PANEL */
         #debug-panel {
@@ -130,24 +133,23 @@
             border-radius: 8px;
             padding: 10px;
             font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-            font-size: 11px;
-            max-height: 150px;
+            font-size: 10px;
+            max-height: 130px;
             overflow-y: auto;
         }
-        #debug-panel .log-line { padding: 2px 0; border-bottom: 1px solid #111; }
+        #debug-panel .log-line { padding: 1px 0; border-bottom: 1px solid #0a0a0a; }
         .log-line.info { color: #8a9aaa; }
         .log-line.success { color: #00ff9d; }
         .log-line.warn { color: #ffaa00; }
         .log-line.error { color: #ff4444; }
         .log-line.audio { color: #00aaff; }
         .log-line.vad { color: #ff88cc; }
-        .log-line .ts { color: #555; margin-right: 6px; }
+        .log-line .ts { color: #444; margin-right: 6px; }
     </style>
 </head>
 <body>
     <h1>🏄 Surf Voice</h1>
     <div id="status">Disconnected</div>
-    <div id="vad-indicator">🎙️ VAD listening...</div>
 
     <div id="mode-tabs">
         <button class="mode-tab active" data-mode="text">💬 Text</button>
@@ -162,6 +164,8 @@
         <option value="en-GB-RyanNeural">🇬🇧 Ryan</option>
     </select>
 
+    <div id="vad-indicator">🎙️ Listening... speak naturally</div>
+
     <div id="chat-box"></div>
 
     <div id="input-area">
@@ -170,24 +174,18 @@
         <button id="send-btn">Send</button>
     </div>
 
-    <!-- DEBUG LOGS -->
     <div id="debug-panel"></div>
 
     <script>
-        // ═══════════════════════════════════
-        // CONFIG
-        // ═══════════════════════════════════
         const GATEWAY = 'https://surf-gateway.onrender.com';
         const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
         const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
 
         let authToken = null;
         let currentMode = 'text';
-
         let mediaRecorder = null;
         let audioChunks = [];
         let isRecording = false;
-
         let audioContext = null;
         let analyser = null;
         let isSpeaking = false;
@@ -196,7 +194,6 @@
         let vadStream = null;
         let animationFrame = null;
         const SILENCE_TIMEOUT = 1500;
-
         let currentAudio = null;
 
         const statusEl = document.getElementById('status');
@@ -208,14 +205,11 @@
         const vadIndicator = document.getElementById('vad-indicator');
         const debugPanel = document.getElementById('debug-panel');
 
-        // ═══════════════════════════════════
-        // DEBUG LOGGER
-        // ═══════════════════════════════════
         function debug(msg, level = 'info') {
             const ts = new Date().toLocaleTimeString();
             debugPanel.innerHTML += `<div class="log-line ${level}"><span class="ts">${ts}</span>${msg}</div>`;
             debugPanel.scrollTop = debugPanel.scrollHeight;
-            console.log(`[${level.toUpperCase()}]`, msg);
+            console.log(`[${level}]`, msg);
         }
 
         function log(text, type = 'system') {
@@ -229,9 +223,7 @@
             statusEl.className = cls;
         }
 
-        // ═══════════════════════════════════
-        // MODE SWITCHING
-        // ═══════════════════════════════════
+        // ═══════════════ MODE SWITCHING ═══════════════
         document.querySelectorAll('.mode-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
@@ -246,39 +238,37 @@
             if (currentAudio) { currentAudio.pause(); currentAudio = null; }
 
             currentMode = mode;
-            debug(`Mode switched to: ${mode}`, 'info');
+            debug(`Mode → ${mode}`);
+
+            micBtn.classList.remove('recording', 'active-vad');
 
             switch (mode) {
                 case 'text':
                     micBtn.style.display = 'none';
                     textInput.style.display = 'block';
-                    sendBtn.textContent = 'Send';
-                    vadIndicator.style.display = 'none';
+                    vadIndicator.classList.remove('active');
                     setStatus('Connected ✅', 'connected');
                     break;
                 case 'ptt':
                     micBtn.style.display = 'block';
+                    micBtn.textContent = '🎤';
                     textInput.style.display = 'none';
-                    sendBtn.textContent = 'Send Text';
-                    vadIndicator.style.display = 'none';
-                    setStatus('Hold to talk', 'connected');
+                    vadIndicator.classList.remove('active');
+                    setStatus('Hold mic to talk', 'connected');
                     break;
                 case 'vad':
                     micBtn.style.display = 'block';
-                    micBtn.textContent = '🎙️';
+                    micBtn.textContent = '▶️';
                     textInput.style.display = 'none';
-                    sendBtn.textContent = 'Send Text';
-                    vadIndicator.style.display = 'block';
-                    setStatus('Click to start VAD', 'connected');
+                    vadIndicator.classList.add('active');
+                    setStatus('Click ▶️ to start', 'connected');
                     break;
             }
         }
 
-        // ═══════════════════════════════════
-        // AUTH
-        // ═══════════════════════════════════
+        // ═══════════════ AUTH ═══════════════
         async function login() {
-            debug('Attempting login...', 'info');
+            debug('Login...', 'info');
             try {
                 const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
                     method: 'POST',
@@ -286,12 +276,10 @@
                     body: JSON.stringify({ email: 'surf@testuser.com', password: 'Test1234!' })
                 });
                 const data = await res.json();
-                debug(`Login response: ${res.status}`, res.ok ? 'success' : 'error');
-
                 if (data.access_token) {
                     authToken = data.access_token;
                     setStatus('Connected ✅', 'connected');
-                    debug(`Token: ${authToken.substring(0, 20)}...`, 'success');
+                    debug('Logged in', 'success');
                 } else {
                     debug(`Login failed: ${JSON.stringify(data)}`, 'error');
                 }
@@ -300,12 +288,10 @@
             }
         }
 
-        // ═══════════════════════════════════
-        // TEXT CHAT
-        // ═══════════════════════════════════
+        // ═══════════════ TEXT CHAT ═══════════════
         async function sendText(text) {
             if (!authToken || !text.trim()) return;
-            debug(`Sending text: "${text.substring(0, 50)}"`, 'info');
+            debug(`Text: "${text.substring(0, 40)}"`);
             log(text, 'user');
             textInput.value = '';
 
@@ -316,68 +302,48 @@
                     body: JSON.stringify({ text, voice: voiceSelect.value })
                 });
                 const data = await res.json();
-                debug(`Chat response [${res.status}]: keys=[${Object.keys(data).join(', ')}]`, res.ok ? 'success' : 'error');
-
-                if (data.response) {
-                    log('🤖 ' + data.response, 'ai');
-                    debug(`AI response: "${data.response.substring(0, 80)}"`, 'success');
-                }
-                if (data.audio_base64) {
-                    debug(`Audio: base64, length=${data.audio_base64.length}`, 'audio');
-                    await playAudio(data.audio_base64);
-                }
+                if (data.response) log('🤖 ' + data.response, 'ai');
+                if (data.audio_base64) await playAudio(data.audio_base64);
             } catch (e) {
                 debug(`Chat error: ${e.message}`, 'error');
-                log('❌ ' + e.message, 'error');
             }
         }
 
-        // ═══════════════════════════════════
-        // PUSH-TO-TALK
-        // ═══════════════════════════════════
+        // ═══════════════ PUSH-TO-TALK ═══════════════
         async function startRecording() {
-            if (!authToken) { debug('Not logged in', 'error'); return; }
-            debug('Starting recording...', 'info');
+            if (!authToken) return;
+            debug('PTT: start', 'info');
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                debug(`Mic access granted: ${stream.getAudioTracks()[0].label}`, 'success');
                 audioChunks = [];
                 mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-
-                mediaRecorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) audioChunks.push(e.data);
-                };
-
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
                 mediaRecorder.onstop = async () => {
                     const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                    debug(`Recording stopped. Chunks: ${audioChunks.length}, Size: ${blob.size} bytes`, 'audio');
+                    debug(`PTT: stopped, ${blob.size}B`, 'audio');
                     await sendAudio(blob);
                     stream.getTracks().forEach(t => t.stop());
                 };
-
                 mediaRecorder.start();
                 isRecording = true;
                 micBtn.classList.add('recording');
                 setStatus('🎤 Recording...', 'recording');
-                debug('Recording...', 'success');
             } catch (e) {
-                debug(`Mic error: ${e.message}`, 'error');
-                log('❌ Mic error: ' + e.message, 'error');
+                debug(`PTT error: ${e.message}`, 'error');
             }
         }
 
         function stopRecording() {
             if (mediaRecorder && isRecording) {
-                debug('Stopping recording...', 'info');
                 mediaRecorder.stop();
                 isRecording = false;
                 micBtn.classList.remove('recording');
-                setStatus('Hold to talk', 'connected');
+                setStatus('Hold mic to talk', 'connected');
             }
         }
 
         async function sendAudio(blob) {
-            debug(`Sending audio to /voice: ${blob.size} bytes, voice=${voiceSelect.value}`, 'audio');
+            debug(`→ /voice ${blob.size}B`, 'audio');
             const formData = new FormData();
             formData.append('audio', blob, 'recording.webm');
             formData.append('voice', voiceSelect.value);
@@ -389,36 +355,19 @@
                     body: formData
                 });
                 const data = await res.json();
-                debug(`Voice response [${res.status}]: keys=[${Object.keys(data).join(', ')}]`, res.ok ? 'success' : 'error');
-
-                if (data.transcript) {
-                    log('📝 ' + data.transcript, 'user');
-                    debug(`Transcript: "${data.transcript}"`, 'success');
-                }
-                if (data.response) {
-                    log('🤖 ' + data.response, 'ai');
-                    debug(`AI: "${data.response.substring(0, 80)}"`, 'success');
-                }
-                if (data.audio_base64) {
-                    debug(`TTS audio: base64, ${data.audio_base64.length} chars`, 'audio');
-                    await playAudio(data.audio_base64);
-                } else {
-                    debug('No audio in response', 'warn');
-                }
+                if (data.transcript) { log('📝 ' + data.transcript, 'user'); debug(`Transcript: "${data.transcript}"`, 'success'); }
+                if (data.response) log('🤖 ' + data.response, 'ai');
+                if (data.audio_base64) { debug(`TTS: ${data.audio_base64.length} chars`, 'audio'); await playAudio(data.audio_base64); }
             } catch (e) {
                 debug(`Voice error: ${e.message}`, 'error');
-                log('❌ ' + e.message, 'error');
             }
         }
 
-        // ═══════════════════════════════════
-        // REAL-TIME VAD
-        // ═══════════════════════════════════
+        // ═══════════════ REAL-TIME VAD ═══════════════
         async function startVAD() {
-            if (!authToken) { debug('Not logged in', 'error'); return; }
-            if (vadRunning) { debug('VAD already running', 'warn'); return; }
+            if (!authToken || vadRunning) return;
+            debug('VAD: starting...', 'vad');
 
-            debug('Starting VAD mode...', 'info');
             try {
                 vadStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 debug(`VAD mic: ${vadStream.getAudioTracks()[0].label}`, 'success');
@@ -431,34 +380,29 @@
 
                 audioChunks = [];
                 mediaRecorder = new MediaRecorder(vadStream, { mimeType: 'audio/webm' });
-                mediaRecorder.ondataavailable = (e) => {
-                    if (e.data.size > 0) audioChunks.push(e.data);
-                };
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
                 mediaRecorder.start(500);
 
                 vadRunning = true;
-                micBtn.classList.add('recording');
+                micBtn.classList.add('active-vad');
                 micBtn.textContent = '⏹️';
-                setStatus('⚡ VAD listening...', 'listening');
-                log('⚡ VAD active - speak and pause to send', 'vad');
-                debug('VAD loop started, silence timeout=' + SILENCE_TIMEOUT + 'ms', 'vad');
+                setStatus('⚡ Listening...', 'listening');
+                log('⚡ Speak now - auto-sends on pause', 'vad');
+                debug('VAD: loop started', 'vad');
 
                 checkVAD();
             } catch (e) {
-                debug(`VAD start error: ${e.message}`, 'error');
-                log('❌ ' + e.message, 'error');
+                debug(`VAD error: ${e.message}`, 'error');
             }
         }
 
         function stopVAD() {
             if (!vadRunning) return;
-            debug('Stopping VAD...', 'info');
+            debug('VAD: stopping', 'vad');
             vadRunning = false;
             if (animationFrame) cancelAnimationFrame(animationFrame);
             if (silenceTimer) clearTimeout(silenceTimer);
-            if (mediaRecorder && mediaRecorder.state === 'recording') {
-                mediaRecorder.stop();
-            }
+            if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
             if (audioContext) audioContext.close();
             if (vadStream) vadStream.getTracks().forEach(t => t.stop());
             audioContext = null;
@@ -466,11 +410,9 @@
             vadStream = null;
             mediaRecorder = null;
             isSpeaking = false;
-            micBtn.classList.remove('recording');
-            micBtn.textContent = '🎙️';
-            setStatus('Click to start VAD', 'connected');
-            vadIndicator.style.display = 'block';
-            debug('VAD stopped', 'info');
+            micBtn.classList.remove('active-vad');
+            micBtn.textContent = '▶️';
+            setStatus('Click ▶️ to start', 'connected');
         }
 
         function checkVAD() {
@@ -480,37 +422,34 @@
             analyser.getByteTimeDomainData(dataArray);
 
             let sum = 0;
-            for (let i = 0; i < dataArray.length; i++) {
-                sum += Math.abs(dataArray[i] - 128);
-            }
+            for (let i = 0; i < dataArray.length; i++) sum += Math.abs(dataArray[i] - 128);
             const avg = sum / dataArray.length;
-            const talking = avg > 8;
+            const talking = avg > 10;
 
             if (talking && !isSpeaking) {
                 isSpeaking = true;
-                debug('VAD: speech detected (avg=' + avg.toFixed(1) + ')', 'vad');
+                debug(`VAD: 🗣️ speech (${avg.toFixed(1)})`, 'vad');
                 if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
             } else if (!talking && isSpeaking) {
                 if (!silenceTimer) {
-                    debug('VAD: silence, waiting ' + SILENCE_TIMEOUT + 'ms...', 'vad');
+                    debug(`VAD: 🔇 silence, waiting ${SILENCE_TIMEOUT}ms...`, 'vad');
                     silenceTimer = setTimeout(async () => {
                         isSpeaking = false;
                         silenceTimer = null;
-                        debug('VAD: silence timeout, sending chunk', 'vad');
+                        debug('VAD: ⏰ timeout, sending', 'vad');
 
                         if (mediaRecorder && mediaRecorder.state === 'recording') {
                             mediaRecorder.requestData();
-                            await new Promise(r => setTimeout(r, 100));
+                            await new Promise(r => setTimeout(r, 150));
 
                             const blob = new Blob(audioChunks, { type: 'audio/webm' });
                             audioChunks = [];
                             mediaRecorder.start(500);
 
-                            if (blob.size > 1000) {
-                                debug(`VAD: sending ${blob.size} bytes`, 'audio');
+                            if (blob.size > 2000) {
                                 await sendAudio(blob);
                             } else {
-                                debug(`VAD: chunk too small (${blob.size} bytes), skipping`, 'warn');
+                                debug(`VAD: too small (${blob.size}B)`, 'warn');
                             }
                         }
                     }, SILENCE_TIMEOUT);
@@ -520,92 +459,76 @@
             animationFrame = requestAnimationFrame(checkVAD);
         }
 
-        // ═══════════════════════════════════
-        // TTS PLAYBACK
-        // ═══════════════════════════════════
+        // ═══════════════ TTS PLAYBACK ═══════════════
         async function playAudio(encoded) {
-            if (!encoded) { debug('playAudio: empty data', 'warn'); return; }
+            if (!encoded) return;
             if (currentAudio) { currentAudio.pause(); currentAudio = null; }
 
             try {
                 let bytes;
-                if (/^[0-9a-f]+$/i.test(encoded)) {
-                    debug(`Audio format: HEX, ${encoded.length} chars`, 'audio');
-                    bytes = new Uint8Array(encoded.match(/.{1,2}/g).map(b => parseInt(b, 16)));
-                } else {
-                    debug(`Audio format: BASE64, ${encoded.length} chars`, 'audio');
+                // Check first 4 chars to determine format
+                const first4 = encoded.substring(0, 4);
+                // Base64 typically contains + / = and mixed case
+                const isBase64 = /[+/=A-Z]/.test(first4) || encoded.includes('=');
+
+                if (isBase64) {
                     const binary = atob(encoded);
                     bytes = new Uint8Array(binary.length);
                     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                    debug(`Audio: base64→${bytes.length}B`, 'audio');
+                } else {
+                    bytes = new Uint8Array(encoded.match(/.{1,2}/g).map(b => parseInt(b, 16)));
+                    debug(`Audio: hex→${bytes.length}B`, 'audio');
                 }
-
-                debug(`Audio decoded: ${bytes.length} bytes`, 'audio');
 
                 const blob = new Blob([bytes], { type: 'audio/mpeg' });
                 const url = URL.createObjectURL(blob);
                 const audio = new Audio(url);
                 currentAudio = audio;
 
-                audio.onplay = () => {
-                    setStatus('🔊 Speaking...', 'speaking');
-                    debug('Audio playback started', 'audio');
-                };
+                audio.onplay = () => setStatus('🔊 Speaking...', 'speaking');
                 audio.onended = () => {
                     URL.revokeObjectURL(url);
                     currentAudio = null;
-                    setStatus(currentMode === 'vad' ? '⚡ VAD listening...' : 'Connected ✅',
-                             currentMode === 'vad' ? 'listening' : 'connected');
-                    debug('Audio playback ended', 'audio');
+                    if (currentMode === 'vad') setStatus('⚡ Listening...', 'listening');
+                    else setStatus('Connected ✅', 'connected');
                 };
-                audio.onerror = (e) => {
-                    debug(`Audio error: code=${audio.error?.code} msg=${audio.error?.message}`, 'error');
+                audio.onerror = () => {
                     URL.revokeObjectURL(url);
                     currentAudio = null;
-                    log('⚠️ Audio playback failed', 'error');
+                    debug('Audio playback failed', 'error');
                 };
 
                 await audio.play();
             } catch (e) {
-                debug(`PlayAudio exception: ${e.message}`, 'error');
-                log('⚠️ Audio: ' + e.message, 'error');
+                debug(`Audio exception: ${e.message}`, 'error');
             }
         }
 
-        // ═══════════════════════════════════
-        // EVENTS
-        // ═══════════════════════════════════
+        // ═══════════════ EVENTS ═══════════════
         sendBtn.onclick = () => {
-            if (currentMode === 'text') {
-                sendText(textInput.value);
-            } else {
-                const txt = textInput.value || prompt('Type message:');
-                if (txt) sendText(txt);
-            }
+            if (currentMode === 'text') sendText(textInput.value);
+            else { const txt = textInput.value || prompt('Type:'); if (txt) sendText(txt); }
         };
+        textInput.onkeydown = (e) => { if (e.key === 'Enter' && currentMode === 'text') sendText(textInput.value); };
 
-        textInput.onkeydown = (e) => {
-            if (e.key === 'Enter' && currentMode === 'text') sendText(textInput.value);
-        };
-
+        // PTT: hold to record
         micBtn.onmousedown = () => { if (currentMode === 'ptt') startRecording(); };
         micBtn.onmouseup = () => { if (currentMode === 'ptt') stopRecording(); };
         micBtn.onmouseleave = () => { if (currentMode === 'ptt' && isRecording) stopRecording(); };
-
-        micBtn.addEventListener('click', (e) => {
-            if (currentMode === 'vad' && e.detail === 1) {
-                vadRunning ? stopVAD() : startVAD();
-            }
-        });
-
         micBtn.ontouchstart = (e) => { if (currentMode === 'ptt') { e.preventDefault(); startRecording(); } };
         micBtn.ontouchend = () => { if (currentMode === 'ptt') stopRecording(); };
 
-        // ═══════════════════════════════════
-        // START
-        // ═══════════════════════════════════
-        debug('Client initialized', 'info');
-        debug(`Gateway: ${GATEWAY}`, 'info');
-        debug(`Supabase: ${SUPABASE_URL}`, 'info');
+        // VAD: click to toggle
+        micBtn.addEventListener('click', (e) => {
+            if (currentMode === 'vad') {
+                if (vadRunning) stopVAD();
+                else startVAD();
+            }
+        });
+
+        // ═══════════════ START ═══════════════
+        debug('Ready', 'success');
         switchMode('text');
         login();
     </script>
