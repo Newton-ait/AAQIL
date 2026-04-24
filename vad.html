@@ -37,6 +37,7 @@
             background: transparent; color: #777; transition: all 0.2s;
         }
         .mode-tab.active { background: #00ff9d; color: #000; }
+        .mode-tab:disabled { opacity: 0.3; cursor: not-allowed; }
 
         #chat-box {
             width: 100%; max-width: 500px; height: 220px;
@@ -58,9 +59,9 @@
         #action-btn {
             padding: 10px 20px; border: none; border-radius: 8px;
             cursor: pointer; font-weight: 600; font-size: 14px; min-width: 80px;
+            transition: all 0.15s;
         }
 
-        /* Debug panel */
         #debug-panel {
             width: 100%; max-width: 500px; background: #0d1117;
             border: 1px solid #2a2a3e; border-radius: 8px; padding: 8px 10px;
@@ -85,19 +86,18 @@
     </div>
 
     <div id="mode-tabs">
-        <button class="mode-tab active" data-mode="text">💬 Chat</button>
-        <button class="mode-tab" data-mode="rest">🎤 Push-to-Talk</button>
-        <button class="mode-tab" data-mode="vad">⚡ Real-time</button>
+        <button class="mode-tab" data-mode="text" disabled>💬 Chat</button>
+        <button class="mode-tab" data-mode="rest" disabled>🎤 Push-to-Talk</button>
+        <button class="mode-tab" data-mode="vad" disabled>⚡ Real-time</button>
     </div>
 
     <div id="chat-box"></div>
 
     <div id="input-area">
-        <input id="text-input" placeholder="Type a message..." />
-        <button id="action-btn">Send</button>
+        <input id="text-input" placeholder="Waiting for sandbox..." disabled />
+        <button id="action-btn" disabled>Send</button>
     </div>
 
-    <!-- Debug logs -->
     <div id="debug-panel"></div>
 
     <iframe id="sandbox-frame" src="https://ashirafnewton-ait.github.io/extension/" allow="microphone; autoplay"></iframe>
@@ -109,7 +109,8 @@
 
         let authToken = null;
         let sandboxReady = false;
-        let currentMode = 'text';
+        let authSent = false;
+        let currentMode = null; // null = not yet initialized
         let micActive = false;
         let pttHeld = false;
 
@@ -120,13 +121,12 @@
         const actionBtn = document.getElementById('action-btn');
         const sandboxFrame = document.getElementById('sandbox-frame');
         const debugPanel = document.getElementById('debug-panel');
+        const modeTabs = document.querySelectorAll('.mode-tab');
 
-        // ════════════ DEBUG LOGGER ════════════
         function debug(msg, cls = 'log-info') {
             const ts = new Date().toLocaleTimeString().split(' ')[1] || new Date().toLocaleTimeString();
             debugPanel.innerHTML += `<div class="log-line ${cls}"><span class="ts">${ts}</span>${msg}</div>`;
             debugPanel.scrollTop = debugPanel.scrollHeight;
-            // Keep only last 50 lines
             while (debugPanel.children.length > 50) debugPanel.removeChild(debugPanel.children[0]);
             console.log(`[${cls}]`, msg);
         }
@@ -142,20 +142,49 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        // ════════════ MODES ════════════
-        document.querySelectorAll('.mode-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                setMode(tab.dataset.mode);
-            });
-        });
+        // ════════════ ENABLE UI WHEN READY ════════════
+        function enableUI() {
+            modeTabs.forEach(t => t.disabled = false);
+            textInput.disabled = false;
+            actionBtn.disabled = false;
+            // Default to text mode
+            setMode('text');
+            document.querySelector('.mode-tab[data-mode="text"]').classList.add('active');
+        }
 
+        // ════════════ CLEANUP CURRENT MODE ════════════
+        function cleanupCurrentMode() {
+            if (micActive) {
+                post({ type: 'stop_mic' });
+                micActive = false;
+                debug('Cleaned up: stopped mic', 'log-info');
+            }
+            pttHeld = false;
+            statusDot.className = 'on';
+        }
+
+        // ════════════ SWITCH MODE ════════════
         function setMode(mode) {
-            if (micActive) { post({ type: 'stop_mic' }); micActive = false; }
-            if (pttHeld) { post({ type: 'stop_mic' }); pttHeld = false; }
+            if (!sandboxReady) {
+                debug('Cannot switch mode: sandbox not ready', 'log-err');
+                return;
+            }
+
+            // Cleanup previous mode
+            cleanupCurrentMode();
+
+            // Update tab highlights
+            modeTabs.forEach(t => t.classList.remove('active'));
+            document.querySelector(`.mode-tab[data-mode="${mode}"]`).classList.add('active');
+
             currentMode = mode;
-            debug(`Mode: ${mode}`, 'log-info');
+            debug(`Mode → ${mode}`, 'log-info');
+
+            // Reset button state
+            actionBtn.onpointerdown = null;
+            actionBtn.onpointerup = null;
+            actionBtn.onpointerleave = null;
+            actionBtn.onclick = null;
 
             switch (mode) {
                 case 'text':
@@ -163,61 +192,98 @@
                     textInput.placeholder = 'Type a message...';
                     actionBtn.textContent = 'Send';
                     actionBtn.style.background = '#00ff9d'; actionBtn.style.color = '#000';
-                    actionBtn.onpointerdown = null; actionBtn.onpointerup = null;
-                    statusText.textContent = 'Text Chat'; statusDot.className = 'on';
+                    actionBtn.onclick = () => sendText(textInput.value);
+                    statusText.textContent = 'Text Chat';
+                    log('💬 Text Chat mode', 'system');
                     break;
+
                 case 'rest':
                     textInput.disabled = true;
                     textInput.placeholder = 'Hold button to talk...';
                     actionBtn.textContent = '🎤 Hold';
                     actionBtn.style.background = '#333'; actionBtn.style.color = '#fff';
+
                     actionBtn.onpointerdown = () => {
-                        if (!sandboxReady || !authToken) { debug('Not ready', 'log-err'); return; }
-                        pttHeld = true; post({ type: 'start_mic' }); micActive = true;
-                        actionBtn.style.background = '#ff4444'; actionBtn.textContent = '🎤 Release';
-                        statusDot.className = 'recording'; statusText.textContent = 'Recording...';
-                        debug('PTT: recording started', 'log-sent');
+                        if (!sandboxReady || !authToken) { debug('Not ready for PTT', 'log-err'); return; }
+                        pttHeld = true;
+                        post({ type: 'start_mic' });
+                        micActive = true;
+                        actionBtn.style.background = '#ff4444';
+                        actionBtn.textContent = '🎤 Release';
+                        statusDot.className = 'recording';
+                        statusText.textContent = 'Recording...';
+                        debug('PTT: recording', 'log-sent');
                     };
+
                     actionBtn.onpointerup = () => {
-                        if (!pttHeld) return; pttHeld = false;
-                        post({ type: 'stop_mic' }); micActive = false;
-                        actionBtn.style.background = '#333'; actionBtn.textContent = '🎤 Hold';
-                        statusDot.className = 'on'; statusText.textContent = 'Push-to-Talk';
-                        debug('PTT: recording stopped', 'log-sent');
+                        if (!pttHeld) return;
+                        pttHeld = false;
+                        post({ type: 'stop_mic' });
+                        micActive = false;
+                        actionBtn.style.background = '#333';
+                        actionBtn.textContent = '🎤 Hold';
+                        statusDot.className = 'on';
+                        statusText.textContent = 'Push-to-Talk';
+                        debug('PTT: released', 'log-sent');
                     };
-                    actionBtn.onpointerleave = () => { if (pttHeld) actionBtn.onpointerup(); };
-                    statusText.textContent = 'Push-to-Talk'; statusDot.className = 'on';
+
+                    actionBtn.onpointerleave = () => {
+                        if (pttHeld) actionBtn.onpointerup();
+                    };
+
+                    statusText.textContent = 'Push-to-Talk';
+                    log('🎤 Push-to-Talk mode', 'system');
                     break;
+
                 case 'vad':
                     textInput.disabled = true;
                     textInput.placeholder = 'Real-time mode active...';
                     actionBtn.textContent = '▶️ Start';
                     actionBtn.style.background = '#ff8800'; actionBtn.style.color = '#fff';
-                    actionBtn.onpointerdown = null; actionBtn.onpointerup = null;
+
                     actionBtn.onclick = () => {
-                        if (!sandboxReady || !authToken) { debug('Not ready', 'log-err'); return; }
+                        if (!sandboxReady || !authToken) { debug('Not ready for VAD', 'log-err'); return; }
                         if (micActive) {
-                            post({ type: 'stop_mic' }); micActive = false;
-                            actionBtn.textContent = '▶️ Start'; actionBtn.style.background = '#ff8800';
-                            statusDot.className = 'on'; statusText.textContent = 'Real-time (stopped)';
+                            // Stop VAD
+                            post({ type: 'stop_mic' });
+                            micActive = false;
+                            actionBtn.textContent = '▶️ Start';
+                            actionBtn.style.background = '#ff8800';
+                            statusDot.className = 'on';
+                            statusText.textContent = 'Real-time (stopped)';
                             debug('VAD: stopped', 'log-info');
                         } else {
-                            post({ type: 'start_mic' }); micActive = true;
-                            actionBtn.textContent = '⏹️ Stop'; actionBtn.style.background = '#ff4444';
-                            statusDot.className = 'recording'; statusText.textContent = 'Listening...';
+                            // Start VAD
+                            post({ type: 'start_mic' });
+                            micActive = true;
+                            actionBtn.textContent = '⏹️ Stop';
+                            actionBtn.style.background = '#ff4444';
+                            statusDot.className = 'recording';
+                            statusText.textContent = 'Listening...';
                             debug('VAD: started', 'log-sent');
                         }
                     };
-                    statusText.textContent = 'Real-time (stopped)'; statusDot.className = 'on';
+
+                    statusText.textContent = 'Real-time (stopped)';
+                    log('⚡ Real-time VAD mode', 'system');
                     break;
             }
         }
+
+        // ════════════ MODE TAB CLICKS ════════════
+        modeTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                if (!sandboxReady) return;
+                setMode(tab.dataset.mode);
+            });
+        });
 
         // ════════════ TEXT SEND ════════════
         async function sendText(text) {
             if (!authToken || !text.trim()) return;
             debug(`Text: "${text.substring(0, 40)}"`, 'log-sent');
-            log(text, 'user'); textInput.value = '';
+            log(text, 'user');
+            textInput.value = '';
             try {
                 const res = await fetch(`${GATEWAY}/chat`, {
                     method: 'POST',
@@ -225,15 +291,17 @@
                     body: JSON.stringify({ text, voice: 'en-US-AriaNeural' })
                 });
                 const data = await res.json();
-                debug(`Chat response [${res.status}]: keys=[${Object.keys(data).join(',')}]`, 'log-recv');
+                debug(`Chat [${res.status}]: keys=[${Object.keys(data).join(',')}]`, 'log-recv');
                 if (data.response) log('🤖 ' + data.response, 'ai');
-                if (data.audio_base64) { debug(`Audio: ${data.audio_base64.length} chars`, 'log-recv'); playAudio(data.audio_base64); }
-            } catch (e) { debug(`Chat error: ${e.message}`, 'log-err'); }
+                if (data.audio_base64) {
+                    debug(`Audio: ${data.audio_base64.length} chars`, 'log-recv');
+                    playAudio(data.audio_base64);
+                }
+            } catch (e) {
+                debug(`Chat error: ${e.message}`, 'log-err');
+            }
         }
 
-        actionBtn.addEventListener('click', (e) => {
-            if (currentMode === 'text') sendText(textInput.value);
-        });
         textInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && currentMode === 'text') sendText(textInput.value);
         });
@@ -243,53 +311,81 @@
             let bytes;
             const isBase64 = /[+/=A-Z]/.test(encoded.substring(0, 4)) || encoded.includes('=');
             if (isBase64) {
-                const b = atob(encoded); bytes = new Uint8Array(b.length);
+                const b = atob(encoded);
+                bytes = new Uint8Array(b.length);
                 for (let i = 0; i < b.length; i++) bytes[i] = b.charCodeAt(i);
-            } else { bytes = new Uint8Array(encoded.match(/.{1,2}/g).map(b => parseInt(b, 16))); }
+            } else {
+                bytes = new Uint8Array(encoded.match(/.{1,2}/g).map(b => parseInt(b, 16)));
+            }
             new Audio(URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }))).play();
-            debug(`TTS playing: ${bytes.length} bytes`, 'log-success');
+            debug(`TTS: ${bytes.length} bytes`, 'log-success');
         }
 
         // ════════════ SANDBOX MESSAGES ════════════
         window.addEventListener('message', (e) => {
             if (!e.origin.includes('ashirafnewton-ait.github.io')) return;
             const m = e.data;
-            debug(`← ${m.type}${m.text ? ': ' + m.text.substring(0, 50) : ''}`, 'log-recv');
+
+            // Show log text content if present
+            const preview = m.text ? `: ${m.text.substring(0, 50)}` : '';
+            debug(`← ${m.type}${preview}`, 'log-recv');
 
             switch (m.type) {
                 case 'sandbox_ready':
                     sandboxReady = true;
-                    statusDot.className = 'on'; statusText.textContent = 'Ready';
-                    debug('Sandbox READY ✅', 'log-success');
+                    statusDot.className = 'on';
+                    statusText.textContent = 'Ready';
+                    debug('✅ Sandbox ready', 'log-success');
                     log('✅ Sandbox ready', 'system');
-                    if (authToken) { post({ type: 'auth_token', token: authToken }); debug('Token sent to sandbox', 'log-sent'); }
+                    enableUI();
+                    // Send auth now
+                    if (authToken && !authSent) {
+                        post({ type: 'auth_token', token: authToken });
+                        authSent = true;
+                        debug('Auth token sent', 'log-sent');
+                    }
                     break;
+
                 case 'token_received':
-                    debug('Sandbox confirmed token', 'log-success');
+                    debug('Token confirmed by sandbox', 'log-success');
                     break;
+
                 case 'status':
                     statusText.textContent = m.text;
                     break;
+
                 case 'streaming':
-                    statusDot.className = m.mode === 'sfu' ? 'on' : 'recording';
+                    statusDot.className = 'recording';
                     break;
+
                 case 'transcript':
                     log('📝 ' + m.text, 'user');
                     break;
+
                 case 'response':
                     log('🤖 ' + m.text, 'ai');
                     break;
+
                 case 'tts_playing':
                     statusText.textContent = '🔊 Speaking...';
-                    debug('TTS playing', 'log-success');
                     break;
+
                 case 'disconnected':
                     micActive = false;
-                    if (currentMode === 'vad') { actionBtn.textContent = '▶️ Start'; actionBtn.style.background = '#ff8800'; }
-                    if (currentMode === 'rest') { actionBtn.textContent = '🎤 Hold'; actionBtn.style.background = '#333'; }
-                    statusDot.className = 'on'; statusText.textContent = 'Stopped';
+                    pttHeld = false;
+                    if (currentMode === 'vad') {
+                        actionBtn.textContent = '▶️ Start';
+                        actionBtn.style.background = '#ff8800';
+                    }
+                    if (currentMode === 'rest') {
+                        actionBtn.textContent = '🎤 Hold';
+                        actionBtn.style.background = '#333';
+                    }
+                    statusDot.className = 'on';
+                    statusText.textContent = 'Stopped';
                     debug('Sandbox disconnected', 'log-err');
                     break;
+
                 case 'error':
                     debug(`Sandbox error: ${m.message}`, 'log-err');
                     log('⚠️ ' + m.message, 'system');
@@ -310,15 +406,22 @@
                 if (data.access_token) {
                     authToken = data.access_token;
                     debug('Auth OK', 'log-success');
-                    if (sandboxReady) { post({ type: 'auth_token', token: authToken }); }
-                } else { debug('Auth failed', 'log-err'); }
-            } catch (e) { debug(`Auth error: ${e.message}`, 'log-err'); }
+                    if (sandboxReady && !authSent) {
+                        post({ type: 'auth_token', token: authToken });
+                        authSent = true;
+                    }
+                } else {
+                    debug('Auth failed', 'log-err');
+                }
+            } catch (e) {
+                debug(`Auth error: ${e.message}`, 'log-err');
+            }
         }
 
         // ════════════ INIT ════════════
         debug('Client starting...', 'log-info');
         debug(`Gateway: ${GATEWAY}`, 'log-info');
-        setMode('text');
+        debug('Waiting for sandbox...', 'log-info');
         login();
     </script>
 </body>
