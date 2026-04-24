@@ -302,6 +302,7 @@
                     body: JSON.stringify({ text, voice: voiceSelect.value })
                 });
                 const data = await res.json();
+                debug(`Chat: ${res.status}, keys=[${Object.keys(data).join(',')}]`, res.ok ? 'success' : 'error');
                 if (data.response) log('🤖 ' + data.response, 'ai');
                 if (data.audio_base64) await playAudio(data.audio_base64);
             } catch (e) {
@@ -349,15 +350,30 @@
             formData.append('voice', voiceSelect.value);
 
             try {
+                const startTime = Date.now();
                 const res = await fetch(`${GATEWAY}/voice`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${authToken}` },
                     body: formData
                 });
+                const elapsed = Date.now() - startTime;
                 const data = await res.json();
-                if (data.transcript) { log('📝 ' + data.transcript, 'user'); debug(`Transcript: "${data.transcript}"`, 'success'); }
-                if (data.response) log('🤖 ' + data.response, 'ai');
-                if (data.audio_base64) { debug(`TTS: ${data.audio_base64.length} chars`, 'audio'); await playAudio(data.audio_base64); }
+                debug(`Voice: ${res.status} (${elapsed}ms), keys=[${Object.keys(data).join(',')}]`, res.ok ? 'success' : 'error');
+                
+                if (data.transcript) { 
+                    log('📝 ' + data.transcript, 'user'); 
+                    debug(`Transcript: "${data.transcript}"`, 'success'); 
+                }
+                if (data.response) {
+                    log('🤖 ' + data.response, 'ai');
+                    debug(`AI: "${data.response.substring(0, 60)}"`, 'success');
+                }
+                if (data.audio_base64) { 
+                    debug(`TTS: ${data.audio_base64.length} chars`, 'audio'); 
+                    await playAudio(data.audio_base64); 
+                } else {
+                    debug('No TTS audio in response', 'warn');
+                }
             } catch (e) {
                 debug(`Voice error: ${e.message}`, 'error');
             }
@@ -378,9 +394,14 @@
                 analyser.fftSize = 512;
                 source.connect(analyser);
 
+                // Start MediaRecorder for continuous capture
                 audioChunks = [];
                 mediaRecorder = new MediaRecorder(vadStream, { mimeType: 'audio/webm' });
-                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        audioChunks.push(e.data);
+                    }
+                };
                 mediaRecorder.start(500);
 
                 vadRunning = true;
@@ -388,7 +409,7 @@
                 micBtn.textContent = '⏹️';
                 setStatus('⚡ Listening...', 'listening');
                 log('⚡ Speak now - auto-sends on pause', 'vad');
-                debug('VAD: loop started', 'vad');
+                debug('VAD: loop started, threshold=10, silence=' + SILENCE_TIMEOUT + 'ms', 'vad');
 
                 checkVAD();
             } catch (e) {
@@ -402,7 +423,9 @@
             vadRunning = false;
             if (animationFrame) cancelAnimationFrame(animationFrame);
             if (silenceTimer) clearTimeout(silenceTimer);
-            if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
             if (audioContext) audioContext.close();
             if (vadStream) vadStream.getTracks().forEach(t => t.stop());
             audioContext = null;
@@ -410,9 +433,11 @@
             vadStream = null;
             mediaRecorder = null;
             isSpeaking = false;
+            audioChunks = [];
             micBtn.classList.remove('active-vad');
             micBtn.textContent = '▶️';
             setStatus('Click ▶️ to start', 'connected');
+            debug('VAD: stopped', 'info');
         }
 
         function checkVAD() {
@@ -436,20 +461,32 @@
                     silenceTimer = setTimeout(async () => {
                         isSpeaking = false;
                         silenceTimer = null;
-                        debug('VAD: ⏰ timeout, sending', 'vad');
+                        debug('VAD: ⏰ timeout, preparing to send...', 'vad');
 
                         if (mediaRecorder && mediaRecorder.state === 'recording') {
-                            mediaRecorder.requestData();
-                            await new Promise(r => setTimeout(r, 150));
+                            // Stop the recorder to flush all data
+                            mediaRecorder.stop();
 
-                            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                            // Wait for the 'onstop' to fire and collect the blob
+                            const blob = await new Promise((resolve) => {
+                                const originalOnStop = mediaRecorder.onstop;
+                                mediaRecorder.onstop = () => {
+                                    const b = new Blob(audioChunks, { type: 'audio/webm' });
+                                    if (originalOnStop) originalOnStop();
+                                    resolve(b);
+                                };
+                            });
+
+                            debug(`VAD: chunk ${blob.size}B`, 'audio');
                             audioChunks = [];
+
+                            // Restart recorder for next speech segment
                             mediaRecorder.start(500);
 
                             if (blob.size > 2000) {
                                 await sendAudio(blob);
                             } else {
-                                debug(`VAD: too small (${blob.size}B)`, 'warn');
+                                debug(`VAD: too small (${blob.size}B), skipping`, 'warn');
                             }
                         }
                     }, SILENCE_TIMEOUT);
@@ -466,9 +503,7 @@
 
             try {
                 let bytes;
-                // Check first 4 chars to determine format
                 const first4 = encoded.substring(0, 4);
-                // Base64 typically contains + / = and mixed case
                 const isBase64 = /[+/=A-Z]/.test(first4) || encoded.includes('=');
 
                 if (isBase64) {
@@ -492,6 +527,7 @@
                     currentAudio = null;
                     if (currentMode === 'vad') setStatus('⚡ Listening...', 'listening');
                     else setStatus('Connected ✅', 'connected');
+                    debug('Audio ended', 'audio');
                 };
                 audio.onerror = () => {
                     URL.revokeObjectURL(url);
@@ -528,7 +564,8 @@
         });
 
         // ═══════════════ START ═══════════════
-        debug('Ready', 'success');
+        debug('Ready — Text | PTT | VAD', 'success');
+        debug(`Gateway: ${GATEWAY}`, 'info');
         switchMode('text');
         login();
     </script>
