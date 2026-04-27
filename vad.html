@@ -391,7 +391,7 @@
                 $('textInput').placeholder = 'Type a message…';
                 btn.textContent = 'Send';
                 btn.style.background = '#3B82F6'; btn.style.color = 'white';
-                btn.onclick = () => sendText($('textInput').value);
+                btn.onclick = function() { sendText($('textInput').value); };
             } else if (mode === 'ptt') {
                 $('textInput').disabled = true;
                 $('textInput').placeholder = 'Hold button to talk…';
@@ -425,7 +425,7 @@
                 $('textInput').placeholder = 'Real-time VAD active…';
                 btn.textContent = '▶️ Start';
                 btn.style.background = '#F59E0B'; btn.style.color = '#000';
-                btn.onclick = () => {
+                btn.onclick = function() {
                     requestMicPermission(() => {
                         if (micActive) {
                             post({ type: 'stop_mic' });
