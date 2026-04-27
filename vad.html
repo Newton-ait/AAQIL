@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Surf AI</title>
+    <title>Surf AI — Standalone Client</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -101,19 +101,20 @@
         <button class="logout-btn" id="logoutBtn">Sign Out</button>
     </div>
 
-    <iframe id="sandboxIframe" src="https://ashirafnewton-ait.github.io/extension/?v=100" allow="microphone; autoplay" style="display:none;"></iframe>
+    <iframe id="sandboxIframe" src="https://ashirafnewton-ait.github.io/extension/?v=99" allow="microphone; autoplay" style="display:none;"></iframe>
 
     <script>
         const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
         const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
 
         let authToken = null, sandboxReady = false, currentMode = 'text';
-        let micActive = false, micPermissionGranted = false;
+        let micActive = false, pttHeld = false, micPermissionGranted = false;
 
         const $ = id => document.getElementById(id);
         const debugPanel = $('debugPanel');
         const chatBox = $('chatBox');
         const sandboxIframe = $('sandboxIframe');
+        const actionBtn = $('actionBtn');
         const textInput = $('textInput');
 
         function debug(msg, cls = 'd-info') {
@@ -130,28 +131,29 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        function post(msg) {
-            debug(`→ ${msg.type}${msg.action ? ':' + msg.action : ''}`, 'd-sent');
+        function postToSandbox(msg) {
+            debug(`→ ${JSON.stringify(msg).substring(0, 80)}`, 'd-sent');
             sandboxIframe.contentWindow.postMessage(msg, 'https://ashirafnewton-ait.github.io');
         }
 
-        // ═══════ AUTH ═══════
+        // ════════════ AUTH ════════════
         async function login(email, password) {
-            debug('Login...', 'd-info');
+            debug('Logging in...', 'd-info');
             try {
                 const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
                     body: JSON.stringify({ email, password })
                 });
                 const data = await res.json();
                 if (data.access_token) {
                     authToken = data.access_token;
+                    debug('Auth OK', 'd-ok');
                     $('userEmail').textContent = email;
                     $('authScreen').classList.remove('visible');
                     $('mainScreen').classList.add('visible');
-                    debug('Auth OK', 'd-ok');
                     if (sandboxReady) {
-                        post({ type: 'auth_token', token: authToken, email });
+                        postToSandbox({ type: 'auth_token', token: authToken, email });
                     }
                 } else {
                     $('loginError').textContent = data.error_description || 'Login failed';
@@ -163,15 +165,15 @@
             }
         }
 
-        $('loginBtn').onclick = () => login($('loginEmail').value, $('loginPassword').value);
-        $('loginPassword').onkeydown = e => { if (e.key === 'Enter') login($('loginEmail').value, $('loginPassword').value); };
-        $('logoutBtn').onclick = () => location.reload();
+        $('loginBtn').addEventListener('click', () => login($('loginEmail').value, $('loginPassword').value));
+        $('loginPassword').addEventListener('keydown', (e) => { if (e.key === 'Enter') login($('loginEmail').value, $('loginPassword').value); });
+        $('logoutBtn').addEventListener('click', () => location.reload());
 
-        // ═══════ SANDBOX → CLIENT ═══════
+        // ════════════ SANDBOX MESSAGES ════════════
         window.addEventListener('message', (e) => {
             if (!e.origin.includes('ashirafnewton-ait.github.io')) return;
             const m = e.data;
-            const preview = m.text ? `: ${m.text.substring(0, 40)}` : (m.message ? `: ${m.message.substring(0, 40)}` : '');
+            const preview = m.text ? `: ${(m.text||'').substring(0, 40)}` : (m.message ? `: ${(m.message||'').substring(0, 40)}` : '');
             debug(`← ${m.type}${preview}`, 'd-recv');
 
             switch (m.type) {
@@ -179,56 +181,29 @@
                     sandboxReady = true;
                     $('sandboxDot').className = 'status-dot on';
                     $('sandboxStatus').textContent = 'Ready';
-                    $('textInput').disabled = false;
-                    $('actionBtn').disabled = false;
+                    textInput.disabled = false;
+                    actionBtn.disabled = false;
                     log('✅ Sandbox ready', 'system');
-                    if (authToken) post({ type: 'auth_token', token: authToken });
+                    if (authToken) postToSandbox({ type: 'auth_token', token: authToken });
                     break;
+                case 'token_received': break;
                 case 'status': $('micStatus').textContent = m.text; break;
                 case 'streaming': $('micDot').className = 'status-dot recording'; break;
                 case 'transcript': log('📝 ' + m.text, 'user'); break;
                 case 'response': log('🤖 ' + m.text, 'ai'); break;
+                case 'chat_response': log('🤖 ' + m.text, 'ai'); break;
                 case 'disconnected':
-                    micActive = false;
+                    micActive = false; pttHeld = false;
                     $('micDot').className = 'status-dot off';
                     $('micStatus').textContent = 'Idle';
-                    resetActionBtn();
+                    if (currentMode === 'vad') { actionBtn.textContent = '▶️ Start'; actionBtn.style.background = '#F59E0B'; }
+                    if (currentMode === 'ptt') { actionBtn.textContent = '🎤 Hold'; actionBtn.style.background = '#334155'; }
                     break;
                 case 'error': log('⚠️ ' + m.message, 'system'); break;
             }
         });
 
-        // ═══════ ACTION BUTTON ═══════
-        let actionBtn = $('actionBtn');
-
-        function resetActionBtn() {
-            if (currentMode === 'vad') {
-                actionBtn.textContent = '▶️ Start';
-                actionBtn.style.background = '#F59E0B'; actionBtn.style.color = '#000';
-            } else if (currentMode === 'ptt') {
-                actionBtn.textContent = '🎤 Hold';
-                actionBtn.style.background = '#334155'; actionBtn.style.color = 'white';
-            }
-        }
-
-        // ═══════ TEXT SEND ═══════
-        function sendText() {
-            const text = textInput.value.trim();
-            if (!text) return;
-            log(text, 'user');
-            textInput.value = '';
-            post({ type: 'extension_command', action: 'sendText', text });
-        }
-
-        actionBtn.addEventListener('click', () => {
-            if (currentMode === 'text') sendText();
-        });
-
-        textInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && currentMode === 'text') sendText();
-        });
-
-        // ═══════ MODES ═══════
+        // ════════════ MODES ════════════
         document.querySelectorAll('.mode-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
@@ -238,22 +213,13 @@
         });
 
         function cleanupMode() {
-            if (micActive) { post({ type: 'stop_mic' }); micActive = false; }
+            if (micActive) {
+                postToSandbox({ type: 'extension_command', action: 'stopMic' });
+                micActive = false;
+            }
+            pttHeld = false;
             $('micDot').className = 'status-dot off';
             $('micStatus').textContent = 'Idle';
-        }
-
-        async function requestMicPermission(callback) {
-            if (micPermissionGranted) { callback(); return; }
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                stream.getTracks().forEach(t => t.stop());
-                micPermissionGranted = true;
-                callback();
-            } catch (e) {
-                debug('Mic denied', 'd-err');
-                log('⚠️ Microphone access denied', 'system');
-            }
         }
 
         function setMode(mode) {
@@ -265,67 +231,78 @@
             // Clone button to remove all listeners
             const newBtn = actionBtn.cloneNode(true);
             actionBtn.parentNode.replaceChild(newBtn, actionBtn);
-            actionBtn = newBtn;
+            window._actionBtn = newBtn;
 
             if (mode === 'text') {
                 textInput.disabled = false;
                 textInput.placeholder = 'Type a message…';
-                actionBtn.textContent = 'Send';
-                actionBtn.style.background = '#3B82F6'; actionBtn.style.color = 'white';
-                actionBtn.addEventListener('click', sendText);
+                newBtn.textContent = 'Send';
+                newBtn.style.background = '#3B82F6'; newBtn.style.color = 'white';
+                newBtn.addEventListener('click', () => {
+                    const text = textInput.value.trim();
+                    if (!text || !authToken) return;
+                    log(text, 'user');
+                    textInput.value = '';
+                    // Use extension_command: sendText → sandbox handles Gateway call
+                    postToSandbox({ type: 'extension_command', action: 'sendText', text });
+                });
             } else if (mode === 'ptt') {
                 textInput.disabled = true;
                 textInput.placeholder = 'Hold button to talk…';
-                actionBtn.textContent = '🎤 Hold';
-                actionBtn.style.background = '#334155'; actionBtn.style.color = 'white';
-
-                let held = false;
-                actionBtn.addEventListener('pointerdown', () => {
+                newBtn.textContent = '🎤 Hold';
+                newBtn.style.background = '#334155'; newBtn.style.color = 'white';
+                newBtn.addEventListener('pointerdown', () => {
                     if (!sandboxReady || !authToken) return;
-                    held = true;
+                    pttHeld = true;
                     requestMicPermission(() => {
-                        post({ type: 'start_mic', mode: 'ptt' });
+                        postToSandbox({ type: 'extension_command', action: 'startMic', mode: 'ptt' });
                         micActive = true;
-                        actionBtn.style.background = '#EF4444';
-                        actionBtn.textContent = '🎤 Release';
+                        newBtn.style.background = '#EF4444';
+                        newBtn.textContent = '🎤 Release';
                         $('micDot').className = 'status-dot recording';
                         $('micStatus').textContent = 'Recording…';
                     });
                 });
-
-                const release = () => {
-                    if (!held) return;
-                    held = false;
-                    post({ type: 'stop_mic' });
+                newBtn.addEventListener('pointerup', () => {
+                    if (!pttHeld) return;
+                    pttHeld = false;
+                    postToSandbox({ type: 'extension_command', action: 'stopMic' });
                     micActive = false;
-                    actionBtn.style.background = '#334155';
-                    actionBtn.textContent = '🎤 Hold';
+                    newBtn.style.background = '#334155';
+                    newBtn.textContent = '🎤 Hold';
                     $('micDot').className = 'status-dot off';
                     $('micStatus').textContent = 'Idle';
-                };
-                actionBtn.addEventListener('pointerup', release);
-                actionBtn.addEventListener('pointerleave', release);
+                });
+                newBtn.addEventListener('pointerleave', () => {
+                    if (pttHeld) {
+                        pttHeld = false;
+                        postToSandbox({ type: 'extension_command', action: 'stopMic' });
+                        micActive = false;
+                        newBtn.style.background = '#334155';
+                        newBtn.textContent = '🎤 Hold';
+                        $('micDot').className = 'status-dot off';
+                        $('micStatus').textContent = 'Idle';
+                    }
+                });
             } else if (mode === 'vad') {
                 textInput.disabled = true;
                 textInput.placeholder = 'Real-time VAD active…';
-                actionBtn.textContent = '▶️ Start';
-                actionBtn.style.background = '#F59E0B'; actionBtn.style.color = '#000';
-
-                actionBtn.addEventListener('click', () => {
+                newBtn.textContent = '▶️ Start';
+                newBtn.style.background = '#F59E0B'; newBtn.style.color = '#000';
+                newBtn.addEventListener('click', () => {
                     requestMicPermission(() => {
                         if (micActive) {
-                            post({ type: 'stop_mic' });
+                            postToSandbox({ type: 'extension_command', action: 'stopMic' });
                             micActive = false;
-                            actionBtn.textContent = '▶️ Start';
-                            actionBtn.style.background = '#F59E0B';
+                            newBtn.textContent = '▶️ Start';
+                            newBtn.style.background = '#F59E0B';
                             $('micDot').className = 'status-dot off';
                             $('micStatus').textContent = 'Idle';
                         } else {
-                            post({ type: 'start_mic', mode: 'vad' });
+                            postToSandbox({ type: 'extension_command', action: 'startMic', mode: 'vad' });
                             micActive = true;
-                            actionBtn.textContent = '⏹️ Stop';
-                            actionBtn.style.background = '#EF4444';
-                            actionBtn.style.color = 'white';
+                            newBtn.textContent = '⏹️ Stop';
+                            newBtn.style.background = '#EF4444';
                             $('micDot').className = 'status-dot recording';
                             $('micStatus').textContent = 'Listening…';
                         }
@@ -334,9 +311,31 @@
             }
         }
 
-        // Init
-        setMode('text');
-        debug('Ready — waiting for sandbox…', 'd-info');
+        async function requestMicPermission(callback) {
+            if (micPermissionGranted) { callback(); return; }
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(t => t.stop());
+                micPermissionGranted = true;
+                callback();
+            } catch (e) {
+                debug('Mic denied: ' + e.message, 'd-err');
+                log('⚠️ Microphone access denied', 'system');
+            }
+        }
+
+        textInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && currentMode === 'text') {
+                const text = textInput.value.trim();
+                if (!text || !authToken) return;
+                log(text, 'user');
+                textInput.value = '';
+                postToSandbox({ type: 'extension_command', action: 'sendText', text });
+            }
+        });
+
+        // ════════════ INIT ════════════
+        debug('Page ready — waiting for sandbox…', 'd-info');
     </script>
 </body>
 </html>
