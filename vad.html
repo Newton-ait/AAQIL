@@ -464,7 +464,11 @@
             if (!authToken || !text.trim()) return;
             log(text, 'user');
             $('textInput').value = '';
-            post({ type: 'extension_command', action: 'sendText', text });
+            sandboxIframe.contentWindow.postMessage(
+                { type: 'extension_command', action: 'sendText', text },
+                'https://ashirafnewton-ait.github.io'
+            );
+            debug('→ extension_command (sendText)', 'd-sent');
         }
 
         $('textInput').addEventListener('keydown', (e) => {
