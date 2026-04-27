@@ -16,253 +16,91 @@
             align-items: center;
             padding: 20px;
         }
-        
-        /* Auth Screen */
-        #authScreen {
-            width: 100%;
-            max-width: 380px;
-            display: none;
-        }
+        #authScreen { width: 100%; max-width: 380px; display: none; }
         #authScreen.visible { display: block; }
-        
-        .auth-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .auth-header h1 {
-            font-size: 22px;
-            font-weight: 700;
-        }
-        .gradient-text {
-            background: linear-gradient(135deg, #3B82F6, #60A5FA);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .auth-subtitle {
-            font-size: 13px;
-            color: #94A3B8;
-            margin-bottom: 16px;
-        }
-        .form-group {
-            margin-bottom: 12px;
-        }
-        .form-label {
-            display: block;
-            font-size: 11px;
-            font-weight: 600;
-            color: #94A3B8;
-            margin-bottom: 4px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-        .form-input {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1.5px solid #334155;
-            border-radius: 10px;
-            font-size: 14px;
-            background: #1E293B;
-            color: #E2E8F0;
-            outline: none;
-            transition: border-color 0.15s;
-            box-sizing: border-box;
-        }
+        .auth-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+        .auth-header h1 { font-size: 22px; font-weight: 700; }
+        .gradient-text { background: linear-gradient(135deg, #3B82F6, #60A5FA); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .auth-subtitle { font-size: 13px; color: #94A3B8; margin-bottom: 16px; }
+        .form-group { margin-bottom: 12px; }
+        .form-label { display: block; font-size: 11px; font-weight: 600; color: #94A3B8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .form-input { width: 100%; padding: 10px 12px; border: 1.5px solid #334155; border-radius: 10px; font-size: 14px; background: #1E293B; color: #E2E8F0; outline: none; transition: border-color 0.15s; box-sizing: border-box; }
         .form-input:focus { border-color: #3B82F6; }
-        .form-error {
-            font-size: 12px;
-            color: #EF4444;
-            margin-bottom: 10px;
-            background: #3B0000;
-            padding: 8px 10px;
-            border-radius: 8px;
-            display: none;
-        }
-        .btn {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, #3B82F6, #2563EB);
-            color: white;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-        }
-        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4); }
+        .form-error { font-size: 12px; color: #EF4444; margin-bottom: 10px; background: #3B0000; padding: 8px 10px; border-radius: 8px; display: none; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 12px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background: linear-gradient(135deg, #3B82F6, #2563EB); color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
+        .btn-primary:hover { transform: translateY(-1px); }
         .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        
-        .auth-switch {
-            font-size: 12px;
-            color: #94A3B8;
-            text-align: center;
-            margin-top: 12px;
-        }
+        .auth-switch { font-size: 12px; color: #94A3B8; text-align: center; margin-top: 12px; }
         .auth-switch a { color: #3B82F6; text-decoration: none; font-weight: 600; cursor: pointer; }
-
-        /* Main Screen */
-        #mainScreen {
-            display: none;
-            width: 100%;
-            max-width: 420px;
-        }
+        #mainScreen { display: none; width: 100%; max-width: 420px; }
         #mainScreen.visible { display: block; }
-        
-        /* Status Bar */
-        .status-card {
-            background: #1E293B;
-            border-radius: 18px;
-            padding: 16px;
-            margin-bottom: 16px;
-            border: 1px solid #334155;
-        }
-        .status-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            font-size: 13px;
-        }
+        .status-card { background: #1E293B; border-radius: 18px; padding: 16px; margin-bottom: 16px; border: 1px solid #334155; }
+        .status-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 13px; }
         .status-row:last-child { margin-bottom: 0; }
         .status-label { color: #94A3B8; }
-        .status-dot {
-            width: 8px; height: 8px; border-radius: 50%;
-            display: inline-block; margin-right: 6px;
-        }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
         .status-dot.on { background: #22C55E; box-shadow: 0 0 6px #22C55E; }
         .status-dot.off { background: #EF4444; }
         .status-dot.recording { background: #EF4444; animation: pulse 0.8s infinite; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-        /* Mode Tabs */
-        .mode-tabs {
-            display: flex; gap: 4px; margin-bottom: 12px;
-            background: #1E293B; border-radius: 12px; padding: 4px;
-        }
-        .mode-tab {
-            flex: 1; padding: 8px; border: none; border-radius: 10px;
-            cursor: pointer; font-size: 12px; font-weight: 600;
-            background: transparent; color: #64748B; transition: all 0.2s;
-        }
+        .mode-tabs { display: flex; gap: 4px; margin-bottom: 12px; background: #1E293B; border-radius: 12px; padding: 4px; }
+        .mode-tab { flex: 1; padding: 8px; border: none; border-radius: 10px; cursor: pointer; font-size: 12px; font-weight: 600; background: transparent; color: #64748B; transition: all 0.2s; }
         .mode-tab.active { background: #3B82F6; color: white; }
-
-        /* Chat Box */
-        .chat-box {
-            background: #1E293B; border-radius: 16px; padding: 16px;
-            height: 260px; overflow-y: auto; margin-bottom: 12px;
-            border: 1px solid #334155;
-        }
-        .msg {
-            margin-bottom: 10px; padding: 8px 12px; border-radius: 12px;
-            max-width: 85%; font-size: 13px; line-height: 1.5;
-        }
+        .chat-box { background: #1E293B; border-radius: 16px; padding: 16px; height: 260px; overflow-y: auto; margin-bottom: 12px; border: 1px solid #334155; }
+        .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 12px; max-width: 85%; font-size: 13px; line-height: 1.5; }
         .msg.user { background: #3B82F6; margin-left: auto; border-bottom-right-radius: 4px; }
         .msg.ai { background: #334155; margin-right: auto; border-bottom-left-radius: 4px; }
         .msg.system { text-align: center; font-size: 10px; color: #64748B; }
         .msg .time { font-size: 9px; color: #64748B; display: block; margin-bottom: 2px; }
-
-        /* Input Area */
         .input-area { display: flex; gap: 8px; }
-        .text-input {
-            flex: 1; padding: 10px 14px; border-radius: 24px;
-            border: 1.5px solid #334155; background: #1E293B;
-            color: #E2E8F0; font-size: 14px; outline: none;
-        }
+        .text-input { flex: 1; padding: 10px 14px; border-radius: 24px; border: 1.5px solid #334155; background: #1E293B; color: #E2E8F0; font-size: 14px; outline: none; }
         .text-input:focus { border-color: #3B82F6; }
         .text-input:disabled { opacity: 0.4; }
-        
-        .action-btn {
-            min-width: 60px; padding: 10px 16px; border: none;
-            border-radius: 24px; font-weight: 600; font-size: 14px;
-            cursor: pointer; transition: all 0.2s;
-        }
-
-        /* Debug Panel */
-        .debug-panel {
-            background: #0F172A; border: 1px solid #334155;
-            border-radius: 10px; padding: 10px; margin-top: 10px;
-            font-family: 'SF Mono', monospace; font-size: 10px;
-            max-height: 100px; overflow-y: auto; color: #64748B;
-        }
+        .action-btn { min-width: 60px; padding: 10px 16px; border: none; border-radius: 24px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; user-select: none; -webkit-user-select: none; }
+        .debug-panel { background: #0F172A; border: 1px solid #334155; border-radius: 10px; padding: 10px; margin-top: 10px; font-family: 'SF Mono', monospace; font-size: 10px; max-height: 100px; overflow-y: auto; color: #64748B; }
         .debug-panel div { padding: 1px 0; border-bottom: 1px solid #1a1a2e; }
-        .d-sent { color: #F59E0B; } .d-recv { color: #3B82F6; }
-        .d-info { color: #94A3B8; } .d-ok { color: #22C55E; } .d-err { color: #EF4444; }
-
-        /* Logout */
-        .logout-btn {
-            width: 100%; padding: 10px; background: none;
-            border: 1.5px solid #334155; border-radius: 10px;
-            color: #EF4444; font-size: 13px; font-weight: 600;
-            cursor: pointer; margin-top: 12px;
-        }
+        .d-sent { color: #F59E0B; } .d-recv { color: #3B82F6; } .d-info { color: #94A3B8; } .d-ok { color: #22C55E; } .d-err { color: #EF4444; }
+        .logout-btn { width: 100%; padding: 10px; background: none; border: 1.5px solid #334155; border-radius: 10px; color: #EF4444; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 12px; }
         .logout-btn:hover { background: #1E0000; }
     </style>
 </head>
 <body>
 
-    <!-- AUTH SCREEN -->
     <div id="authScreen" class="visible">
-        <div class="auth-header">
-            <h1>🏄 Surf <span class="gradient-text">AI</span></h1>
-        </div>
+        <div class="auth-header"><h1>🏄 Surf <span class="gradient-text">AI</span></h1></div>
         <div id="loginForm">
             <p class="auth-subtitle">Sign in to your account</p>
-            <div class="form-group">
-                <label class="form-label">Email</label>
-                <input type="email" id="loginEmail" class="form-input" placeholder="you@example.com" autocomplete="email">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Password</label>
-                <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" autocomplete="current-password">
-            </div>
+            <div class="form-group"><label class="form-label">Email</label><input type="email" id="loginEmail" class="form-input" placeholder="you@example.com"></div>
+            <div class="form-group"><label class="form-label">Password</label><input type="password" id="loginPassword" class="form-input" placeholder="••••••••"></div>
             <div id="loginError" class="form-error"></div>
             <button id="loginBtn" class="btn btn-primary">Sign In</button>
         </div>
     </div>
 
-    <!-- MAIN SCREEN -->
     <div id="mainScreen">
         <div style="display:flex;align-items:center;justify-content:space-between;">
             <h1 style="font-size:20px;">🏄 Surf <span class="gradient-text">AI</span></h1>
             <span style="font-size:11px;color:#64748B;" id="userEmail">—</span>
         </div>
-
         <div class="status-card">
-            <div class="status-row">
-                <span class="status-label">Sandbox</span>
-                <span><span id="sandboxDot" class="status-dot off"></span><span id="sandboxStatus">Loading…</span></span>
-            </div>
-            <div class="status-row">
-                <span class="status-label">Mic</span>
-                <span><span id="micDot" class="status-dot off"></span><span id="micStatus">Idle</span></span>
-            </div>
+            <div class="status-row"><span class="status-label">Sandbox</span><span><span id="sandboxDot" class="status-dot off"></span><span id="sandboxStatus">Loading…</span></span></div>
+            <div class="status-row"><span class="status-label">Mic</span><span><span id="micDot" class="status-dot off"></span><span id="micStatus">Idle</span></span></div>
         </div>
-
         <div class="mode-tabs">
             <button class="mode-tab active" data-mode="text">💬 Chat</button>
             <button class="mode-tab" data-mode="ptt">🎤 Push</button>
             <button class="mode-tab" data-mode="vad">⚡ Real-time</button>
         </div>
-
-        <div class="chat-box" id="chatBox">
-            <div class="msg system">Connecting to sandbox…</div>
-        </div>
-
+        <div class="chat-box" id="chatBox"><div class="msg system">Connecting to sandbox…</div></div>
         <div class="input-area">
             <input class="text-input" id="textInput" placeholder="Type a message…" disabled />
             <button class="action-btn" id="actionBtn" disabled style="background:#3B82F6;color:white;">Send</button>
         </div>
-
         <div class="debug-panel" id="debugPanel"></div>
         <button class="logout-btn" id="logoutBtn">Sign Out</button>
     </div>
 
-    <!-- Hidden Sandbox Iframe -->
     <iframe id="sandboxIframe" src="https://ashirafnewton-ait.github.io/extension/?v=99" allow="microphone; autoplay" style="display:none;"></iframe>
 
     <script>
@@ -276,6 +114,8 @@
         const debugPanel = $('debugPanel');
         const chatBox = $('chatBox');
         const sandboxIframe = $('sandboxIframe');
+        const actionBtn = $('actionBtn');
+        const textInput = $('textInput');
 
         function debug(msg, cls = 'd-info') {
             const ts = new Date().toLocaleTimeString();
@@ -291,8 +131,8 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        function post(msg) {
-            debug(`→ ${msg.type} (${msg.action || '—'})`, 'd-sent');
+        function postToSandbox(msg) {
+            debug(`→ ${msg.type || msg.action}`, 'd-sent');
             sandboxIframe.contentWindow.postMessage(msg, 'https://ashirafnewton-ait.github.io');
         }
 
@@ -312,7 +152,7 @@
                     $('userEmail').textContent = email;
                     $('authScreen').classList.remove('visible');
                     $('mainScreen').classList.add('visible');
-                    if (sandboxReady) post({ type: 'auth_token', token: authToken, email });
+                    if (sandboxReady) postToSandbox({ type: 'auth_token', token: authToken, email });
                 } else {
                     $('loginError').textContent = data.error_description || 'Login failed';
                     $('loginError').style.display = 'block';
@@ -323,15 +163,15 @@
             }
         }
 
-        $('loginBtn').onclick = () => login($('loginEmail').value, $('loginPassword').value);
-        $('loginPassword').onkeydown = (e) => { if (e.key === 'Enter') login($('loginEmail').value, $('loginPassword').value); };
-        $('logoutBtn').onclick = () => location.reload();
+        $('loginBtn').addEventListener('click', () => login($('loginEmail').value, $('loginPassword').value));
+        $('loginPassword').addEventListener('keydown', (e) => { if (e.key === 'Enter') login($('loginEmail').value, $('loginPassword').value); });
+        $('logoutBtn').addEventListener('click', () => location.reload());
 
         // ════════════ SANDBOX MESSAGES ════════════
         window.addEventListener('message', (e) => {
             if (!e.origin.includes('ashirafnewton-ait.github.io')) return;
             const m = e.data;
-            const preview = m.text ? `: ${m.text.substring(0, 40)}` : (m.message ? `: ${m.message.substring(0, 40)}` : '');
+            const preview = m.text ? `: ${m.text.substring(0, 40)}` : '';
             debug(`← ${m.type}${preview}`, 'd-recv');
 
             switch (m.type) {
@@ -339,27 +179,41 @@
                     sandboxReady = true;
                     $('sandboxDot').className = 'status-dot on';
                     $('sandboxStatus').textContent = 'Ready';
-                    $('textInput').disabled = false;
-                    $('actionBtn').disabled = false;
+                    textInput.disabled = false;
+                    actionBtn.disabled = false;
                     log('✅ Sandbox ready', 'system');
-                    if (authToken) post({ type: 'auth_token', token: authToken });
+                    if (authToken) postToSandbox({ type: 'auth_token', token: authToken });
                     break;
                 case 'token_received': break;
                 case 'status': $('micStatus').textContent = m.text; break;
-                case 'streaming':
-                    $('micDot').className = 'status-dot recording';
-                    break;
+                case 'streaming': $('micDot').className = 'status-dot recording'; break;
                 case 'transcript': log('📝 ' + m.text, 'user'); break;
                 case 'response': log('🤖 ' + m.text, 'ai'); break;
                 case 'disconnected':
                     micActive = false; pttHeld = false;
                     $('micDot').className = 'status-dot off';
                     $('micStatus').textContent = 'Idle';
-                    if (currentMode === 'vad') { $('actionBtn').textContent = '▶️ Start'; $('actionBtn').style.background = '#F59E0B'; }
-                    if (currentMode === 'ptt') { $('actionBtn').textContent = '🎤 Hold'; $('actionBtn').style.background = '#334155'; }
+                    if (currentMode === 'vad') { actionBtn.textContent = '▶️ Start'; actionBtn.style.background = '#F59E0B'; }
+                    if (currentMode === 'ptt') { actionBtn.textContent = '🎤 Hold'; actionBtn.style.background = '#334155'; }
                     break;
                 case 'error': log('⚠️ ' + m.message, 'system'); break;
             }
+        });
+
+        // ════════════ TEXT SEND — DIRECT HANDLER ════════════
+        async function sendText(text) {
+            if (!authToken || !text.trim()) return;
+            log(text, 'user');
+            textInput.value = '';
+            postToSandbox({ type: 'extension_command', action: 'sendText', text });
+        }
+
+        actionBtn.addEventListener('click', () => {
+            if (currentMode === 'text') sendText(textInput.value);
+        });
+
+        textInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && currentMode === 'text') sendText(textInput.value);
         });
 
         // ════════════ MODES ════════════
@@ -372,7 +226,7 @@
         });
 
         function cleanupMode() {
-            if (micActive) { post({ type: 'stop_mic' }); micActive = false; }
+            if (micActive) { postToSandbox({ type: 'stop_mic' }); micActive = false; }
             pttHeld = false;
             $('micDot').className = 'status-dot off';
             $('micStatus').textContent = 'Idle';
@@ -382,68 +236,72 @@
             if (!sandboxReady) return;
             cleanupMode();
             currentMode = mode;
+            debug(`Mode → ${mode}`, 'd-info');
 
-            const btn = $('actionBtn');
-            btn.onpointerdown = null; btn.onpointerup = null; btn.onpointerleave = null; btn.onclick = null;
+            // Remove ALL previous listeners by cloning
+            const newBtn = actionBtn.cloneNode(true);
+            actionBtn.parentNode.replaceChild(newBtn, actionBtn);
+            // Update the global reference
+            window._actionBtn = newBtn;
 
             if (mode === 'text') {
-                $('textInput').disabled = false;
-                $('textInput').placeholder = 'Type a message…';
-                btn.textContent = 'Send';
-                btn.style.background = '#3B82F6'; btn.style.color = 'white';
-                btn.onclick = function() { sendText($('textInput').value); };
+                textInput.disabled = false;
+                textInput.placeholder = 'Type a message…';
+                newBtn.textContent = 'Send';
+                newBtn.style.background = '#3B82F6'; newBtn.style.color = 'white';
+                newBtn.addEventListener('click', () => sendText(textInput.value));
             } else if (mode === 'ptt') {
-                $('textInput').disabled = true;
-                $('textInput').placeholder = 'Hold button to talk…';
-                btn.textContent = '🎤 Hold';
-                btn.style.background = '#334155'; btn.style.color = 'white';
-                btn.onpointerdown = () => {
+                textInput.disabled = true;
+                textInput.placeholder = 'Hold button to talk…';
+                newBtn.textContent = '🎤 Hold';
+                newBtn.style.background = '#334155'; newBtn.style.color = 'white';
+                newBtn.addEventListener('pointerdown', () => {
                     if (!sandboxReady || !authToken) return;
                     pttHeld = true;
                     requestMicPermission(() => {
-                        post({ type: 'start_mic', mode: 'ptt' });
+                        postToSandbox({ type: 'start_mic', mode: 'ptt' });
                         micActive = true;
-                        btn.style.background = '#EF4444';
-                        btn.textContent = '🎤 Release';
+                        newBtn.style.background = '#EF4444';
+                        newBtn.textContent = '🎤 Release';
                         $('micDot').className = 'status-dot recording';
                         $('micStatus').textContent = 'Recording…';
                     });
-                };
-                btn.onpointerup = () => {
+                });
+                newBtn.addEventListener('pointerup', () => {
                     if (!pttHeld) return;
                     pttHeld = false;
-                    post({ type: 'stop_mic' });
+                    postToSandbox({ type: 'stop_mic' });
                     micActive = false;
-                    btn.style.background = '#334155';
-                    btn.textContent = '🎤 Hold';
+                    newBtn.style.background = '#334155';
+                    newBtn.textContent = '🎤 Hold';
                     $('micDot').className = 'status-dot off';
                     $('micStatus').textContent = 'Idle';
-                };
-                btn.onpointerleave = () => { if (pttHeld) btn.onpointerup(); };
+                });
+                newBtn.addEventListener('pointerleave', () => { if (pttHeld) { pttHeld = false; postToSandbox({ type: 'stop_mic' }); micActive = false; newBtn.style.background = '#334155'; newBtn.textContent = '🎤 Hold'; } });
             } else if (mode === 'vad') {
-                $('textInput').disabled = true;
-                $('textInput').placeholder = 'Real-time VAD active…';
-                btn.textContent = '▶️ Start';
-                btn.style.background = '#F59E0B'; btn.style.color = '#000';
-                btn.onclick = function() {
+                textInput.disabled = true;
+                textInput.placeholder = 'Real-time VAD active…';
+                newBtn.textContent = '▶️ Start';
+                newBtn.style.background = '#F59E0B'; newBtn.style.color = '#000';
+                newBtn.addEventListener('click', () => {
                     requestMicPermission(() => {
                         if (micActive) {
-                            post({ type: 'stop_mic' });
+                            postToSandbox({ type: 'stop_mic' });
                             micActive = false;
-                            btn.textContent = '▶️ Start';
-                            btn.style.background = '#F59E0B';
+                            newBtn.textContent = '▶️ Start';
+                            newBtn.style.background = '#F59E0B';
                             $('micDot').className = 'status-dot off';
                             $('micStatus').textContent = 'Idle';
                         } else {
-                            post({ type: 'start_mic', mode: 'vad' });
+                            postToSandbox({ type: 'start_mic', mode: 'vad' });
                             micActive = true;
-                            btn.textContent = '⏹️ Stop';
-                            btn.style.background = '#EF4444';
+                            newBtn.textContent = '⏹️ Stop';
+                            newBtn.style.background = '#EF4444';
                             $('micDot').className = 'status-dot recording';
                             $('micStatus').textContent = 'Listening…';
                         }
                     });
-                };
+                });
             }
         }
 
@@ -460,22 +318,8 @@
             }
         }
 
-        async function sendText(text) {
-            if (!authToken || !text.trim()) return;
-            log(text, 'user');
-            $('textInput').value = '';
-            sandboxIframe.contentWindow.postMessage(
-                { type: 'extension_command', action: 'sendText', text },
-                'https://ashirafnewton-ait.github.io'
-            );
-            debug('→ extension_command (sendText)', 'd-sent');
-        }
-
-        $('textInput').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && currentMode === 'text') sendText($('textInput').value);
-        });
-
-        // ════════════ INIT ════════════
+        // Kick off text mode after sandbox ready
+        setMode('text');
         debug('Client ready — waiting for sandbox…', 'd-info');
     </script>
 </body>
