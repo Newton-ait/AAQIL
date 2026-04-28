@@ -51,18 +51,22 @@
         .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 12px; max-width: 85%; font-size: 13px; line-height: 1.5; }
         .msg.user { background: #3B82F6; margin-left: auto; border-bottom-right-radius: 4px; }
         .msg.ai { background: #334155; margin-right: auto; border-bottom-left-radius: 4px; }
-        .msg.system { text-align: center; font-size: 10px; color: #64748B; }
+        .msg.system { text-align: center; font-size: 10px; color: #64748B; background: transparent; margin: 4px auto; max-width: 100%; }
         .msg .time { font-size: 9px; color: #64748B; display: block; margin-bottom: 2px; }
-        .input-area { display: flex; gap: 8px; }
+        .input-area { display: flex; gap: 8px; margin-top: 4px; }
         .text-input { flex: 1; padding: 10px 14px; border-radius: 24px; border: 1.5px solid #334155; background: #1E293B; color: #E2E8F0; font-size: 14px; outline: none; }
         .text-input:focus { border-color: #3B82F6; }
-        .text-input:disabled { opacity: 0.4; }
-        .action-btn { min-width: 60px; padding: 10px 16px; border: none; border-radius: 24px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; user-select: none; -webkit-user-select: none; }
+        .text-input:disabled { opacity: 0.4; cursor: not-allowed; }
+        .action-btn { min-width: 70px; padding: 10px 16px; border: none; border-radius: 24px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; user-select: none; -webkit-user-select: none; background: #3B82F6; color: white; }
+        .action-btn:active { transform: scale(0.97); }
+        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         .debug-panel { background: #0F172A; border: 1px solid #334155; border-radius: 10px; padding: 10px; margin-top: 10px; font-family: 'SF Mono', monospace; font-size: 10px; max-height: 100px; overflow-y: auto; color: #64748B; }
         .debug-panel div { padding: 1px 0; border-bottom: 1px solid #1a1a2e; }
         .d-sent { color: #F59E0B; } .d-recv { color: #3B82F6; } .d-info { color: #94A3B8; } .d-ok { color: #22C55E; } .d-err { color: #EF4444; }
         .logout-btn { width: 100%; padding: 10px; background: none; border: 1.5px solid #334155; border-radius: 10px; color: #EF4444; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 12px; }
         .logout-btn:hover { background: #1E0000; }
+        button { touch-action: manipulation; }
+        .status-dot.connecting { background: #F59E0B; animation: pulse 1.2s infinite; }
     </style>
 </head>
 <body>
@@ -84,7 +88,7 @@
             <span style="font-size:11px;color:#64748B;" id="userEmail">—</span>
         </div>
         <div class="status-card">
-            <div class="status-row"><span class="status-label">Sandbox</span><span><span id="sandboxDot" class="status-dot off"></span><span id="sandboxStatus">Loading…</span></span></div>
+            <div class="status-row"><span class="status-label">Sandbox</span><span><span id="sandboxDot" class="status-dot connecting"></span><span id="sandboxStatus">Connecting…</span></span></div>
             <div class="status-row"><span class="status-label">Mic</span><span><span id="micDot" class="status-dot off"></span><span id="micStatus">Idle</span></span></div>
         </div>
         <div class="mode-tabs">
@@ -92,10 +96,10 @@
             <button class="mode-tab" data-mode="ptt">🎤 Push</button>
             <button class="mode-tab" data-mode="vad">⚡ Real-time</button>
         </div>
-        <div class="chat-box" id="chatBox"><div class="msg system">Connecting to sandbox…</div></div>
+        <div class="chat-box" id="chatBox"><div class="msg system">🔄 Connecting to sandbox…</div></div>
         <div class="input-area">
             <input class="text-input" id="textInput" placeholder="Type a message…" disabled />
-            <button class="action-btn" id="actionBtn" disabled style="background:#3B82F6;color:white;">Send</button>
+            <button class="action-btn" id="actionBtn" disabled>Send</button>
         </div>
         <div class="debug-panel" id="debugPanel"></div>
         <button class="logout-btn" id="logoutBtn">Sign Out</button>
@@ -109,6 +113,7 @@
 
         let authToken = null, sandboxReady = false, currentMode = 'text';
         let micActive = false, pttHeld = false, micPermissionGranted = false;
+        let currentActionBtn = null; // reference to the active button
 
         const $ = id => document.getElementById(id);
         const debugPanel = $('debugPanel');
@@ -121,24 +126,41 @@
             const ts = new Date().toLocaleTimeString();
             debugPanel.innerHTML += `<div class="${cls}">[${ts}] ${msg}</div>`;
             debugPanel.scrollTop = debugPanel.scrollHeight;
-            while (debugPanel.children.length > 40) debugPanel.removeChild(debugPanel.children[0]);
+            while (debugPanel.children.length > 45) debugPanel.removeChild(debugPanel.children[0]);
             console.log(msg);
         }
 
         function log(text, type = 'system') {
-            const t = new Date().toLocaleTimeString();
-            chatBox.innerHTML += `<div class="msg ${type}"><span class="time">${t}</span>${text}</div>`;
+            const t = new Date().toLocaleTimeString().slice(0,5);
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `msg ${type}`;
+            msgDiv.innerHTML = `<span class="time">${t}</span>${escapeHtml(text)}`;
+            chatBox.appendChild(msgDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+                return c;
+            });
+        }
+
         function postToSandbox(msg) {
-            debug(`→ ${JSON.stringify(msg).substring(0, 80)}`, 'd-sent');
+            if (!sandboxIframe.contentWindow) return;
+            debug(`→ ${JSON.stringify(msg).substring(0, 100)}`, 'd-sent');
             sandboxIframe.contentWindow.postMessage(msg, 'https://ashirafnewton-ait.github.io');
         }
 
         // ════════════ AUTH ════════════
         async function login(email, password) {
             debug('Logging in...', 'd-info');
+            $('loginError').style.display = 'none';
             try {
                 const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
                     method: 'POST',
@@ -154,9 +176,11 @@
                     $('mainScreen').classList.add('visible');
                     if (sandboxReady) {
                         postToSandbox({ type: 'auth_token', token: authToken, email });
+                    } else {
+                        debug('Sandbox not ready yet, will send token once ready', 'd-info');
                     }
                 } else {
-                    $('loginError').textContent = data.error_description || 'Login failed';
+                    $('loginError').textContent = data.error_description || 'Login failed (invalid credentials?)';
                     $('loginError').style.display = 'block';
                 }
             } catch (e) {
@@ -167,12 +191,17 @@
 
         $('loginBtn').addEventListener('click', () => login($('loginEmail').value, $('loginPassword').value));
         $('loginPassword').addEventListener('keydown', (e) => { if (e.key === 'Enter') login($('loginEmail').value, $('loginPassword').value); });
-        $('logoutBtn').addEventListener('click', () => location.reload());
+        $('logoutBtn').addEventListener('click', () => {
+            debug('Signing out...', 'd-info');
+            location.reload();
+        });
 
         // ════════════ SANDBOX MESSAGES ════════════
         window.addEventListener('message', (e) => {
-            if (!e.origin.includes('ashirafnewton-ait.github.io')) return;
+            if (!e.origin || !e.origin.includes('ashirafnewton-ait.github.io')) return;
             const m = e.data;
+            if (!m || typeof m !== 'object') return;
+            
             const preview = m.text ? `: ${(m.text||'').substring(0, 40)}` : (m.message ? `: ${(m.message||'').substring(0, 40)}` : '');
             debug(`← ${m.type}${preview}`, 'd-recv');
 
@@ -183,34 +212,63 @@
                     $('sandboxStatus').textContent = 'Ready';
                     textInput.disabled = false;
                     actionBtn.disabled = false;
-                    log('✅ Sandbox ready', 'system');
-                    if (authToken) postToSandbox({ type: 'auth_token', token: authToken });
+                    log('✅ Sandbox ready — voice & text active', 'system');
+                    if (authToken) {
+                        postToSandbox({ type: 'auth_token', token: authToken, email: $('userEmail').textContent });
+                    }
+                    // Re-apply current mode UI to ensure button works
+                    refreshModeUI();
                     break;
-                case 'token_received': break;
-                case 'status': $('micStatus').textContent = m.text; break;
-                case 'streaming': $('micDot').className = 'status-dot recording'; break;
-                case 'transcript': log('📝 ' + m.text, 'user'); break;
-                case 'response': log('🤖 ' + m.text, 'ai'); break;
-                case 'chat_response': log('🤖 ' + m.text, 'ai'); break;
+                case 'token_received':
+                    debug('Token acknowledged by sandbox', 'd-ok');
+                    break;
+                case 'status':
+                    $('micStatus').textContent = m.text || 'Idle';
+                    break;
+                case 'streaming':
+                    $('micDot').className = 'status-dot recording';
+                    $('micStatus').textContent = 'Streaming audio...';
+                    break;
+                case 'transcript':
+                    log('🎤 ' + (m.text || ''), 'user');
+                    break;
+                case 'response':
+                    log('🤖 ' + (m.text || ''), 'ai');
+                    break;
+                case 'chat_response':
+                    log('🤖 ' + (m.text || ''), 'ai');
+                    break;
                 case 'disconnected':
-                    micActive = false; pttHeld = false;
+                    micActive = false; 
+                    pttHeld = false;
                     $('micDot').className = 'status-dot off';
                     $('micStatus').textContent = 'Idle';
-                    if (currentMode === 'vad') { actionBtn.textContent = '▶️ Start'; actionBtn.style.background = '#F59E0B'; }
-                    if (currentMode === 'ptt') { actionBtn.textContent = '🎤 Hold'; actionBtn.style.background = '#334155'; }
+                    if (currentMode === 'vad') {
+                        if (currentActionBtn) {
+                            currentActionBtn.textContent = '▶️ Start';
+                            currentActionBtn.style.background = '#F59E0B';
+                            currentActionBtn.style.color = '#000';
+                        }
+                    }
+                    if (currentMode === 'ptt' && currentActionBtn) {
+                        currentActionBtn.textContent = '🎤 Hold';
+                        currentActionBtn.style.background = '#334155';
+                        currentActionBtn.style.color = 'white';
+                    }
                     break;
-                case 'error': log('⚠️ ' + m.message, 'system'); break;
+                case 'error':
+                    log('⚠️ ' + (m.message || m.error || 'Unknown error'), 'system');
+                    break;
+                default:
+                    break;
             }
         });
 
-        // ════════════ MODES ════════════
-        document.querySelectorAll('.mode-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                setMode(tab.dataset.mode);
-            });
-        });
+        // ════════════ MODES with robust event handling ════════════
+        function refreshModeUI() {
+            if (!sandboxReady) return;
+            setMode(currentMode);
+        }
 
         function cleanupMode() {
             if (micActive) {
@@ -223,119 +281,226 @@
         }
 
         function setMode(mode) {
-            if (!sandboxReady) return;
+            if (!sandboxReady) {
+                debug(`Mode change to ${mode} delayed until sandbox ready`, 'd-info');
+                currentMode = mode;
+                return;
+            }
+            
             cleanupMode();
             currentMode = mode;
-            debug(`Mode → ${mode}`, 'd-info');
+            debug(`Activating mode: ${mode}`, 'd-info');
 
-            // Clone button to remove all listeners
-            const newBtn = actionBtn.cloneNode(true);
-            actionBtn.parentNode.replaceChild(newBtn, actionBtn);
-            window._actionBtn = newBtn;
-
+            // Update text input usability
             if (mode === 'text') {
                 textInput.disabled = false;
                 textInput.placeholder = 'Type a message…';
+            } else {
+                textInput.disabled = true;
+                textInput.placeholder = mode === 'ptt' ? 'Hold button to talk…' : 'Real-time VAD active…';
+            }
+
+            // Clear existing listeners by cloning and replacing the button
+            const oldBtn = $('actionBtn');
+            const newBtn = oldBtn.cloneNode(true);
+            oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+            // update global reference
+            window.actionBtn = newBtn;
+            currentActionBtn = newBtn;
+            
+            newBtn.disabled = false;
+            
+            if (mode === 'text') {
                 newBtn.textContent = 'Send';
-                newBtn.style.background = '#3B82F6'; newBtn.style.color = 'white';
-                newBtn.addEventListener('click', () => {
-                    const text = textInput.value.trim();
-                    if (!text || !authToken) return;
+                newBtn.style.background = '#3B82F6';
+                newBtn.style.color = 'white';
+                newBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const rawText = textInput.value;
+                    if (!rawText || rawText.trim() === '') {
+                        debug('Empty message, ignoring', 'd-err');
+                        return;
+                    }
+                    const text = rawText.trim();
+                    if (!authToken) {
+                        log('⚠️ Not authenticated, please login again', 'system');
+                        return;
+                    }
                     log(text, 'user');
                     textInput.value = '';
-                    // Use extension_command: sendText → sandbox handles Gateway call
                     postToSandbox({ type: 'extension_command', action: 'sendText', text });
+                    textInput.focus();
                 });
-            } else if (mode === 'ptt') {
-                textInput.disabled = true;
-                textInput.placeholder = 'Hold button to talk…';
+                // Enter key support
+                const enterHandler = (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && currentMode === 'text') {
+                        e.preventDefault();
+                        const val = textInput.value.trim();
+                        if (val && authToken) {
+                            log(val, 'user');
+                            textInput.value = '';
+                            postToSandbox({ type: 'extension_command', action: 'sendText', text: val });
+                        }
+                    }
+                };
+                textInput.removeEventListener('keydown', enterHandler);
+                textInput.addEventListener('keydown', enterHandler);
+            } 
+            else if (mode === 'ptt') {
                 newBtn.textContent = '🎤 Hold';
-                newBtn.style.background = '#334155'; newBtn.style.color = 'white';
-                newBtn.addEventListener('pointerdown', () => {
-                    if (!sandboxReady || !authToken) return;
+                newBtn.style.background = '#334155';
+                newBtn.style.color = 'white';
+                
+                const startRecording = () => {
+                    if (!sandboxReady || !authToken) {
+                        debug('Sandbox or token missing', 'd-err');
+                        return;
+                    }
+                    if (pttHeld) return;
                     pttHeld = true;
                     requestMicPermission(() => {
+                        if (!pttHeld) return;
                         postToSandbox({ type: 'extension_command', action: 'startMic', mode: 'ptt' });
                         micActive = true;
-                        newBtn.style.background = '#EF4444';
                         newBtn.textContent = '🎤 Release';
+                        newBtn.style.background = '#EF4444';
                         $('micDot').className = 'status-dot recording';
-                        $('micStatus').textContent = 'Recording…';
+                        $('micStatus').textContent = 'Recording...';
                     });
-                });
-                newBtn.addEventListener('pointerup', () => {
+                };
+                
+                const stopRecording = () => {
                     if (!pttHeld) return;
                     pttHeld = false;
-                    postToSandbox({ type: 'extension_command', action: 'stopMic' });
-                    micActive = false;
-                    newBtn.style.background = '#334155';
-                    newBtn.textContent = '🎤 Hold';
-                    $('micDot').className = 'status-dot off';
-                    $('micStatus').textContent = 'Idle';
-                });
-                newBtn.addEventListener('pointerleave', () => {
-                    if (pttHeld) {
-                        pttHeld = false;
+                    if (micActive) {
                         postToSandbox({ type: 'extension_command', action: 'stopMic' });
                         micActive = false;
-                        newBtn.style.background = '#334155';
-                        newBtn.textContent = '🎤 Hold';
+                    }
+                    newBtn.textContent = '🎤 Hold';
+                    newBtn.style.background = '#334155';
+                    $('micDot').className = 'status-dot off';
+                    $('micStatus').textContent = 'Idle';
+                };
+                
+                newBtn.addEventListener('mousedown', startRecording);
+                newBtn.addEventListener('mouseup', stopRecording);
+                newBtn.addEventListener('mouseleave', stopRecording);
+                // Touch events for mobile
+                newBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
+                newBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopRecording(); });
+                newBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); stopRecording(); });
+            } 
+            else if (mode === 'vad') {
+                newBtn.textContent = '▶️ Start';
+                newBtn.style.background = '#F59E0B';
+                newBtn.style.color = '#000000';
+                
+                const toggleVAD = () => {
+                    if (!sandboxReady || !authToken) {
+                        debug('Sandbox not ready', 'd-err');
+                        return;
+                    }
+                    if (micActive) {
+                        postToSandbox({ type: 'extension_command', action: 'stopMic' });
+                        micActive = false;
+                        newBtn.textContent = '▶️ Start';
+                        newBtn.style.background = '#F59E0B';
+                        newBtn.style.color = '#000';
                         $('micDot').className = 'status-dot off';
                         $('micStatus').textContent = 'Idle';
-                    }
-                });
-            } else if (mode === 'vad') {
-                textInput.disabled = true;
-                textInput.placeholder = 'Real-time VAD active…';
-                newBtn.textContent = '▶️ Start';
-                newBtn.style.background = '#F59E0B'; newBtn.style.color = '#000';
-                newBtn.addEventListener('click', () => {
-                    requestMicPermission(() => {
-                        if (micActive) {
-                            postToSandbox({ type: 'extension_command', action: 'stopMic' });
-                            micActive = false;
-                            newBtn.textContent = '▶️ Start';
-                            newBtn.style.background = '#F59E0B';
-                            $('micDot').className = 'status-dot off';
-                            $('micStatus').textContent = 'Idle';
-                        } else {
+                    } else {
+                        requestMicPermission(() => {
                             postToSandbox({ type: 'extension_command', action: 'startMic', mode: 'vad' });
                             micActive = true;
                             newBtn.textContent = '⏹️ Stop';
                             newBtn.style.background = '#EF4444';
+                            newBtn.style.color = 'white';
                             $('micDot').className = 'status-dot recording';
-                            $('micStatus').textContent = 'Listening…';
-                        }
-                    });
-                });
+                            $('micStatus').textContent = 'Listening (VAD)...';
+                        });
+                    }
+                };
+                newBtn.addEventListener('click', toggleVAD);
             }
         }
 
         async function requestMicPermission(callback) {
-            if (micPermissionGranted) { callback(); return; }
+            if (micPermissionGranted) { 
+                callback(); 
+                return;
+            }
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 stream.getTracks().forEach(t => t.stop());
                 micPermissionGranted = true;
+                debug('Microphone permission granted', 'd-ok');
                 callback();
             } catch (e) {
                 debug('Mic denied: ' + e.message, 'd-err');
-                log('⚠️ Microphone access denied', 'system');
+                log('⚠️ Microphone access denied — cannot use voice modes', 'system');
+                // optional: fallback, but don't crash
+                if (currentMode !== 'text') {
+                    log('🔁 Switch to Chat mode to continue', 'system');
+                    const textTab = document.querySelector('.mode-tab[data-mode="text"]');
+                    if (textTab) textTab.click();
+                }
             }
         }
 
-        textInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && currentMode === 'text') {
-                const text = textInput.value.trim();
-                if (!text || !authToken) return;
-                log(text, 'user');
-                textInput.value = '';
-                postToSandbox({ type: 'extension_command', action: 'sendText', text });
+        // ════════════ MODE TAB SWITCHING WITH PROPER RESET ════════════
+        document.querySelectorAll('.mode-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const mode = tab.dataset.mode;
+                if (!mode) return;
+                document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                setMode(mode);
+            });
+        });
+
+        // Initial autoload: watch sandbox iframe load
+        sandboxIframe.addEventListener('load', () => {
+            debug('Iframe loaded, waiting for sandbox_ready message', 'd-info');
+            $('sandboxStatus').textContent = 'Loading...';
+            $('sandboxDot').className = 'status-dot connecting';
+        });
+
+        // fallback: if after 8 seconds sandbox not ready, show hint
+        setTimeout(() => {
+            if (!sandboxReady) {
+                debug('⚠️ Sandbox iframe not responding? Check network or extension host.', 'd-err');
+                $('sandboxStatus').textContent = 'Timeout';
+                $('sandboxDot').className = 'status-dot off';
+                log('⚠️ Sandbox connection timeout. Please refresh.', 'system');
+            }
+        }, 10000);
+
+        // Ensure text input is not blocked by any leftover
+        textInput.addEventListener('focus', () => {
+            if (currentMode === 'text') {
+                textInput.disabled = false;
             }
         });
 
-        // ════════════ INIT ════════════
-        debug('Page ready — waiting for sandbox…', 'd-info');
+        // Additional fix: if user clicks send when mode is text but button reference gone, rely on the fresh button.
+        // Also handle token sync after login if sandbox already ready.
+        window.addEventListener('load', () => {
+            debug('Client loaded, initiating sandbox connection', 'd-info');
+            // prefill demo credentials but not auto-login for security; user clicks Sign In
+        });
+        
+        // Improve visibility of sandbox status
+        function syncSandboxStatus() {
+            if (sandboxReady) {
+                $('sandboxDot').className = 'status-dot on';
+                $('sandboxStatus').textContent = 'Ready';
+            } else {
+                $('sandboxDot').className = 'status-dot connecting';
+                $('sandboxStatus').textContent = 'Connecting...';
+            }
+        }
+        setInterval(syncSandboxStatus, 1000);
+        syncSandboxStatus();
     </script>
 </body>
 </html>
