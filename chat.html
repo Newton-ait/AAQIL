@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surf AI — Chat Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0F172A;
+            color: #E2E8F0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container { width: 100%; max-width: 500px; margin-top: 20px; }
+        h1 { font-size: 18px; margin-bottom: 12px; }
+        .gradient { background: linear-gradient(135deg, #3B82F6, #60A5FA); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .card { background: #1E293B; border-radius: 14px; padding: 14px; margin-bottom: 10px; border: 1px solid #334155; }
+        .status { font-size: 11px; color: #94A3B8; margin-bottom: 6px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+        .dot.green { background: #22C55E; }
+        .dot.yellow { background: #F59E0B; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        
+        .chat-box { background: #1E293B; border-radius: 14px; padding: 12px; height: 300px; overflow-y: auto; margin-bottom: 8px; font-size: 13px; }
+        .msg { margin-bottom: 6px; padding: 6px 10px; border-radius: 10px; max-width: 85%; line-height: 1.4; }
+        .msg.user { background: #3B82F6; margin-left: auto; border-bottom-right-radius: 3px; }
+        .msg.ai { background: #334155; margin-right: auto; border-bottom-left-radius: 3px; }
+        .msg.system { text-align: center; font-size: 10px; color: #64748B; }
+        .msg .t { font-size: 9px; color: #64748B; display: block; }
+        
+        .input-area { display: flex; gap: 6px; }
+        input { flex: 1; padding: 10px 14px; border-radius: 24px; border: 1.5px solid #334155; background: #1E293B; color: #E2E8F0; font-size: 14px; outline: none; }
+        input:focus { border-color: #3B82F6; }
+        button { padding: 10px 18px; border: none; border-radius: 24px; font-weight: 600; font-size: 13px; cursor: pointer; background: #3B82F6; color: white; }
+        button:active { transform: scale(0.97); }
+        button:disabled { opacity: 0.4; }
+        
+        .debug { background: #0F172A; border-radius: 8px; padding: 10px; margin-top: 10px; font-family: monospace; font-size: 10px; max-height: 120px; overflow-y: auto; color: #64748B; }
+        .debug div { padding: 1px 0; }
+        .d-sent { color: #F59E0B; } .d-rec { color: #3B82F6; } .d-ok { color: #22C55E; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🏄 Surf <span class="gradient">AI</span> — Chat Test</h1>
+    
+    <div class="card">
+        <div class="status"><span class="dot yellow" id="dot"></span><span id="statusText">Connecting...</span></div>
+    </div>
+    
+    <div class="chat-box" id="chatBox"><div class="msg system">🔄 Connecting to sandbox...</div></div>
+    
+    <div class="input-area">
+        <input id="chatInput" placeholder="Type a message..." disabled>
+        <button id="sendBtn" disabled>Send</button>
+    </div>
+    
+    <div class="debug" id="debugPanel"></div>
+</div>
+
+<iframe id="sandbox" src="https://sb-sf.vercel.app/" allow="microphone; autoplay" style="display:none;"></iframe>
+
+<script>
+    const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
+    
+    let authToken = null, sandboxReady = false;
+    const sandbox = document.getElementById('sandbox');
+    const chatBox = document.getElementById('chatBox');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const debug = document.getElementById('debugPanel');
+    
+    function log(msg, cls = '') { 
+        const ts = new Date().toLocaleTimeString();
+        debug.innerHTML += `<div class="${cls}">[${ts}] ${msg}</div>`; 
+        debug.scrollTop = debug.scrollHeight; 
+    }
+    
+    function chatMsg(text, role) {
+        const t = new Date().toLocaleTimeString().slice(0,5);
+        chatBox.innerHTML += `<div class="msg ${role}"><span class="t">${t}</span>${text}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+    
+    // Auth
+    async function login() {
+        log('Logging in...');
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+            body: JSON.stringify({ email: 'surf@testuser.com', password: 'Test1234!' })
+        });
+        const data = await res.json();
+        if (data.access_token) {
+            authToken = data.access_token;
+            log('Auth OK', 'd-ok');
+            document.getElementById('dot').className = 'dot green';
+            document.getElementById('statusText').textContent = 'Ready';
+            if (sandboxReady) {
+                sandbox.contentWindow.postMessage({ type: 'auth_token', token: authToken }, 'https://sb-sf.vercel.app');
+                chatInput.disabled = false;
+                sendBtn.disabled = false;
+            }
+        } else {
+            log('Auth failed: ' + JSON.stringify(data));
+        }
+    }
+    
+    // Sandbox messages
+    window.addEventListener('message', (e) => {
+        if (!e.origin.includes('sb-sf.vercel.app')) return;
+        const m = e.data;
+        log(`← ${m.type}${m.text ? ': ' + m.text.substring(0,30) : ''}`, 'd-rec');
+        
+        if (m.type === 'sandbox_ready') {
+            sandboxReady = true;
+            document.getElementById('dot').className = 'dot green';
+            document.getElementById('statusText').textContent = 'Sandbox Ready';
+            log('Sandbox ready', 'd-ok');
+            chatMsg('✅ Sandbox ready — waiting for auth...', 'system');
+            login();
+        }
+        if (m.type === 'token_received') {
+            chatInput.disabled = false;
+            sendBtn.disabled = false;
+            chatMsg('✅ Authenticated — send a message!', 'system');
+        }
+        if (m.type === 'transcript') chatMsg('🎤 ' + m.text, 'user');
+        if (m.type === 'response') chatMsg('🤖 ' + m.text, 'ai');
+        if (m.type === 'chat_response') chatMsg('🤖 ' + m.text, 'ai');
+    });
+    
+    // Send
+    function send() {
+        const text = chatInput.value.trim();
+        if (!text || !authToken) return;
+        chatMsg(text, 'user');
+        chatInput.value = '';
+        log(`→ sendText: ${text}`, 'd-sent');
+        sandbox.contentWindow.postMessage({ type: 'extension_command', action: 'sendText', text }, 'https://sb-sf.vercel.app');
+    }
+    
+    sendBtn.addEventListener('click', send);
+    chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+    
+    log('Client ready — waiting for sandbox...');
+</script>
+</body>
+</html>
