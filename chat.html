@@ -80,8 +80,17 @@
             chatMsg('✅ Ready — send a message!', 'system');
         }
         
-        if (m.type === 'transcript') chatMsg('🎤 ' + m.text, 'user');
-        if (m.type === 'chat_response') chatMsg('🤖 ' + m.text, 'ai');
+        // Only show transcripts if they're NOT echo of our own text
+        if (m.type === 'transcript') {
+            // Don't duplicate - we already showed user message
+            console.log('🎤 Transcript:', m.text);
+        }
+        
+        // THE KEY FIX: Also listen for 'response' type
+        if (m.type === 'response' || m.type === 'chat_response') {
+            chatMsg('🤖 ' + m.text, 'ai');
+        }
+        
         if (m.type === 'log') console.log('[Sandbox]', m.message);
     });
     
@@ -103,9 +112,18 @@
     function send() {
         const text = chatInput.value.trim();
         if (!text || !authToken) return;
+        
+        // Show user message
         chatMsg(text, 'user');
         chatInput.value = '';
-        sendToSandbox({ type: 'extension_command', action: 'sendText', text });
+        
+        // Send as text command (not voice)
+        sendToSandbox({ 
+            type: 'extension_command', 
+            action: 'sendText', 
+            text: text,
+            mode: 'text'  // Explicitly request text mode
+        });
     }
     
     sendBtn.addEventListener('click', send);
