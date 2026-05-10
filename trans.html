@@ -10,11 +10,9 @@
         button:disabled { opacity: 0.5; }
         #log { background: #0d1117; padding: 15px; border-radius: 8px; margin: 10px 0; max-height: 500px; overflow-y: auto; font-size: 12px; }
         #log div { padding: 3px 0; border-bottom: 1px solid #222; }
-        .transcript { color: #ffaa00; }
-        .response { color: #00aaff; }
-        .error { color: #ff4444; }
-        .info { color: #888; }
-        .status { color: #00ff9d; }
+        .transcript { color: #ffaa00; } .response { color: #00aaff; }
+        .error { color: #ff4444; } .info { color: #888; } .status { color: #00ff9d; }
+        .debug { color: #ff88cc; }
     </style>
 </head>
 <body>
@@ -38,6 +36,7 @@
         let authToken = null;
         let audioBlob = null;
         let sandboxReady = false;
+        let authSent = false;
         const iframe = document.getElementById('sandboxFrame');
 
         function log(msg, cls = 'info') {
@@ -48,26 +47,31 @@
             document.getElementById('log').scrollTop = document.getElementById('log').scrollHeight;
         }
 
-        function setStatus(msg) {
-            document.getElementById('status').textContent = msg;
-        }
+        function setStatus(msg) { document.getElementById('status').textContent = msg; }
 
-        // Listen for sandbox messages
+        // Listen for ALL messages from sandbox (verbose debugging)
         window.addEventListener('message', (e) => {
-            if (!e.origin.includes('sb-sf.vercel.app')) return;
+            // Accept all origins for debugging
             const msg = e.data;
+            if (!msg || !msg.type) return;
+            
+            // Log every message type
+            log(`← ${msg.type}: ${JSON.stringify(msg).substring(0, 100)}`, 'debug');
             
             switch(msg.type) {
                 case 'sandbox_ready':
                     sandboxReady = true;
-                    log('✅ Sandbox ready', 'status');
-                    if (authToken) {
-                        iframe.contentWindow.postMessage({type: 'auth_token', token: authToken}, SANDBOX);
-                        log('🔐 Token sent to sandbox', 'info');
+                    log('✅ Sandbox ready!', 'status');
+                    if (authToken && !authSent) {
+                        setTimeout(() => {
+                            iframe.contentWindow.postMessage({type: 'auth_token', token: authToken}, '*');
+                            authSent = true;
+                            log('🔐 Token sent to sandbox', 'info');
+                        }, 500);
                     }
                     break;
                 case 'token_received':
-                    log('✅ Token acknowledged by sandbox', 'status');
+                    log('✅ Token acknowledged', 'status');
                     document.getElementById('captureBtn').disabled = false;
                     setStatus('Step 2: Capture BBC audio');
                     break;
@@ -80,10 +84,18 @@
                 case 'status':
                     log('📡 ' + (msg.text || ''), 'info');
                     break;
+                case 'log':
+                    log('[Sandbox] ' + (msg.message || msg.text || ''), 'info');
+                    break;
                 case 'error':
                     log('❌ ' + (msg.message || ''), 'error');
                     break;
             }
+        });
+
+        // Also monitor iframe load
+        iframe.addEventListener('load', () => {
+            log('🖼️ Iframe loaded (DOM ready)', 'status');
         });
 
         async function doLogin() {
@@ -99,71 +111,66 @@
                     authToken = data.access_token;
                     log('✅ Logged in', 'status');
                     document.getElementById('loginBtn').disabled = true;
+                    setStatus(sandboxReady ? 'Sending token...' : 'Waiting for sandbox...');
                     
-                    if (sandboxReady) {
-                        iframe.contentWindow.postMessage({type: 'auth_token', token: authToken}, SANDBOX);
-                    } else {
-                        setStatus('Waiting for sandbox...');
+                    if (sandboxReady && !authSent) {
+                        iframe.contentWindow.postMessage({type: 'auth_token', token: authToken}, '*');
+                        authSent = true;
+                        log('🔐 Token sent', 'info');
                     }
                 }
             } catch(e) {
-                log('❌ Login failed: ' + e.message, 'error');
+                log('❌ Login: ' + e.message, 'error');
             }
         }
 
         async function captureBBC() {
-            log('📻 Capturing 10s of BBC...', 'info');
-            setStatus('Capturing BBC audio...');
-            const btn = document.getElementById('captureBtn');
-            btn.disabled = true;
-            
+            log('📻 Capturing 10s BBC...', 'info');
+            document.getElementById('captureBtn').disabled = true;
             try {
-                const response = await fetch(BBC, {
-                    headers: {'User-Agent': 'Mozilla/5.0'},
-                    mode: 'cors'
-                });
+                const response = await fetch(BBC);
                 const reader = response.body.getReader();
                 const chunks = [];
                 const start = Date.now();
-                
                 while (Date.now() - start < 10000) {
                     const {done, value} = await reader.read();
                     if (done) break;
                     chunks.push(value);
                 }
                 reader.cancel();
-                
                 audioBlob = new Blob(chunks, {type: 'audio/mpeg'});
-                log(`✅ Captured ${(audioBlob.size/1024).toFixed(1)}KB`, 'status');
-                setStatus(`Captured ${(audioBlob.size/1024).toFixed(1)}KB — ready to send`);
+                log(`✅ ${(audioBlob.size/1024).toFixed(1)}KB`, 'status');
                 document.getElementById('sendBtn').disabled = false;
             } catch(e) {
-                log('❌ ' + e.message, 'error');
-                btn.disabled = false;
+                log('❌ BBC: ' + e.message, 'error');
             }
         }
 
-        async function sendToSandbox() {
+        function sendToSandbox() {
             if (!audioBlob || !authToken) return;
-            log('📤 Sending audio to sandbox...', 'info');
-            
-            // Convert blob to base64 and post to sandbox
+            log('📤 Sending to sandbox...', 'info');
             const reader = new FileReader();
             reader.onload = () => {
-                const base64 = reader.result.split(',')[1];
                 iframe.contentWindow.postMessage({
                     type: 'extension_command',
                     action: 'sendAudio',
-                    blob: base64,
+                    blob: reader.result.split(',')[1],
                     voice: 'en-US-AriaNeural'
-                }, SANDBOX);
-                log('✅ Audio sent to sandbox (base64)', 'info');
-                setStatus('Audio sent — waiting for transcript...');
+                }, '*');
+                log('✅ Sent', 'info');
             };
             reader.readAsDataURL(audioBlob);
         }
 
-        log('Page ready — sandbox loading...', 'info');
+        // Ping sandbox to check if it's alive
+        setTimeout(() => {
+            if (!sandboxReady) {
+                log('⚠️ No sandbox_ready after 5s — sandbox may have errors', 'error');
+                log('Open sandbox directly: ' + SANDBOX, 'info');
+            }
+        }, 5000);
+
+        log('Page ready', 'info');
     </script>
 </body>
 </html>
