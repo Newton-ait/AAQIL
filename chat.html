@@ -64,11 +64,8 @@
     }
     
     // Listen for messages from sandbox
-    // Log ALL messages no matter what
-window.addEventListener('message', function(e) {
+    window.addEventListener('message', function(e) {
     console.log('📩 RAW from ' + e.origin + ':', e.data);
-    
-window.addEventListener('message', function(e) {
         const m = e.data;
         if (!m || !m.type) return;
         
