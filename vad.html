@@ -105,7 +105,7 @@
         <button class="logout-btn" id="logoutBtn">Sign Out</button>
     </div>
 
-    <iframe id="sandboxIframe" src="https://ashirafnewton-ait.github.io/extension/?v=99" allow="microphone; autoplay" style="display:none;"></iframe>
+    <iframe id="sandboxIframe" src="https://sb-sf.vercel.app/" allow="microphone; autoplay" style="display:none;"></iframe>
 
     <script>
         const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
@@ -154,7 +154,7 @@
         function postToSandbox(msg) {
             if (!sandboxIframe.contentWindow) return;
             debug(`→ ${JSON.stringify(msg).substring(0, 100)}`, 'd-sent');
-            sandboxIframe.contentWindow.postMessage(msg, 'https://ashirafnewton-ait.github.io');
+            sandboxIframe.contentWindow.postMessage(msg, 'https://sb-sf.vercel.app');
         }
 
         // ════════════ AUTH ════════════
@@ -198,7 +198,7 @@
 
         // ════════════ SANDBOX MESSAGES ════════════
         window.addEventListener('message', (e) => {
-            if (!e.origin || !e.origin.includes('ashirafnewton-ait.github.io')) return;
+            if (!e.origin || !e.origin.includes('sb-sf.vercel.app')) return;
             const m = e.data;
             if (!m || typeof m !== 'object') return;
             
