@@ -15,18 +15,19 @@
         .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
         .dot.green { background: #22C55E; }
         .dot.yellow { background: #F59E0B; animation: pulse 1s infinite; }
+        .dot.red { background: #EF4444; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
         .chat-box { background: #1E293B; border-radius: 14px; padding: 12px; height: 300px; overflow-y: auto; margin-bottom: 8px; font-size: 13px; }
         .msg { margin-bottom: 6px; padding: 6px 10px; border-radius: 10px; max-width: 85%; line-height: 1.4; }
         .msg.user { background: #3B82F6; margin-left: auto; border-bottom-right-radius: 3px; }
         .msg.ai { background: #334155; margin-right: auto; border-bottom-left-radius: 3px; }
-        .msg.system { text-align: center; font-size: 10px; color: #64748B; }
+        .msg.system { text-align: center; font-size: 10px; color: #64748B; width: 100%; max-width: 100%; }
         .input-area { display: flex; gap: 6px; }
         input { flex: 1; padding: 10px 14px; border-radius: 24px; border: 1.5px solid #334155; background: #1E293B; color: #E2E8F0; font-size: 14px; outline: none; }
         input:focus { border-color: #3B82F6; }
         button { padding: 10px 18px; border: none; border-radius: 24px; font-weight: 600; font-size: 13px; cursor: pointer; background: #3B82F6; color: white; }
         button:active { transform: scale(0.97); }
-        button:disabled { opacity: 0.4; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -49,29 +50,51 @@
     const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
     
     let authToken = null;
+    let sandboxReady = false;
     const sandboxEl = document.getElementById('sandbox');
     const chatBox = document.getElementById('chatBox');
     const chatInput = document.getElementById('chatInput');
     const sendBtn = document.getElementById('sendBtn');
+    const statusDot = document.getElementById('dot');
+    const statusText = document.getElementById('statusText');
+    
+    function updateStatus(state) {
+        statusDot.className = 'dot ' + state;
+        if (state === 'green') {
+            statusText.textContent = 'Sandbox Ready';
+        } else if (state === 'red') {
+            statusText.textContent = 'Connection Failed';
+        } else {
+            statusText.textContent = 'Connecting...';
+        }
+    }
     
     function chatMsg(text, role) {
-        chatBox.innerHTML += `<div class="msg ${role}">${text}</div>`;
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'msg ' + role;
+        msgDiv.textContent = text;
+        chatBox.appendChild(msgDiv);
         chatBox.scrollTop = chatBox.scrollHeight;
     }
     
     function sendToSandbox(msg) {
-        sandboxEl.contentWindow.postMessage(msg, '*');
+        if (sandboxEl.contentWindow) {
+            console.log('📤 Sending to sandbox:', msg);
+            sandboxEl.contentWindow.postMessage(msg, '*');
+        } else {
+            console.error('❌ Sandbox iframe not accessible');
+        }
     }
     
     // Listen for messages from sandbox
     window.addEventListener('message', function(e) {
-    console.log('📩 RAW from ' + e.origin + ':', e.data);
+        console.log('📩 Received from ' + e.origin + ':', e.data);
         const m = e.data;
         if (!m || !m.type) return;
         
         if (m.type === 'sandbox_ready') {
-            document.getElementById('dot').className = 'dot green';
-            document.getElementById('statusText').textContent = 'Sandbox Ready';
+            updateStatus('green');
+            sandboxReady = true;
             chatMsg('✅ Sandbox ready', 'system');
             login();
         }
@@ -79,7 +102,7 @@
         if (m.type === 'token_received') {
             chatInput.disabled = false;
             sendBtn.disabled = false;
-            chatMsg('✅ Ready — send a message!', 'system');
+            chatMsg('✅ Authenticated — send a message!', 'system');
         }
         
         if (m.type === 'transcript') chatMsg('🎤 ' + m.text, 'user');
@@ -88,31 +111,78 @@
         if (m.type === 'log') console.log('[Sandbox]', m.message);
     });
     
+    // Fallback: if sandbox doesn't respond in 5 seconds, try to proceed
+    setTimeout(() => {
+        if (!sandboxReady) {
+            updateStatus('red');
+            chatMsg('⚠️ Sandbox not responding — attempting direct connection', 'system');
+            // Try login anyway
+            login();
+        }
+    }, 5000);
+    
     async function login() {
         try {
+            console.log('🔐 Attempting login...');
             const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
                 body: JSON.stringify({ email: 'surf@testuser.com', password: 'Test1234!' })
             });
             const data = await res.json();
+            console.log('🔑 Login response:', data);
             if (data.access_token) {
                 authToken = data.access_token;
-                sendToSandbox({ type: 'auth_token', token: authToken });
+                chatMsg('✅ Logged in', 'system');
+                
+                // Send token to sandbox if it's ready
+                if (sandboxReady) {
+                    sendToSandbox({ type: 'auth_token', token: authToken });
+                } else {
+                    // If sandbox isn't ready, still enable chat for testing
+                    chatInput.disabled = false;
+                    sendBtn.disabled = false;
+                    chatMsg('⚠️ Sandbox offline — chat enabled in test mode', 'system');
+                }
+            } else {
+                chatMsg('❌ Login failed: ' + (data.error_description || 'Unknown error'), 'system');
+                updateStatus('red');
             }
-        } catch(e) { console.error('Login error:', e); }
+        } catch(e) {
+            console.error('Login error:', e);
+            chatMsg('❌ Login error: ' + e.message, 'system');
+            updateStatus('red');
+        }
     }
     
     function send() {
         const text = chatInput.value.trim();
-        if (!text || !authToken) return;
+        if (!text) return;
+        
         chatMsg(text, 'user');
         chatInput.value = '';
-        sendToSandbox({ type: 'extension_command', action: 'sendText', text });
+        
+        if (sandboxReady && authToken) {
+            sendToSandbox({ type: 'extension_command', action: 'sendText', text });
+        } else {
+            // Test mode - echo response
+            setTimeout(() => {
+                chatMsg('🤖 Echo: ' + text, 'ai');
+            }, 500);
+        }
     }
     
     sendBtn.addEventListener('click', send);
-    chatInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') send(); });
+    chatInput.addEventListener('keydown', function(e) { 
+        if (e.key === 'Enter') send(); 
+    });
+    
+    // Add error handling for sandbox iframe
+    sandboxEl.addEventListener('error', function(e) {
+        console.error('❌ Sandbox iframe error:', e);
+        updateStatus('red');
+        chatMsg('❌ Failed to load sandbox', 'system');
+    });
 </script>
 </body>
 </html>
