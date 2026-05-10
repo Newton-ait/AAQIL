@@ -43,7 +43,7 @@
     </div>
 </div>
 
-<iframe id="sandbox" src="https://sb-sf.vercel.app/" allow="microphone; autoplay" style="display:none;"></iframe>
+<iframe id="sandboxFrame" src="https://sb-sf.vercel.app/" allow="microphone; autoplay" style="display:none;"></iframe>
 
 <script>
     const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
@@ -51,7 +51,7 @@
     
     let authToken = null;
     let sandboxReady = false;
-    const sandboxEl = document.getElementById('sandbox');
+    const sandboxFrame = document.getElementById('sandboxFrame');
     const chatBox = document.getElementById('chatBox');
     const chatInput = document.getElementById('chatInput');
     const sendBtn = document.getElementById('sendBtn');
@@ -78,48 +78,63 @@
     }
     
     function sendToSandbox(msg) {
-        if (sandboxEl.contentWindow) {
+        if (sandboxFrame.contentWindow) {
             console.log('📤 Sending to sandbox:', msg);
-            sandboxEl.contentWindow.postMessage(msg, '*');
+            sandboxFrame.contentWindow.postMessage(msg, '*');
         } else {
             console.error('❌ Sandbox iframe not accessible');
         }
     }
     
     // Listen for messages from sandbox
-    window.addEventListener('message', function(e) {
-        console.log('📩 Received from ' + e.origin + ':', e.data);
-        const m = e.data;
-        if (!m || !m.type) return;
+    window.addEventListener('message', function(event) {
+        console.log('📩 Received message event:', {
+            origin: event.origin,
+            data: event.data,
+            type: event.data?.type
+        });
+        
+        const m = event.data;
+        if (!m || !m.type) {
+            console.log('📩 Ignoring message without type:', m);
+            return;
+        }
+        
+        console.log('📩 Processing message type:', m.type);
         
         if (m.type === 'sandbox_ready') {
+            console.log('🎯 Sandbox ready received! Updating status...');
             updateStatus('green');
             sandboxReady = true;
             chatMsg('✅ Sandbox ready', 'system');
             login();
-        }
-        
-        if (m.type === 'token_received') {
+        } else if (m.type === 'token_received') {
+            console.log('🎯 Token received from sandbox');
             chatInput.disabled = false;
             sendBtn.disabled = false;
             chatMsg('✅ Authenticated — send a message!', 'system');
+        } else if (m.type === 'transcript') {
+            chatMsg('🎤 ' + m.text, 'user');
+        } else if (m.type === 'response') {
+            chatMsg('🤖 ' + m.text, 'ai');
+        } else if (m.type === 'chat_response') {
+            chatMsg('🤖 ' + m.text, 'ai');
+        } else if (m.type === 'log') {
+            console.log('[Sandbox log]', m.message);
+        } else {
+            console.log('📩 Unknown message type:', m.type, m);
         }
-        
-        if (m.type === 'transcript') chatMsg('🎤 ' + m.text, 'user');
-        if (m.type === 'response') chatMsg('🤖 ' + m.text, 'ai');
-        if (m.type === 'chat_response') chatMsg('🤖 ' + m.text, 'ai');
-        if (m.type === 'log') console.log('[Sandbox]', m.message);
     });
     
-    // Fallback: if sandbox doesn't respond in 5 seconds, try to proceed
+    // Fallback: if sandbox doesn't respond in 3 seconds, try to proceed
     setTimeout(() => {
         if (!sandboxReady) {
+            console.log('⏰ Timeout - sandbox not responding');
             updateStatus('red');
             chatMsg('⚠️ Sandbox not responding — attempting direct connection', 'system');
-            // Try login anyway
             login();
         }
-    }, 5000);
+    }, 3000);
     
     async function login() {
         try {
@@ -131,6 +146,7 @@
             });
             const data = await res.json();
             console.log('🔑 Login response:', data);
+            
             if (data.access_token) {
                 authToken = data.access_token;
                 chatMsg('✅ Logged in', 'system');
@@ -164,11 +180,15 @@
         
         if (sandboxReady && authToken) {
             sendToSandbox({ type: 'extension_command', action: 'sendText', text });
-        } else {
+            chatMsg('📤 Sent to sandbox', 'system');
+        } else if (authToken) {
             // Test mode - echo response
             setTimeout(() => {
                 chatMsg('🤖 Echo: ' + text, 'ai');
             }, 500);
+            chatMsg('⚠️ Sandbox not ready — test mode', 'system');
+        } else {
+            chatMsg('❌ Not authenticated', 'system');
         }
     }
     
@@ -178,11 +198,18 @@
     });
     
     // Add error handling for sandbox iframe
-    sandboxEl.addEventListener('error', function(e) {
+    sandboxFrame.addEventListener('error', function(e) {
         console.error('❌ Sandbox iframe error:', e);
         updateStatus('red');
         chatMsg('❌ Failed to load sandbox', 'system');
     });
+    
+    // Log when sandbox loads
+    sandboxFrame.addEventListener('load', function() {
+        console.log('✅ Sandbox iframe loaded');
+    });
+    
+    console.log('🚀 Main script initialized');
 </script>
 </body>
 </html>
