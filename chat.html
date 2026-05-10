@@ -6,15 +6,7 @@
     <title>Surf AI — Chat</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background: #0F172A;
-            color: #E2E8F0;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            padding: 20px;
-        }
+        body { font-family: 'Inter', sans-serif; background: #0F172A; color: #E2E8F0; min-height: 100vh; display: flex; justify-content: center; padding: 20px; }
         .container { width: 100%; max-width: 500px; margin-top: 20px; }
         h1 { font-size: 18px; margin-bottom: 12px; }
         .gradient { background: linear-gradient(135deg, #3B82F6, #60A5FA); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
@@ -56,8 +48,8 @@
     const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
     const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
     
-    let authToken = null, sandboxReady = false;
-    const sandbox = document.getElementById('sandbox');
+    let authToken = null;
+    const sandboxEl = document.getElementById('sandbox');
     const chatBox = document.getElementById('chatBox');
     const chatInput = document.getElementById('chatInput');
     const sendBtn = document.getElementById('sendBtn');
@@ -67,22 +59,19 @@
         chatBox.scrollTop = chatBox.scrollHeight;
     }
     
-    // Listen for ALL messages (no origin filter for debugging)
-    window.addEventListener('message', (e) => {
-        console.log('📩 RAW MESSAGE from:', e.origin, e.data);
-        
+    function sendToSandbox(msg) {
+        sandboxEl.contentWindow.postMessage(msg, '*');
+    }
+    
+    // Listen for messages from sandbox
+    window.addEventListener('message', function(e) {
         const m = e.data;
         if (!m || !m.type) return;
         
-        console.log('📩 Message type:', m.type, m);
-        
         if (m.type === 'sandbox_ready') {
-            sandboxReady = true;
             document.getElementById('dot').className = 'dot green';
             document.getElementById('statusText').textContent = 'Sandbox Ready';
             chatMsg('✅ Sandbox ready', 'system');
-            console.log('✅ Sandbox ready received');
-            // Auto-login
             login();
         }
         
@@ -95,21 +84,22 @@
         if (m.type === 'transcript') chatMsg('🎤 ' + m.text, 'user');
         if (m.type === 'response') chatMsg('🤖 ' + m.text, 'ai');
         if (m.type === 'chat_response') chatMsg('🤖 ' + m.text, 'ai');
+        if (m.type === 'log') console.log('[Sandbox]', m.message);
     });
     
     async function login() {
-        console.log('🔐 Logging in...');
-        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
-            body: JSON.stringify({ email: 'surf@testuser.com', password: 'Test1234!' })
-        });
-        const data = await res.json();
-        if (data.access_token) {
-            authToken = data.access_token;
-            console.log('✅ Auth OK, sending token to sandbox');
-            sandbox.contentWindow.postMessage({ type: 'auth_token', token: authToken }, '*');
-        }
+        try {
+            const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+                body: JSON.stringify({ email: 'surf@testuser.com', password: 'Test1234!' })
+            });
+            const data = await res.json();
+            if (data.access_token) {
+                authToken = data.access_token;
+                sendToSandbox({ type: 'auth_token', token: authToken });
+            }
+        } catch(e) { console.error('Login error:', e); }
     }
     
     function send() {
@@ -117,14 +107,11 @@
         if (!text || !authToken) return;
         chatMsg(text, 'user');
         chatInput.value = '';
-        console.log('📤 Sending text:', text);
-        sandbox.contentWindow.postMessage({ type: 'extension_command', action: 'sendText', text }, '*');
+        sendToSandbox({ type: 'extension_command', action: 'sendText', text });
     }
     
     sendBtn.addEventListener('click', send);
-    chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
-    
-    console.log('📄 Client ready');
+    chatInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') send(); });
 </script>
 </body>
 </html>
