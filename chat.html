@@ -42,7 +42,11 @@
     </div>
 </div>
 
-<iframe id="sandboxFrame" src="about:blank" allow="microphone; autoplay" style="display:none;"></iframe>
+<!-- Use srcdoc to create a proxy iframe that loads the sandbox -->
+<iframe id="sandboxFrame" 
+        srcdoc="<!DOCTYPE html><html><head><script>console.log('Proxy iframe loaded'); window.location.href = 'https://sb-sf.vercel.app/';</script></head><body></body></html>" 
+        allow="microphone; autoplay" 
+        style="display:none;"></iframe>
 
 <script>
     const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
@@ -61,8 +65,6 @@
         statusDot.className = 'dot ' + state;
         if (state === 'green') {
             statusText.textContent = 'Sandbox Ready';
-        } else if (state === 'red') {
-            statusText.textContent = 'Connection Failed';
         } else {
             statusText.textContent = 'Connecting...';
         }
@@ -77,61 +79,83 @@
     }
     
     function sendToSandbox(msg) {
-        if (sandboxFrame.contentWindow) {
-            console.log('📤 Sending to sandbox:', msg);
-            sandboxFrame.contentWindow.postMessage(msg, 'https://sb-sf.vercel.app');
+        try {
+            const targetWindow = sandboxFrame.contentWindow;
+            if (targetWindow) {
+                console.log('📤 Sending to sandbox:', msg);
+                targetWindow.postMessage(msg, '*');
+            }
+        } catch(e) {
+            console.error('Failed to send to sandbox:', e);
         }
     }
     
-    // Set up message listener with origin check
-    window.addEventListener('message', function(event) {
-        // Don't filter by origin during debugging
-        console.log('📨 Message received:', {
+    // Multiple message listeners to catch anything
+    function messageHandler(event) {
+        console.log('📨 MESSAGE EVENT:', {
             origin: event.origin,
-            data: event.data,
-            dataType: typeof event.data
+            type: event.data?.type,
+            data: event.data
         });
         
         const m = event.data;
-        if (!m || !m.type) return;
-        
-        console.log('✅ Processing:', m.type);
-        
-        if (m.type === 'sandbox_ready') {
-            console.log('🎯 SANDBOX READY!');
-            updateStatus('green');
-            sandboxReady = true;
-            chatMsg('✅ Sandbox ready', 'system');
-            login();
-        } else if (m.type === 'token_received') {
-            chatInput.disabled = false;
-            sendBtn.disabled = false;
-            chatMsg('✅ Ready — send a message!', 'system');
-        } else if (m.type === 'transcript') {
-            chatMsg('🎤 ' + m.text, 'user');
-        } else if (m.type === 'response' || m.type === 'chat_response') {
-            chatMsg('🤖 ' + m.text, 'ai');
+        if (m && m.type) {
+            console.log('📨 Processing message type:', m.type);
+            
+            if (m.type === 'sandbox_ready') {
+                console.log('🎯 SANDBOX READY RECEIVED!');
+                updateStatus('green');
+                sandboxReady = true;
+                chatMsg('✅ Sandbox ready', 'system');
+                login();
+            } else if (m.type === 'token_received') {
+                chatInput.disabled = false;
+                sendBtn.disabled = false;
+                chatMsg('✅ Ready', 'system');
+            } else if (m.type === 'transcript') {
+                chatMsg('🎤 ' + m.text, 'user');
+            } else if (m.type === 'response' || m.type === 'chat_response') {
+                chatMsg('🤖 ' + m.text, 'ai');
+            } else if (m.type === 'log') {
+                console.log('[Sandbox]', m.message);
+            }
         }
-    });
-    
-    // Load the sandbox via JavaScript to ensure proper setup
-    function loadSandbox() {
-        console.log('🔄 Loading sandbox into iframe...');
-        sandboxFrame.src = 'https://sb-sf.vercel.app/';
     }
     
-    // Wait for iframe to be ready
-    sandboxFrame.addEventListener('load', function() {
-        console.log('✅ Sandbox iframe loaded');
-        
-        // Send a ping to see if communication works
-        setTimeout(() => {
-            sendToSandbox({ type: 'ping', from: 'parent' });
-        }, 1000);
-    });
+    window.addEventListener('message', messageHandler, false);
     
-    // Start loading after a brief delay to ensure listeners are set up
-    setTimeout(loadSandbox, 500);
+    // Check for sandbox readiness by trying to read a property
+    function checkSandboxReady() {
+        try {
+            // Try to see if sandbox has set a global flag
+            if (sandboxFrame.contentWindow && sandboxFrame.contentWindow.__surfReady) {
+                console.log('🎯 Sandbox ready detected via flag');
+                updateStatus('green');
+                sandboxReady = true;
+                chatMsg('✅ Sandbox ready (flag)', 'system');
+                login();
+                return;
+            }
+        } catch(e) {
+            // Cross-origin, can't access - that's normal
+        }
+        
+        if (!sandboxReady) {
+            setTimeout(checkSandboxReady, 1000);
+        }
+    }
+    
+    // Start checking after sandbox has time to load
+    setTimeout(checkSandboxReady, 3000);
+    
+    // Fallback: just try to login even without sandbox
+    setTimeout(() => {
+        if (!sandboxReady) {
+            console.log('⏰ Timeout - proceeding without sandbox ready signal');
+            chatMsg('⚠️ Sandbox not responding, trying direct login', 'system');
+            login();
+        }
+    }, 5000);
     
     async function login() {
         try {
@@ -154,7 +178,7 @@
                     sendToSandbox({ type: 'auth_token', token: authToken });
                 }
             } else {
-                chatMsg('❌ Login failed: ' + JSON.stringify(data), 'system');
+                chatMsg('❌ Login failed', 'system');
             }
         } catch(e) {
             console.error('Login error:', e);
@@ -171,6 +195,7 @@
         
         if (sandboxReady && authToken) {
             sendToSandbox({ type: 'extension_command', action: 'sendText', text });
+            chatMsg('📤 Sent to sandbox', 'system');
         } else {
             // Test mode
             setTimeout(() => {
@@ -184,7 +209,7 @@
         if (e.key === 'Enter') send(); 
     });
     
-    console.log('🚀 Setup complete, loading sandbox...');
+    console.log('🚀 Setup complete');
 </script>
 </body>
 </html>
