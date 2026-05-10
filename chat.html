@@ -43,7 +43,9 @@
     </div>
 </div>
 
-<iframe id="sandboxFrame" src="https://sb-sf.vercel.app/" allow="microphone; autoplay" style="display:none;"></iframe>
+<!-- Try loading sandbox in a visible tiny iframe first to debug -->
+<iframe id="sandboxFrame" src="https://sb-sf.vercel.app/" allow="microphone; autoplay" 
+        style="position:absolute;top:0;left:0;width:1px;height:1px;border:none;opacity:0.01;"></iframe>
 
 <script>
     const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
@@ -57,6 +59,12 @@
     const sendBtn = document.getElementById('sendBtn');
     const statusDot = document.getElementById('dot');
     const statusText = document.getElementById('statusText');
+    
+    // Global message handler
+    window.__handleSandboxMessage = function(m) {
+        console.log('🌉 Global handler called with:', m);
+        processMessage(m);
+    };
     
     function updateStatus(state) {
         statusDot.className = 'dot ' + state;
@@ -77,45 +85,8 @@
         chatBox.scrollTop = chatBox.scrollHeight;
     }
     
-    function sendToSandbox(msg) {
-        if (sandboxFrame.contentWindow) {
-            console.log('📤 Sending to sandbox:', msg);
-            try {
-                sandboxFrame.contentWindow.postMessage(msg, '*');
-            } catch(e) {
-                console.error('Failed to post message:', e);
-            }
-        } else {
-            console.error('❌ Sandbox iframe not accessible');
-        }
-    }
-    
-    // CRITICAL FIX: Listen for ALL messages, not just from sandbox
-    function handleMessage(event) {
-        console.log('📨 RAW MESSAGE EVENT:', {
-            origin: event.origin,
-            data: event.data,
-            dataType: typeof event.data,
-            hasType: event.data && event.data.type
-        });
-        
-        // Handle multiple message formats
-        let m = event.data;
-        
-        // Sometimes the data might be a string
-        if (typeof m === 'string') {
-            try {
-                m = JSON.parse(m);
-            } catch(e) {
-                console.log('📨 Non-JSON message, ignoring');
-                return;
-            }
-        }
-        
-        if (!m || !m.type) {
-            console.log('📨 Message without type field');
-            return;
-        }
+    function processMessage(m) {
+        if (!m || !m.type) return;
         
         console.log('✅ Processing message type:', m.type);
         
@@ -147,53 +118,77 @@
             case 'log':
                 console.log('[Sandbox log]', m.message);
                 break;
-                
-            default:
-                console.log('📨 Unknown message type:', m.type, m);
         }
     }
     
-    // Attach listener with capture phase to catch messages earlier
-    window.addEventListener('message', handleMessage, true);
-    
-    // Also try without capture for safety
+    // Set up ALL possible message listeners
     window.addEventListener('message', function(event) {
-        console.log('📨 (bubble phase) Message from:', event.origin);
+        console.log('📨 Message Listener 1 (capture):', event.origin, event.data?.type);
+        processMessage(event.data);
+    }, true);
+    
+    window.addEventListener('message', function(event) {
+        console.log('📨 Message Listener 2 (bubble):', event.origin, event.data?.type);
+        processMessage(event.data);
     }, false);
     
-    // Poll sandbox directly as a fallback
+    window.onmessage = function(event) {
+        console.log('📨 window.onmessage:', event.origin, event.data?.type);
+        processMessage(event.data);
+    };
+    
+    document.addEventListener('message', function(event) {
+        console.log('📨 document.onmessage:', event.origin, event.data?.type);
+        processMessage(event.data);
+    });
+    
+    // Also try to intercept the postMessage call
+    const originalPostMessage = window.postMessage;
+    window.postMessage = function(message, targetOrigin, transfer) {
+        console.log('🔍 Intercepted postMessage from:', new Error().stack);
+        console.log('🔍 Message:', message);
+        return originalPostMessage.call(this, message, targetOrigin, transfer);
+    };
+    
+    function sendToSandbox(msg) {
+        if (sandboxFrame.contentWindow) {
+            console.log('📤 Sending to sandbox:', msg);
+            try {
+                sandboxFrame.contentWindow.postMessage(msg, 'https://sb-sf.vercel.app');
+            } catch(e) {
+                console.error('Failed to post message:', e);
+            }
+        }
+    }
+    
+    // Polling mechanism - check if sandbox has set a global variable
     function pollSandbox() {
         try {
-            if (sandboxFrame.contentWindow && sandboxFrame.contentWindow.__sandboxReady) {
-                console.log('🎯 Sandbox ready detected via polling');
-                updateStatus('green');
-                sandboxReady = true;
-                chatMsg('✅ Sandbox ready (polling)', 'system');
-                login();
-            } else if (!sandboxReady) {
-                setTimeout(pollSandbox, 500);
+            // Try to access sandbox content (will fail if cross-origin)
+            const sandboxWindow = sandboxFrame.contentWindow;
+            if (sandboxWindow) {
+                // Some sandbox pages set window.name or hash
+                console.log('🔍 Polling sandbox...');
+                
+                // Check if sandbox modified its location hash
+                if (sandboxFrame.src.includes('#ready')) {
+                    console.log('🎯 Sandbox ready detected via hash');
+                    updateStatus('green');
+                    sandboxReady = true;
+                    chatMsg('✅ Sandbox ready (hash)', 'system');
+                    login();
+                    return;
+                }
             }
         } catch(e) {
-            // Cross-origin, can't access
-            setTimeout(pollSandbox, 500);
+            console.log('🔍 Cross-origin polling failed (expected):', e.message);
         }
-    }
-    setTimeout(pollSandbox, 1000);
-    
-    // Listen for sandbox messages via onmessage property too
-    if (sandboxFrame.contentWindow) {
-        console.log('🔧 Setting up direct onmessage handler');
-    }
-    
-    // Fallback: if sandbox doesn't respond, try to proceed
-    setTimeout(() => {
+        
         if (!sandboxReady) {
-            console.log('⏰ Timeout - sandbox not responding');
-            updateStatus('yellow');  // Keep yellow instead of red
-            chatMsg('⚠️ Still waiting for sandbox...', 'system');
-            login();
+            setTimeout(pollSandbox, 1000);
         }
-    }, 5000);  // Increased timeout to 5s
+    }
+    setTimeout(pollSandbox, 2000);
     
     async function login() {
         try {
@@ -209,23 +204,18 @@
             if (data.access_token) {
                 authToken = data.access_token;
                 chatMsg('✅ Logged in', 'system');
-                
                 chatInput.disabled = false;
                 sendBtn.disabled = false;
                 
                 if (sandboxReady) {
                     sendToSandbox({ type: 'auth_token', token: authToken });
-                } else {
-                    chatMsg('⚠️ Sandbox connecting — chat in test mode', 'system');
                 }
             } else {
-                chatMsg('❌ Login failed: ' + (data.error_description || 'Unknown error'), 'system');
-                updateStatus('red');
+                chatMsg('❌ Login failed', 'system');
             }
         } catch(e) {
             console.error('Login error:', e);
-            chatMsg('❌ Login error: ' + e.message, 'system');
-            updateStatus('red');
+            chatMsg('❌ Login error', 'system');
         }
     }
     
@@ -238,11 +228,9 @@
         
         if (sandboxReady && authToken) {
             sendToSandbox({ type: 'extension_command', action: 'sendText', text });
-            chatMsg('📤 Sent to sandbox', 'system');
         } else {
-            // Test mode
             setTimeout(() => {
-                chatMsg('🤖 Echo: ' + text, 'ai');
+                chatMsg('🤖 Sandbox not connected - echo: ' + text, 'ai');
             }, 500);
         }
     }
@@ -252,19 +240,10 @@
         if (e.key === 'Enter') send(); 
     });
     
-    // Enhanced error handling
-    sandboxFrame.addEventListener('load', function() {
-        console.log('✅ Sandbox iframe loaded successfully');
-        chatMsg('🔄 Sandbox loaded, waiting for ready signal...', 'system');
-    });
-    
-    sandboxFrame.addEventListener('error', function(e) {
-        console.error('❌ Sandbox iframe error:', e);
-        updateStatus('red');
-        chatMsg('❌ Failed to load sandbox', 'system');
-    });
-    
-    console.log('🚀 Main script initialized, waiting for messages...');
+    console.log('🚀 Main script initialized');
+    console.log('📍 Current origin:', window.location.origin);
+    console.log('🎯 Sandbox URL:', sandboxFrame.src);
+    console.log('🔧 Ready to receive messages from sandbox');
 </script>
 </body>
 </html>
