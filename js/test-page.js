@@ -1,107 +1,125 @@
-// Surf AI — Sandbox Test Page
+// Surf AI — Test Dashboard
 // postMessage protocol test harness
+// No hardcoded credentials — everything from sandbox or user input
 
 const SANDBOX_URL = 'https://sb-sf.vercel.app';
-const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
 
-let jwt = null;
-let sessionReady = false;
-let email = '';
-
-// ── Sandbox iframe ─────────────────────────────────────────────────
+let jwt = null, sessionReady = false, msgCount = 0, voiceCount = 0, sessionId = 'test-' + Date.now();
+let lastRequestTime = 0;
+let supabaseUrl = '', supabaseAnon = '';
 
 const sandbox = document.getElementById('sandbox-iframe');
 
 // ── Debug log ──────────────────────────────────────────────────────
 
 function log(msg, type = 'info') {
-    const logEl = document.getElementById('debug-log');
+    const el = document.getElementById('debug-log');
     const time = new Date().toLocaleTimeString();
-    const cssClass = `log-${type}`;
-    logEl.innerHTML += `<div class="log-line ${cssClass}">[${time}] ${msg}</div>`;
-    logEl.scrollTop = logEl.scrollHeight;
+    el.innerHTML += `<div class="log-line log-${type}">[${time}] ${msg}</div>`;
+    el.scrollTop = el.scrollHeight;
+}
+function copyLog() {
+    navigator.clipboard.writeText(document.getElementById('debug-log').textContent);
+    log('Log copied', 'info');
+}
+
+// ── Config from sandbox ────────────────────────────────────────────
+
+function loadConfig() {
+    // Try to read config from sandbox iframe
+    try {
+        const sandboxWin = sandbox.contentWindow;
+        if (sandboxWin && sandboxWin.SUPABASE_CONFIG) {
+            supabaseUrl = sandboxWin.SUPABASE_CONFIG.url;
+            supabaseAnon = sandboxWin.SUPABASE_CONFIG.anon;
+            log('Config loaded from sandbox', 'info');
+            return true;
+        }
+    } catch(e) {}
+    
+    // Check URL params
+    const params = new URLSearchParams(window.location.search);
+    supabaseUrl = params.get('supabase_url') || '';
+    supabaseAnon = params.get('supabase_anon') || '';
+    
+    if (supabaseUrl && supabaseAnon) {
+        log('Config loaded from URL params', 'info');
+        return true;
+    }
+    
+    log('No Supabase config found — enter manually or pass via URL params', 'info');
+    log('Example: ?supabase_url=YOUR_URL&supabase_anon=YOUR_KEY', 'info');
+    return false;
 }
 
 // ── postMessage handler ────────────────────────────────────────────
 
 window.addEventListener('message', (e) => {
     if (!e.origin.includes('sb-sf.vercel.app')) return;
-    
     const msg = e.data;
-    log(`← ${msg.type}${msg.action ? ':' + msg.action : ''} ${JSON.stringify(msg).substring(0, 120)}`, 'in');
-    
+    log(`← ${msg.type}${msg.action ? ':' + msg.action : ''}`, 'in');
+
     switch (msg.type) {
         case 'sandbox_ready':
-            log('Sandbox ready — send auth token', 'info');
-            updateStatus('Sandbox ready');
+            updateConnection(true);
+            document.getElementById('auth-status').textContent = 'Sandbox ready';
+            if (!supabaseUrl) loadConfig();
             break;
-            
         case 'token_received':
-            log('JWT accepted', 'info');
-            updateStatus('Token received');
+            document.getElementById('auth-status').textContent = '✅ Token accepted';
             break;
-            
         case 'session_ready':
             sessionReady = true;
-            log('Session ready — can send commands', 'info');
-            updateStatus('Session ready ✅');
+            document.getElementById('auth-status').textContent = '✅ Logged in';
             enableChat();
             break;
-            
         case 'session_expired':
-            log('Session expired — recovering...', 'error');
-            updateStatus('Session expired');
+            sessionReady = false;
+            document.getElementById('auth-status').textContent = '⚠️ Expired';
             break;
-            
         case 'response':
+            msgCount++;
             addMessage('ai', msg.text);
+            if (lastRequestTime) {
+                document.getElementById('latency').textContent = `(${Date.now() - lastRequestTime}ms)`;
+            }
+            updateStats();
             break;
-            
         case 'response_token':
-            // Streaming — append to last AI message
             appendToLastAI(msg.token);
             break;
-            
         case 'transcript':
+            msgCount++;
+            voiceCount++;
             addMessage('user', '🎤 ' + msg.text);
+            updateStats();
             break;
-            
-        case 'streaming':
-            log(`Mic: ${msg.mode}`, 'info');
-            break;
-            
         case 'vad_status':
             log(`VAD: ${msg.phase}`, 'info');
             break;
-            
         case 'error':
             log(`ERROR: ${msg.code} — ${msg.message}`, 'error');
             addMessage('system', `⚠️ ${msg.message}`);
             break;
-            
         case 'voices':
-            populateVoiceSelect(msg.voices);
+            const vs = document.getElementById('voice-select');
+            vs.innerHTML = '<option value="">Voice: Default</option>';
+            (msg.voices || []).forEach(v => {
+                vs.innerHTML += `<option value="${v.id || v}">${v.name || v}</option>`;
+            });
             break;
-            
         case 'models':
-            populateModelSelect(msg.models);
+            const ms = document.getElementById('model-select');
+            ms.innerHTML = '<option value="">Model: Default</option>';
+            (msg.models || []).forEach(m => {
+                ms.innerHTML += `<option value="${m.id || m.name}">${m.name || m.id}</option>`;
+            });
             break;
-            
-        case 'notes_updated':
-            log(`Notes synced: ${msg.notes?.length || 0} notes`, 'info');
-            break;
-            
-        case 'settings_updated':
-            log('Settings updated', 'info');
-            break;
-            
         case 'sandbox_status':
-            log(`Status: active=${msg.isActive}, ready=${msg.sandboxReady}, session=${msg.sessionReady}`, 'info');
+            log(`Status: active=${msg.isActive}, session=${msg.sessionReady}`, 'info');
             break;
-            
-        case 'pong':
-            log('Pong received', 'info');
+        case 'notes_updated':
+            log(`Notes: ${(msg.notes || []).length}`, 'info');
             break;
     }
 });
@@ -110,7 +128,7 @@ window.addEventListener('message', (e) => {
 
 function postCommand(action, params = {}) {
     const msg = { type: 'extension_command', action, ...params };
-    log(`→ ${action} ${JSON.stringify(params).substring(0, 80)}`, 'out');
+    log(`→ ${action}`, 'out');
     sandbox.contentWindow.postMessage(msg, SANDBOX_URL);
 }
 
@@ -118,133 +136,105 @@ function sendText() {
     const input = document.getElementById('message-input');
     const text = input.value.trim();
     if (!text) return;
-    
     addMessage('user', text);
+    msgCount++;
+    lastRequestTime = Date.now();
     postCommand('sendText', {
         text,
         system_prompt: document.getElementById('system-prompt').value,
-        session_id: 'test-' + Date.now(),
+        session_id: sessionId,
         model: document.getElementById('model-select').value || undefined
     });
     input.value = '';
+    updateStats();
 }
 
-function startMic(mode) {
-    postCommand('startMic', { mode });
+function startMic(mode) { postCommand('startMic', { mode }); }
+function stopMic() { postCommand('stopMic'); }
+function newChat() {
+    sessionId = 'test-' + Date.now();
+    msgCount = 0; voiceCount = 0;
+    document.getElementById('chat-messages').innerHTML = '';
+    updateStats();
+    log('New session: ' + sessionId, 'info');
 }
-
-function stopMic() {
-    postCommand('stopMic');
+function exportChat() {
+    const msgs = document.getElementById('chat-messages').innerText;
+    const blob = new Blob([msgs], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `surf-chat-${sessionId}.txt`;
+    a.click();
+    log('Chat exported', 'info');
 }
-
-function setVoice(voice) {
-    if (voice) postCommand('setVoice', { voice });
-}
-
-function setModel(model) {
-    // Model is sent with each sendText — stored in selector
-}
-
-function getStatus() {
-    postCommand('getStatus');
-}
-
-function getNotes() {
-    postCommand('getNotes');
+function upgrade(plan) {
+    log(`Upgrade: ${plan} (Stripe not connected)`, 'info');
+    addMessage('system', `💎 Upgrade to ${plan} — coming soon`);
 }
 
 // ── Auth ───────────────────────────────────────────────────────────
 
 async function login() {
-    email = document.getElementById('login-email').value;
+    if (!supabaseUrl || !supabaseAnon) {
+        log('No Supabase config. Add ?supabase_url=...&supabase_anon=... to URL', 'error');
+        return;
+    }
+    const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
-    
-    log(`Logging in as ${email}...`, 'info');
-    
+    log(`Login: ${email}`, 'info');
     try {
-        const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        const r = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': SUPABASE_ANON
-            },
+            headers: { 'Content-Type': 'application/json', 'apikey': supabaseAnon },
             body: JSON.stringify({ email, password })
         });
-        
         if (r.ok) {
-            const data = await r.json();
-            jwt = data.access_token;
-            log('JWT obtained', 'info');
-            
-            // Send to sandbox
-            sandbox.contentWindow.postMessage({
-                type: 'auth_token',
-                token: jwt,
-                email: email
-            }, SANDBOX_URL);
-            
-            updateStatus('Auth token sent');
+            jwt = (await r.json()).access_token;
+            sandbox.contentWindow.postMessage({ type: 'auth_token', token: jwt, email }, SANDBOX_URL);
+            log('JWT sent', 'info');
         } else {
-            const err = await r.json();
-            log(`Auth failed: ${err.error_description || err.message}`, 'error');
+            log('Auth failed', 'error');
         }
-    } catch (e) {
-        log(`Auth error: ${e.message}`, 'error');
-    }
+    } catch (e) { log('Auth error: ' + e.message, 'error'); }
 }
 
-// ── UI Helpers ─────────────────────────────────────────────────────
+function loginOAuth(provider) {
+    log(`OAuth: ${provider} (redirect required)`, 'info');
+}
+
+// ── UI ─────────────────────────────────────────────────────────────
 
 function addMessage(role, text) {
-    const container = document.getElementById('chat-messages');
-    const div = document.createElement('div');
-    div.className = `chat-msg chat-${role}`;
-    div.textContent = text;
-    container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
+    const c = document.getElementById('chat-messages');
+    const d = document.createElement('div');
+    d.className = `chat-msg chat-${role}`;
+    d.textContent = text;
+    c.appendChild(d);
+    c.scrollTop = c.scrollHeight;
 }
-
 function appendToLastAI(token) {
-    const container = document.getElementById('chat-messages');
-    const lastMsg = container.querySelector('.chat-ai:last-child');
-    if (lastMsg) {
-        lastMsg.textContent += token;
-    } else {
-        addMessage('ai', token);
-    }
-    container.scrollTop = container.scrollHeight;
+    const last = document.querySelector('#chat-messages .chat-ai:last-child');
+    if (last) last.textContent += token;
+    else addMessage('ai', token);
 }
-
-function updateStatus(text) {
-    document.getElementById('session-status').textContent = 'Status: ' + text;
-}
-
 function enableChat() {
     document.getElementById('message-input').disabled = false;
     document.getElementById('send-btn').disabled = false;
 }
-
-function populateModelSelect(models) {
-    const select = document.getElementById('model-select');
-    select.innerHTML = '<option value="">Model: Default</option>';
-    if (models && Array.isArray(models)) {
-        models.forEach(m => {
-            select.innerHTML += `<option value="${m.id || m.name}">${m.name || m.id}</option>`;
-        });
-    }
+function updateConnection(on) {
+    const el = document.getElementById('conn-status');
+    el.textContent = on ? '🟢 Connected' : '🔴 Disconnected';
+    el.className = 'conn-status' + (on ? ' connected' : '');
 }
-
-function populateVoiceSelect(voices) {
-    const select = document.getElementById('voice-select');
-    select.innerHTML = '<option value="">Voice: Default</option>';
-    if (voices && Array.isArray(voices)) {
-        voices.forEach(v => {
-            select.innerHTML += `<option value="${v.id || v}">${v.name || v}</option>`;
-        });
-    }
+function updateStats() {
+    document.getElementById('session-id-display').textContent = 'Session: ' + sessionId;
+    document.getElementById('msg-count').textContent = 'Messages: ' + msgCount;
+    document.getElementById('voice-count').textContent = 'Voice: ' + voiceCount;
 }
 
 // ── Init ───────────────────────────────────────────────────────────
 
-log('Test page loaded', 'info');
-log(`Sandbox URL: ${SANDBOX_URL}`, 'info');
+log('Dashboard loaded', 'info');
+log('Sandbox: ' + SANDBOX_URL, 'info');
+loadConfig();
+updateStats();
