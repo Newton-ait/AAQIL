@@ -26,7 +26,7 @@ function copyLog() {
 // ── Config from sandbox ────────────────────────────────────────────
 
 function loadConfig() {
-    // Read directly from sandbox iframe's window.SURF_CONFIG
+    // Try direct iframe access (works if same-origin)
     try {
         const config = sandbox.contentWindow.SURF_CONFIG;
         if (config && config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
@@ -35,10 +35,26 @@ function loadConfig() {
             log('✅ Config loaded from sandbox', 'info');
             return;
         }
-    } catch(e) {}
-    
-    // Retry on next sandbox_ready
-    log('Waiting for sandbox config...', 'info');
+    } catch(e) {
+        log('Cross-origin — fetching config...', 'info');
+    }
+
+    // Fetch config.js directly (public file)
+    fetch(`${SANDBOX_URL}/sandbox/config.js`)
+        .then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+        })
+        .then(script => {
+            const match = script.match(/window\.SURF_CONFIG\s*=\s*({[\s\S]*?});/);
+            if (match) {
+                const config = JSON.parse(match[1]);
+                supabaseUrl = config.SUPABASE_URL;
+                supabaseAnon = config.SUPABASE_ANON_KEY;
+                log('✅ Config loaded', 'info');
+            }
+        })
+        .catch(e => log('Config fetch failed: ' + e.message, 'error'));
 }
 
 // ── postMessage handler ────────────────────────────────────────────
