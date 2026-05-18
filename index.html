@@ -2,505 +2,224 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Surf AI — Standalone Client</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surf AI — Sandbox Test Page</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #0F172A;
-            color: #E2E8F0;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
+        .test-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+            min-height: calc(100vh - 60px);
         }
-        #authScreen { width: 100%; max-width: 380px; display: none; }
-        #authScreen.visible { display: block; }
-        .auth-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
-        .auth-header h1 { font-size: 22px; font-weight: 700; }
-        .gradient-text { background: linear-gradient(135deg, #3B82F6, #60A5FA); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .auth-subtitle { font-size: 13px; color: #94A3B8; margin-bottom: 16px; }
-        .form-group { margin-bottom: 12px; }
-        .form-label { display: block; font-size: 11px; font-weight: 600; color: #94A3B8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
-        .form-input { width: 100%; padding: 10px 12px; border: 1.5px solid #334155; border-radius: 10px; font-size: 14px; background: #1E293B; color: #E2E8F0; outline: none; transition: border-color 0.15s; box-sizing: border-box; }
-        .form-input:focus { border-color: #3B82F6; }
-        .form-error { font-size: 12px; color: #EF4444; margin-bottom: 10px; background: #3B0000; padding: 8px 10px; border-radius: 8px; display: none; }
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 12px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; }
-        .btn-primary { background: linear-gradient(135deg, #3B82F6, #2563EB); color: white; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
-        .btn-primary:hover { transform: translateY(-1px); }
-        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        .auth-switch { font-size: 12px; color: #94A3B8; text-align: center; margin-top: 12px; }
-        .auth-switch a { color: #3B82F6; text-decoration: none; font-weight: 600; cursor: pointer; }
-        #mainScreen { display: none; width: 100%; max-width: 420px; }
-        #mainScreen.visible { display: block; }
-        .status-card { background: #1E293B; border-radius: 18px; padding: 16px; margin-bottom: 16px; border: 1px solid #334155; }
-        .status-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 13px; }
-        .status-row:last-child { margin-bottom: 0; }
-        .status-label { color: #94A3B8; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-        .status-dot.on { background: #22C55E; box-shadow: 0 0 6px #22C55E; }
-        .status-dot.off { background: #EF4444; }
-        .status-dot.recording { background: #EF4444; animation: pulse 0.8s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-        .mode-tabs { display: flex; gap: 4px; margin-bottom: 12px; background: #1E293B; border-radius: 12px; padding: 4px; }
-        .mode-tab { flex: 1; padding: 8px; border: none; border-radius: 10px; cursor: pointer; font-size: 12px; font-weight: 600; background: transparent; color: #64748B; transition: all 0.2s; }
-        .mode-tab.active { background: #3B82F6; color: white; }
-        .chat-box { background: #1E293B; border-radius: 16px; padding: 16px; height: 260px; overflow-y: auto; margin-bottom: 12px; border: 1px solid #334155; }
-        .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 12px; max-width: 85%; font-size: 13px; line-height: 1.5; }
-        .msg.user { background: #3B82F6; margin-left: auto; border-bottom-right-radius: 4px; }
-        .msg.ai { background: #334155; margin-right: auto; border-bottom-left-radius: 4px; }
-        .msg.system { text-align: center; font-size: 10px; color: #64748B; background: transparent; margin: 4px auto; max-width: 100%; }
-        .msg .time { font-size: 9px; color: #64748B; display: block; margin-bottom: 2px; }
-        .input-area { display: flex; gap: 8px; margin-top: 4px; }
-        .text-input { flex: 1; padding: 10px 14px; border-radius: 24px; border: 1.5px solid #334155; background: #1E293B; color: #E2E8F0; font-size: 14px; outline: none; }
-        .text-input:focus { border-color: #3B82F6; }
-        .text-input:disabled { opacity: 0.4; cursor: not-allowed; }
-        .action-btn { min-width: 70px; padding: 10px 16px; border: none; border-radius: 24px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; user-select: none; -webkit-user-select: none; background: #3B82F6; color: white; }
-        .action-btn:active { transform: scale(0.97); }
-        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-        .debug-panel { background: #0F172A; border: 1px solid #334155; border-radius: 10px; padding: 10px; margin-top: 10px; font-family: 'SF Mono', monospace; font-size: 10px; max-height: 100px; overflow-y: auto; color: #64748B; }
-        .debug-panel div { padding: 1px 0; border-bottom: 1px solid #1a1a2e; }
-        .d-sent { color: #F59E0B; } .d-recv { color: #3B82F6; } .d-info { color: #94A3B8; } .d-ok { color: #22C55E; } .d-err { color: #EF4444; }
-        .logout-btn { width: 100%; padding: 10px; background: none; border: 1.5px solid #334155; border-radius: 10px; color: #EF4444; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 12px; }
-        .logout-btn:hover { background: #1E0000; }
-        button { touch-action: manipulation; }
-        .status-dot.connecting { background: #F59E0B; animation: pulse 1.2s infinite; }
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .panel-header {
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--text);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        #chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 400px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+        .chat-msg {
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .chat-user {
+            background: var(--accent-light);
+            color: var(--text);
+            margin-left: 20px;
+        }
+        .chat-ai {
+            background: var(--bg-secondary);
+            color: var(--text);
+            margin-right: 20px;
+        }
+        .chat-system {
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 11px;
+            text-align: center;
+        }
+        #chat-input {
+            display: flex;
+            gap: 8px;
+        }
+        #chat-input input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1.5px solid var(--border-secondary);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: inherit;
+            background: var(--bg);
+            color: var(--text);
+            outline: none;
+        }
+        #chat-input input:focus {
+            border-color: #0066FF;
+        }
+        #debug-log {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 400px;
+            background: #0F172A;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 10px;
+            line-height: 1.6;
+            color: #94A3B8;
+        }
+        .log-line {
+            margin-bottom: 2px;
+        }
+        .log-in { color: #60A5FA; }
+        .log-out { color: #34D399; }
+        .log-error { color: #F87171; }
+        .log-info { color: #94A3B8; }
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn:hover { border-color: var(--accent); }
+        .btn-primary {
+            background: var(--gradient);
+            color: white;
+            border: none;
+        }
+        .btn-sm { padding: 4px 10px; font-size: 11px; }
+        .row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        select {
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            background: var(--bg);
+            color: var(--text);
+        }
+        #sandbox-iframe {
+            display: none;
+        }
+        @media (max-width: 900px) {
+            .test-container {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="index.html" class="nav-logo">
+                <span class="gradient-text">Surf AI</span>
+            </a>
+            <span style="font-size:12px;color:var(--text-muted);">Sandbox Test Page</span>
+            <div class="nav-links">
+                <a href="about.html">About</a>
+                <a href="docs.html">Docs</a>
+                <label class="theme-switch">
+                    <input type="checkbox" id="themeToggle">
+                    <span class="theme-slider"></span>
+                </label>
+            </div>
+        </div>
+    </nav>
 
-    <div id="authScreen" class="visible">
-        <div class="auth-header"><h1>🏄 Surf <span class="gradient-text">AI</span></h1></div>
-        <div id="loginForm">
-            <p class="auth-subtitle">Sign in to your account</p>
-            <div class="form-group"><label class="form-label">Email</label><input type="email" id="loginEmail" class="form-input" placeholder="you@example.com" value="surf@testuser.com"></div>
-            <div class="form-group"><label class="form-label">Password</label><input type="password" id="loginPassword" class="form-input" placeholder="••••••••" value="Test1234!"></div>
-            <div id="loginError" class="form-error"></div>
-            <button id="loginBtn" class="btn btn-primary">Sign In</button>
+    <div class="test-container">
+        <!-- Left: Chat + Controls -->
+        <div class="panel">
+            <div class="panel-header">💬 Chat</div>
+            
+            <div class="row" id="auth-section">
+                <input type="email" id="login-email" placeholder="Email" value="surf@testuser.com" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+                <input type="password" id="login-password" placeholder="Password" value="Test1234!" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
+                <button class="btn btn-primary" onclick="login()">Login</button>
+            </div>
+            
+            <div id="session-status" style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+                Status: Not connected
+            </div>
+            
+            <div id="chat-messages"></div>
+            
+            <div id="chat-input">
+                <input type="text" id="message-input" placeholder="Type a message..." disabled onkeypress="if(event.key==='Enter')sendText()">
+                <button class="btn btn-primary" onclick="sendText()" id="send-btn" disabled>Send</button>
+            </div>
+            
+            <div class="row" style="margin-top:8px;">
+                <select id="model-select" onchange="setModel(this.value)">
+                    <option value="">Model: Default</option>
+                </select>
+                <select id="voice-select" onchange="setVoice(this.value)">
+                    <option value="">Voice: Default</option>
+                </select>
+                <select id="system-prompt" style="flex:1;">
+                    <option value="assistant">Assistant</option>
+                    <option value="browser">Browser</option>
+                    <option value="workflow">Workflow</option>
+                </select>
+            </div>
+            
+            <div class="row" style="margin-top:4px;">
+                <button class="btn btn-sm" onclick="startMic('ptt')">🎤 PTT</button>
+                <button class="btn btn-sm" onclick="startMic('vad')">🔴 VAD</button>
+                <button class="btn btn-sm" onclick="stopMic()">⏹ Stop Mic</button>
+                <button class="btn btn-sm" onclick="getStatus()">📊 Status</button>
+                <button class="btn btn-sm" onclick="getNotes()">📝 Notes</button>
+            </div>
+        </div>
+        
+        <!-- Right: Debug -->
+        <div class="panel">
+            <div class="panel-header">🔍 Debug Log</div>
+            <div id="debug-log"></div>
+            <button class="btn btn-sm" style="margin-top:8px;" onclick="document.getElementById('debug-log').innerHTML=''">Clear</button>
         </div>
     </div>
 
-    <div id="mainScreen">
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-            <h1 style="font-size:20px;">🏄 Surf <span class="gradient-text">AI</span></h1>
-            <span style="font-size:11px;color:#64748B;" id="userEmail">—</span>
-        </div>
-        <div class="status-card">
-            <div class="status-row"><span class="status-label">Sandbox</span><span><span id="sandboxDot" class="status-dot connecting"></span><span id="sandboxStatus">Connecting…</span></span></div>
-            <div class="status-row"><span class="status-label">Mic</span><span><span id="micDot" class="status-dot off"></span><span id="micStatus">Idle</span></span></div>
-        </div>
-        <div class="mode-tabs">
-            <button class="mode-tab active" data-mode="text">💬 Chat</button>
-            <button class="mode-tab" data-mode="ptt">🎤 Push</button>
-            <button class="mode-tab" data-mode="vad">⚡ Real-time</button>
-        </div>
-        <div class="chat-box" id="chatBox"><div class="msg system">🔄 Connecting to sandbox…</div></div>
-        <div class="input-area">
-            <input class="text-input" id="textInput" placeholder="Type a message…" disabled />
-            <button class="action-btn" id="actionBtn" disabled>Send</button>
-        </div>
-        <div class="debug-panel" id="debugPanel"></div>
-        <button class="logout-btn" id="logoutBtn">Sign Out</button>
-    </div>
+    <iframe id="sandbox-iframe" src="https://sb-sf.vercel.app/" allow="microphone; autoplay"></iframe>
 
-    <iframe id="sandboxIframe" src="https://sb-sf.vercel.app" allow="microphone; autoplay" style="display:none;"></iframe>
-
-    <script>
-        const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
-        const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
-
-        let authToken = null, sandboxReady = false, currentMode = 'text';
-        let micActive = false, pttHeld = false, micPermissionGranted = false;
-        let currentActionBtn = null; // reference to the active button
-
-        const $ = id => document.getElementById(id);
-        const debugPanel = $('debugPanel');
-        const chatBox = $('chatBox');
-        const sandboxIframe = $('sandboxIframe');
-        const actionBtn = $('actionBtn');
-        const textInput = $('textInput');
-
-        function debug(msg, cls = 'd-info') {
-            const ts = new Date().toLocaleTimeString();
-            debugPanel.innerHTML += `<div class="${cls}">[${ts}] ${msg}</div>`;
-            debugPanel.scrollTop = debugPanel.scrollHeight;
-            while (debugPanel.children.length > 45) debugPanel.removeChild(debugPanel.children[0]);
-            console.log(msg);
-        }
-
-        function log(text, type = 'system') {
-            const t = new Date().toLocaleTimeString().slice(0,5);
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `msg ${type}`;
-            msgDiv.innerHTML = `<span class="time">${t}</span>${escapeHtml(text)}`;
-            chatBox.appendChild(msgDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str.replace(/[&<>]/g, function(m) {
-                if (m === '&') return '&amp;';
-                if (m === '<') return '&lt;';
-                if (m === '>') return '&gt;';
-                return m;
-            }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
-                return c;
-            });
-        }
-
-        function postToSandbox(msg) {
-            if (!sandboxIframe.contentWindow) return;
-            debug(`→ ${JSON.stringify(msg).substring(0, 100)}`, 'd-sent');
-            sandboxIframe.contentWindow.postMessage(msg, 'https://sb-sf.vercel.app');
-        }
-
-        // ════════════ AUTH ════════════
-        async function login(email, password) {
-            debug('Logging in...', 'd-info');
-            $('loginError').style.display = 'none';
-            try {
-                const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
-                    body: JSON.stringify({ email, password })
-                });
-                const data = await res.json();
-                if (data.access_token) {
-                    authToken = data.access_token;
-                    debug('Auth OK', 'd-ok');
-                    $('userEmail').textContent = email;
-                    $('authScreen').classList.remove('visible');
-                    $('mainScreen').classList.add('visible');
-                    if (sandboxReady) {
-                        postToSandbox({ type: 'auth_token', token: authToken, email });
-                    } else {
-                        debug('Sandbox not ready yet, will send token once ready', 'd-info');
-                    }
-                } else {
-                    $('loginError').textContent = data.error_description || 'Login failed (invalid credentials?)';
-                    $('loginError').style.display = 'block';
-                }
-            } catch (e) {
-                $('loginError').textContent = e.message;
-                $('loginError').style.display = 'block';
-            }
-        }
-
-        $('loginBtn').addEventListener('click', () => login($('loginEmail').value, $('loginPassword').value));
-        $('loginPassword').addEventListener('keydown', (e) => { if (e.key === 'Enter') login($('loginEmail').value, $('loginPassword').value); });
-        $('logoutBtn').addEventListener('click', () => {
-            debug('Signing out...', 'd-info');
-            location.reload();
-        });
-
-        // ════════════ SANDBOX MESSAGES ════════════
-        window.addEventListener('message', (e) => {
-            if (!e.origin || !e.origin.includes('sb-sf.vercel.app')) return;
-            const m = e.data;
-            if (!m || typeof m !== 'object') return;
-
-            const preview = m.text ? `: ${(m.text||'').substring(0, 40)}` : (m.message ? `: ${(m.message||'').substring(0, 40)}` : '');
-            debug(`← ${m.type}${preview}`, 'd-recv');
-
-            switch (m.type) {
-                case 'sandbox_ready':
-                    sandboxReady = true;
-                    $('sandboxDot').className = 'status-dot on';
-                    $('sandboxStatus').textContent = 'Ready';
-                    textInput.disabled = false;
-                    actionBtn.disabled = false;
-                    log('✅ Sandbox ready — voice & text active', 'system');
-                    if (authToken) {
-                        postToSandbox({ type: 'auth_token', token: authToken, email: $('userEmail').textContent });
-                    }
-                    // Re-apply current mode UI to ensure button works
-                    refreshModeUI();
-                    break;
-                case 'token_received':
-                    debug('Token acknowledged by sandbox', 'd-ok');
-                    break;
-                case 'status':
-                    $('micStatus').textContent = m.text || 'Idle';
-                    break;
-                case 'streaming':
-                    $('micDot').className = 'status-dot recording';
-                    $('micStatus').textContent = 'Streaming audio...';
-                    break;
-                case 'transcript':
-                    log('🎤 ' + (m.text || ''), 'user');
-                    break;
-                case 'response':
-                    log('🤖 ' + (m.text || ''), 'ai');
-                    break;
-                case 'chat_response':
-                    log('🤖 ' + (m.text || ''), 'ai');
-                    break;
-                case 'disconnected':
-                    micActive = false; 
-                    pttHeld = false;
-                    $('micDot').className = 'status-dot off';
-                    $('micStatus').textContent = 'Idle';
-                    if (currentMode === 'vad') {
-                        if (currentActionBtn) {
-                            currentActionBtn.textContent = '▶️ Start';
-                            currentActionBtn.style.background = '#F59E0B';
-                            currentActionBtn.style.color = '#000';
-                        }
-                    }
-                    if (currentMode === 'ptt' && currentActionBtn) {
-                        currentActionBtn.textContent = '🎤 Hold';
-                        currentActionBtn.style.background = '#334155';
-                        currentActionBtn.style.color = 'white';
-                    }
-                    break;
-                case 'error':
-                    log('⚠️ ' + (m.message || m.error || 'Unknown error'), 'system');
-                    break;
-                default:
-                    break;
-            }
-        });
-
-        // ════════════ MODES with robust event handling ════════════
-        function refreshModeUI() {
-            if (!sandboxReady) return;
-            setMode(currentMode);
-        }
-
-        function cleanupMode() {
-            if (micActive) {
-                postToSandbox({ type: 'extension_command', action: 'stopMic' });
-                micActive = false;
-            }
-            pttHeld = false;
-            $('micDot').className = 'status-dot off';
-            $('micStatus').textContent = 'Idle';
-        }
-
-        function setMode(mode) {
-            if (!sandboxReady) {
-                debug(`Mode change to ${mode} delayed until sandbox ready`, 'd-info');
-                currentMode = mode;
-                return;
-            }
-
-            cleanupMode();
-            currentMode = mode;
-            debug(`Activating mode: ${mode}`, 'd-info');
-
-            // Update text input usability
-            if (mode === 'text') {
-                textInput.disabled = false;
-                textInput.placeholder = 'Type a message…';
-            } else {
-                textInput.disabled = true;
-                textInput.placeholder = mode === 'ptt' ? 'Hold button to talk…' : 'Real-time VAD active…';
-            }
-
-            // Clear existing listeners by cloning and replacing the button
-            const oldBtn = $('actionBtn');
-            const newBtn = oldBtn.cloneNode(true);
-            oldBtn.parentNode.replaceChild(newBtn, oldBtn);
-            // update global reference
-            window.actionBtn = newBtn;
-            currentActionBtn = newBtn;
-
-            newBtn.disabled = false;
-
-            if (mode === 'text') {
-                newBtn.textContent = 'Send';
-                newBtn.style.background = '#3B82F6';
-                newBtn.style.color = 'white';
-                newBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const rawText = textInput.value;
-                    if (!rawText || rawText.trim() === '') {
-                        debug('Empty message, ignoring', 'd-err');
-                        return;
-                    }
-                    const text = rawText.trim();
-                    if (!authToken) {
-                        log('⚠️ Not authenticated, please login again', 'system');
-                        return;
-                    }
-                    log(text, 'user');
-                    textInput.value = '';
-                    postToSandbox({ type: 'extension_command', action: 'sendText', text });
-                    textInput.focus();
-                });
-                // Enter key support
-                const enterHandler = (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey && currentMode === 'text') {
-                        e.preventDefault();
-                        const val = textInput.value.trim();
-                        if (val && authToken) {
-                            log(val, 'user');
-                            textInput.value = '';
-                            postToSandbox({ type: 'extension_command', action: 'sendText', text: val });
-                        }
-                    }
-                };
-                textInput.removeEventListener('keydown', enterHandler);
-                textInput.addEventListener('keydown', enterHandler);
-            } 
-            else if (mode === 'ptt') {
-                newBtn.textContent = '🎤 Hold';
-                newBtn.style.background = '#334155';
-                newBtn.style.color = 'white';
-
-                const startRecording = () => {
-                    if (!sandboxReady || !authToken) {
-                        debug('Sandbox or token missing', 'd-err');
-                        return;
-                    }
-                    if (pttHeld) return;
-                    pttHeld = true;
-                    requestMicPermission(() => {
-                        if (!pttHeld) return;
-                        postToSandbox({ type: 'extension_command', action: 'startMic', mode: 'ptt' });
-                        micActive = true;
-                        newBtn.textContent = '🎤 Release';
-                        newBtn.style.background = '#EF4444';
-                        $('micDot').className = 'status-dot recording';
-                        $('micStatus').textContent = 'Recording...';
-                    });
-                };
-
-                const stopRecording = () => {
-                    if (!pttHeld) return;
-                    pttHeld = false;
-                    if (micActive) {
-                        postToSandbox({ type: 'extension_command', action: 'stopMic' });
-                        micActive = false;
-                    }
-                    newBtn.textContent = '🎤 Hold';
-                    newBtn.style.background = '#334155';
-                    $('micDot').className = 'status-dot off';
-                    $('micStatus').textContent = 'Idle';
-                };
-
-                newBtn.addEventListener('mousedown', startRecording);
-                newBtn.addEventListener('mouseup', stopRecording);
-                newBtn.addEventListener('mouseleave', stopRecording);
-                // Touch events for mobile
-                newBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording(); });
-                newBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopRecording(); });
-                newBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); stopRecording(); });
-            } 
-            else if (mode === 'vad') {
-                newBtn.textContent = '▶️ Start';
-                newBtn.style.background = '#F59E0B';
-                newBtn.style.color = '#000000';
-
-                const toggleVAD = () => {
-                    if (!sandboxReady || !authToken) {
-                        debug('Sandbox not ready', 'd-err');
-                        return;
-                    }
-                    if (micActive) {
-                        postToSandbox({ type: 'extension_command', action: 'stopMic' });
-                        micActive = false;
-                        newBtn.textContent = '▶️ Start';
-                        newBtn.style.background = '#F59E0B';
-                        newBtn.style.color = '#000';
-                        $('micDot').className = 'status-dot off';
-                        $('micStatus').textContent = 'Idle';
-                    } else {
-                        requestMicPermission(() => {
-                            postToSandbox({ type: 'extension_command', action: 'startMic', mode: 'vad' });
-                            micActive = true;
-                            newBtn.textContent = '⏹️ Stop';
-                            newBtn.style.background = '#EF4444';
-                            newBtn.style.color = 'white';
-                            $('micDot').className = 'status-dot recording';
-                            $('micStatus').textContent = 'Listening (VAD)...';
-                        });
-                    }
-                };
-                newBtn.addEventListener('click', toggleVAD);
-            }
-        }
-
-        async function requestMicPermission(callback) {
-            if (micPermissionGranted) { 
-                callback(); 
-                return;
-            }
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                stream.getTracks().forEach(t => t.stop());
-                micPermissionGranted = true;
-                debug('Microphone permission granted', 'd-ok');
-                callback();
-            } catch (e) {
-                debug('Mic denied: ' + e.message, 'd-err');
-                log('⚠️ Microphone access denied — cannot use voice modes', 'system');
-                // optional: fallback, but don't crash
-                if (currentMode !== 'text') {
-                    log('🔁 Switch to Chat mode to continue', 'system');
-                    const textTab = document.querySelector('.mode-tab[data-mode="text"]');
-                    if (textTab) textTab.click();
-                }
-            }
-        }
-
-        // ════════════ MODE TAB SWITCHING WITH PROPER RESET ════════════
-        document.querySelectorAll('.mode-tab').forEach(tab => {
-            tab.addEventListener('click', (e) => {
-                const mode = tab.dataset.mode;
-                if (!mode) return;
-                document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                setMode(mode);
-            });
-        });
-
-        // Initial autoload: watch sandbox iframe load
-        sandboxIframe.addEventListener('load', () => {
-            debug('Iframe loaded, waiting for sandbox_ready message', 'd-info');
-            $('sandboxStatus').textContent = 'Loading...';
-            $('sandboxDot').className = 'status-dot connecting';
-        });
-
-        // fallback: if after 8 seconds sandbox not ready, show hint
-        setTimeout(() => {
-            if (!sandboxReady) {
-                debug('⚠️ Sandbox iframe not responding? Check network or extension host.', 'd-err');
-                $('sandboxStatus').textContent = 'Timeout';
-                $('sandboxDot').className = 'status-dot off';
-                log('⚠️ Sandbox connection timeout. Please refresh.', 'system');
-            }
-        }, 10000);
-
-        // Ensure text input is not blocked by any leftover
-        textInput.addEventListener('focus', () => {
-            if (currentMode === 'text') {
-                textInput.disabled = false;
-            }
-        });
-
-        // Additional fix: if user clicks send when mode is text but button reference gone, rely on the fresh button.
-        // Also handle token sync after login if sandbox already ready.
-        window.addEventListener('load', () => {
-            debug('Client loaded, initiating sandbox connection', 'd-info');
-            // prefill demo credentials but not auto-login for security; user clicks Sign In
-        });
-
-        // Improve visibility of sandbox status
-        function syncSandboxStatus() {
-            if (sandboxReady) {
-                $('sandboxDot').className = 'status-dot on';
-                $('sandboxStatus').textContent = 'Ready';
-            } else {
-                $('sandboxDot').className = 'status-dot connecting';
-                $('sandboxStatus').textContent = 'Connecting...';
-            }
-        }
-        setInterval(syncSandboxStatus, 1000);
-        syncSandboxStatus();
-    </script>
+    <script src="js/config.js"></script>
+    <script src="js/theme.js"></script>
+    <script src="js/test-page.js"></script>
 </body>
 </html>
