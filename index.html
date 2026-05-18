@@ -3,223 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surf AI — Sandbox Test Page</title>
+    <title>Surf AI — Test Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="stylesheet" href="css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        .test-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 24px;
-            min-height: calc(100vh - 60px);
+        :root {
+            --bg: #FFFFFF;
+            --bg-secondary: #F8FAFC;
+            --bg-card: #FFFFFF;
+            --text: #1A1A2E;
+            --text-secondary: #64748B;
+            --text-muted: #94A3B8;
+            --border: rgba(0,102,255,0.08);
+            --border-secondary: #E2E8F0;
+            --accent: #0066FF;
+            --gradient: linear-gradient(135deg,#0066FF,#00C2FF);
+            --green: #22C55E;
+            --red: #EF4444;
+            --red-bg: rgba(239,68,68,0.08);
+            --radius: 18px;
+            --radius-sm: 10px;
         }
-        .panel {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
+        body.dark {
+            --bg: #0F172A;
+            --bg-secondary: #1E293B;
+            --bg-card: #1E293B;
+            --text: #E2E8F0;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --border: rgba(59,130,246,0.1);
+            --border-secondary: #334155;
         }
-        .panel-header {
-            font-weight: 700;
-            font-size: 14px;
-            color: var(--text);
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border);
-        }
-        #chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            max-height: 400px;
-            margin-bottom: 12px;
-            font-size: 13px;
-        }
-        .chat-msg {
-            margin-bottom: 8px;
-            padding: 8px 12px;
-            border-radius: 10px;
-            font-size: 13px;
-            line-height: 1.4;
-        }
-        .chat-user {
-            background: var(--accent-light);
-            color: var(--text);
-            margin-left: 20px;
-        }
-        .chat-ai {
-            background: var(--bg-secondary);
-            color: var(--text);
-            margin-right: 20px;
-        }
-        .chat-system {
-            background: transparent;
-            color: var(--text-muted);
-            font-size: 11px;
-            text-align: center;
-        }
-        #chat-input {
-            display: flex;
-            gap: 8px;
-        }
-        #chat-input input {
-            flex: 1;
-            padding: 10px 14px;
-            border: 1.5px solid var(--border-secondary);
-            border-radius: var(--radius-sm);
-            font-size: 14px;
-            font-family: inherit;
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: var(--bg);
             color: var(--text);
-            outline: none;
+            min-height: 100vh;
+            transition: background 0.3s, color 0.3s;
         }
-        #chat-input input:focus {
-            border-color: #0066FF;
+        .top-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 24px; border-bottom: 1px solid var(--border);
+            background: var(--bg);
         }
-        #debug-log {
-            flex: 1;
-            overflow-y: auto;
-            max-height: 400px;
-            background: #0F172A;
-            border-radius: var(--radius-sm);
-            padding: 12px;
-            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-            font-size: 10px;
-            line-height: 1.6;
-            color: #94A3B8;
+        .top-bar h1 { font-size: 18px; font-weight: 700; }
+        .gradient-text {
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
-        .log-line {
-            margin-bottom: 2px;
+        .conn-status {
+            font-size: 12px; font-weight: 600; padding: 4px 10px;
+            border-radius: 20px; background: rgba(239,68,68,0.08); color: var(--red);
+        }
+        .conn-status.connected { background: rgba(34,197,94,0.08); color: var(--green); }
+        .dashboard {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 16px; padding: 16px 24px; max-width: 1400px; margin: 0 auto;
+        }
+        .panel {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 20px;
+        }
+        .panel-header {
+            font-weight: 700; font-size: 14px; margin-bottom: 12px;
+            padding-bottom: 8px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .full-width { grid-column: 1 / -1; }
+        .half-width { grid-column: span 1; }
+        input, select, textarea {
+            padding: 8px 12px; border: 1.5px solid var(--border-secondary);
+            border-radius: var(--radius-sm); font-size: 13px; font-family: inherit;
+            background: var(--bg); color: var(--text); outline: none; width: 100%;
+        }
+        input:focus, select:focus { border-color: var(--accent); }
+        .btn {
+            padding: 8px 16px; border: 1px solid var(--border);
+            border-radius: 8px; background: var(--bg); color: var(--text);
+            font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .btn:hover { border-color: var(--accent); }
+        .btn-primary { background: var(--gradient); color: white; border: none; }
+        .btn-sm { padding: 4px 10px; font-size: 11px; }
+        .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+        .chat-messages {
+            flex: 1; overflow-y: auto; max-height: 300px; margin-bottom: 12px; font-size: 13px;
+        }
+        .chat-msg { margin-bottom: 8px; padding: 8px 12px; border-radius: 10px; font-size: 13px; line-height: 1.4; }
+        .chat-user { background: rgba(0,102,255,0.06); color: var(--text); margin-left: 20px; }
+        .chat-ai { background: var(--bg-secondary); color: var(--text); margin-right: 20px; }
+        .chat-system { color: var(--text-muted); font-size: 11px; text-align: center; }
+        .debug-log {
+            flex: 1; overflow-y: auto; max-height: 300px; background: #0F172A;
+            border-radius: var(--radius-sm); padding: 12px;
+            font-family: 'Menlo','Monaco','Courier New',monospace; font-size: 10px;
+            line-height: 1.6; color: #94A3B8;
         }
         .log-in { color: #60A5FA; }
         .log-out { color: #34D399; }
         .log-error { color: #F87171; }
         .log-info { color: #94A3B8; }
-        .btn {
-            padding: 8px 16px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: var(--bg);
-            color: var(--text);
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.15s;
+        .upgrade-card {
+            border: 1px solid var(--border); border-radius: var(--radius-sm);
+            padding: 16px; text-align: center;
         }
-        .btn:hover { border-color: var(--accent); }
-        .btn-primary {
-            background: var(--gradient);
-            color: white;
-            border: none;
+        .status-bar {
+            display: flex; gap: 16px; font-size: 11px; color: var(--text-muted);
+            padding-top: 8px; border-top: 1px solid var(--border);
         }
-        .btn-sm { padding: 4px 10px; font-size: 11px; }
-        .row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            flex-wrap: wrap;
-            margin-bottom: 8px;
-        }
-        select {
-            padding: 6px 10px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 12px;
-            background: var(--bg);
-            color: var(--text);
-        }
-        #sandbox-iframe {
-            display: none;
-        }
+        #sandbox-iframe { display: none; }
         @media (max-width: 900px) {
-            .test-container {
-                grid-template-columns: 1fr;
-            }
+            .dashboard { grid-template-columns: 1fr; }
+            .half-width { grid-column: 1 / -1; }
         }
     </style>
 </head>
 <body>
-    <nav class="nav">
-        <div class="nav-inner">
-            <a href="index.html" class="nav-logo">
-                <span class="gradient-text">Surf AI</span>
-            </a>
-            <span style="font-size:12px;color:var(--text-muted);">Sandbox Test Page</span>
-            <div class="nav-links">
-                <a href="about.html">About</a>
-                <a href="docs.html">Docs</a>
-                <label class="theme-switch">
-                    <input type="checkbox" id="themeToggle">
-                    <span class="theme-slider"></span>
-                </label>
+    <div class="top-bar">
+        <h1><span class="gradient-text">🏄 Surf AI</span> — Test Dashboard</h1>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <span id="conn-status" class="conn-status">🔴 Disconnected</span>
+            <button class="btn btn-sm" onclick="document.body.classList.toggle('dark')">🌙</button>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <!-- Auth -->
+        <div class="panel half-width">
+            <div class="panel-header">🔐 Auth</div>
+            <div class="row">
+                <input type="email" id="login-email" placeholder="Email" value="surf@testuser.com">
+                <input type="password" id="login-password" placeholder="Password" value="Test1234!" style="max-width:140px;">
+            </div>
+            <div class="row">
+                <button class="btn btn-primary" onclick="login()">Login</button>
+                <button class="btn" onclick="loginOAuth('google')">Google</button>
+                <button class="btn" onclick="loginOAuth('github')">GitHub</button>
+                <span id="auth-status" style="font-size:12px;color:var(--text-muted);"></span>
             </div>
         </div>
-    </nav>
 
-    <div class="test-container">
-        <!-- Left: Chat + Controls -->
-        <div class="panel">
-            <div class="panel-header">💬 Chat</div>
-            
-            <div class="row" id="auth-section">
-                <input type="email" id="login-email" placeholder="Email" value="surf@testuser.com" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
-                <input type="password" id="login-password" placeholder="Password" value="Test1234!" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:12px;">
-                <button class="btn btn-primary" onclick="login()">Login</button>
-            </div>
-            
-            <div id="session-status" style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">
-                Status: Not connected
-            </div>
-            
-            <div id="chat-messages"></div>
-            
-            <div id="chat-input">
-                <input type="text" id="message-input" placeholder="Type a message..." disabled onkeypress="if(event.key==='Enter')sendText()">
-                <button class="btn btn-primary" onclick="sendText()" id="send-btn" disabled>Send</button>
-            </div>
-            
-            <div class="row" style="margin-top:8px;">
-                <select id="model-select" onchange="setModel(this.value)">
-                    <option value="">Model: Default</option>
-                </select>
-                <select id="voice-select" onchange="setVoice(this.value)">
-                    <option value="">Voice: Default</option>
-                </select>
-                <select id="system-prompt" style="flex:1;">
+        <!-- Controls -->
+        <div class="panel half-width">
+            <div class="panel-header">🎛️ Controls</div>
+            <div class="row">
+                <select id="model-select"><option value="">Model: Default</option></select>
+                <select id="voice-select"><option value="">Voice: Default</option></select>
+                <select id="system-prompt">
                     <option value="assistant">Assistant</option>
                     <option value="browser">Browser</option>
                     <option value="workflow">Workflow</option>
                 </select>
             </div>
-            
-            <div class="row" style="margin-top:4px;">
-                <button class="btn btn-sm" onclick="startMic('ptt')">🎤 PTT</button>
-                <button class="btn btn-sm" onclick="startMic('vad')">🔴 VAD</button>
-                <button class="btn btn-sm" onclick="stopMic()">⏹ Stop Mic</button>
-                <button class="btn btn-sm" onclick="getStatus()">📊 Status</button>
-                <button class="btn btn-sm" onclick="getNotes()">📝 Notes</button>
+            <div class="row">
+                <button class="btn" onclick="startMic('ptt')">🎤 PTT</button>
+                <button class="btn" onclick="startMic('vad')">🟢 VAD</button>
+                <button class="btn" onclick="stopMic()">⏹ Stop</button>
+                <button class="btn btn-sm" onclick="postCommand('getStatus')">📊</button>
+                <button class="btn btn-sm" onclick="newChat()">🔄 New</button>
+                <button class="btn btn-sm" onclick="exportChat()">📥 Export</button>
             </div>
         </div>
-        
-        <!-- Right: Debug -->
-        <div class="panel">
-            <div class="panel-header">🔍 Debug Log</div>
-            <div id="debug-log"></div>
-            <button class="btn btn-sm" style="margin-top:8px;" onclick="document.getElementById('debug-log').innerHTML=''">Clear</button>
+
+        <!-- Chat -->
+        <div class="panel half-width" style="display:flex;flex-direction:column;">
+            <div class="panel-header">💬 Chat <span id="latency" style="font-size:11px;color:var(--text-muted);"></span></div>
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="row">
+                <input type="text" id="message-input" placeholder="Type a message..." disabled onkeypress="if(event.key==='Enter')sendText()">
+                <button class="btn btn-primary" onclick="sendText()" id="send-btn" disabled>Send</button>
+            </div>
+        </div>
+
+        <!-- Upgrade -->
+        <div class="panel half-width">
+            <div class="panel-header">💎 Upgrade</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="upgrade-card">
+                    <h3 style="font-size:16px;">Pro</h3>
+                    <p style="font-size:24px;font-weight:700;color:var(--accent);">$9/mo</p>
+                    <p style="font-size:12px;color:var(--text-muted);">Unlimited messages, priority support</p>
+                    <button class="btn btn-primary" style="margin-top:8px;width:100%;" onclick="upgrade('pro')">Upgrade</button>
+                </div>
+                <div class="upgrade-card">
+                    <h3 style="font-size:16px;">Power</h3>
+                    <p style="font-size:24px;font-weight:700;color:var(--accent);">$25/mo</p>
+                    <p style="font-size:12px;color:var(--text-muted);">Everything + custom models, API access</p>
+                    <button class="btn btn-primary" style="margin-top:8px;width:100%;" onclick="upgrade('power')">Upgrade</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug -->
+        <div class="panel full-width" style="display:flex;flex-direction:column;">
+            <div class="panel-header">🔍 Debug Log
+                <div>
+                    <button class="btn btn-sm" onclick="document.getElementById('debug-log').innerHTML=''">Clear</button>
+                    <button class="btn btn-sm" onclick="copyLog()">Copy</button>
+                </div>
+            </div>
+            <div class="debug-log" id="debug-log"></div>
+            <div class="status-bar">
+                <span id="session-id-display">Session: —</span>
+                <span id="msg-count">Messages: 0</span>
+                <span id="voice-count">Voice: 0</span>
+            </div>
         </div>
     </div>
 
     <iframe id="sandbox-iframe" src="https://sb-sf.vercel.app/" allow="microphone; autoplay"></iframe>
 
-    <script src="js/config.js"></script>
-    <script src="js/theme.js"></script>
     <script src="js/test-page.js"></script>
 </body>
 </html>
