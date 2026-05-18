@@ -1,6 +1,6 @@
 // Surf AI — Test Dashboard
 // postMessage protocol test harness
-// Config auto-loaded from sandbox /sandbox/config.js
+// Config auto-loaded from sandbox SURF_CONFIG
 
 const SANDBOX_URL = 'https://sb-sf.vercel.app';
 
@@ -26,39 +26,19 @@ function copyLog() {
 // ── Config from sandbox ────────────────────────────────────────────
 
 function loadConfig() {
-    // Try direct access from sandbox iframe
+    // Read directly from sandbox iframe's window.SURF_CONFIG
     try {
-        const sandboxWin = sandbox.contentWindow;
-        const config = sandboxWin.SURF_CONFIG;
+        const config = sandbox.contentWindow.SURF_CONFIG;
         if (config && config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
             supabaseUrl = config.SUPABASE_URL;
             supabaseAnon = config.SUPABASE_ANON_KEY;
-            log('✅ Config loaded from sandbox SURF_CONFIG', 'info');
-            log(`   Gateway: ${config.GATEWAY_URL}`, 'info');
-            log(`   Version: ${config.VERSION}`, 'info');
+            log('✅ Config loaded from sandbox', 'info');
             return;
         }
-    } catch(e) {
-        log('Cannot access sandbox config directly (cross-origin), fetching...', 'info');
-    }
-
-    // Fallback: fetch the config file
-    fetch(`${SANDBOX_URL}/sandbox/config.js`)
-        .then(r => r.text())
-        .then(script => {
-            const match = script.match(/window\.SURF_CONFIG\s*=\s*({[\s\S]*?});/);
-            if (match) {
-                const config = JSON.parse(match[1]);
-                supabaseUrl = config.SUPABASE_URL;
-                supabaseAnon = config.SUPABASE_ANON_KEY;
-                log('✅ Config loaded from /sandbox/config.js', 'info');
-                log(`   Gateway: ${config.GATEWAY_URL}`, 'info');
-                log(`   Version: ${config.VERSION}`, 'info');
-            } else {
-                log('Could not parse SURF_CONFIG from script', 'error');
-            }
-        })
-        .catch(e => log('Config fetch failed: ' + e.message, 'error'));
+    } catch(e) {}
+    
+    // Retry on next sandbox_ready
+    log('Waiting for sandbox config...', 'info');
 }
 
 // ── postMessage handler ────────────────────────────────────────────
@@ -72,7 +52,7 @@ window.addEventListener('message', (e) => {
         case 'sandbox_ready':
             updateConnection(true);
             document.getElementById('auth-status').textContent = 'Sandbox ready';
-            if (!supabaseUrl) loadConfig();
+            loadConfig();
             break;
         case 'token_received':
             document.getElementById('auth-status').textContent = '✅ Token accepted';
@@ -185,7 +165,8 @@ function upgrade(plan) {
 
 async function login() {
     if (!supabaseUrl || !supabaseAnon) {
-        log('No Supabase config. Sandbox config may still be loading — try again.', 'error');
+        loadConfig();
+        log('Config not loaded yet — try again', 'error');
         return;
     }
     const email = document.getElementById('login-email').value;
