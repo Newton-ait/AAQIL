@@ -2,785 +2,193 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Surf AI — Test Dashboard | Fixed Chat UI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surf AI — Sandbox Test</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         :root {
-            --bg: #FFFFFF;
-            --bg-secondary: #F8FAFC;
-            --bg-card: #FFFFFF;
-            --text: #1A1A2E;
-            --text-secondary: #64748B;
-            --text-muted: #94A3B8;
-            --border: rgba(0,102,255,0.08);
-            --border-secondary: #E2E8F0;
-            --accent: #0066FF;
-            --accent-hover: #0052cc;
-            --gradient: linear-gradient(135deg, #0066FF, #00C2FF);
-            --green: #22C55E;
-            --red: #EF4444;
-            --red-bg: rgba(239,68,68,0.08);
-            --radius: 18px;
-            --radius-sm: 10px;
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.03), 0 4px 8px rgba(0,0,0,0.05);
-        }
-
-        body.dark {
             --bg: #0F172A;
-            --bg-secondary: #1E293B;
             --bg-card: #1E293B;
             --text: #E2E8F0;
             --text-secondary: #94A3B8;
             --text-muted: #64748B;
-            --border: rgba(59,130,246,0.12);
-            --border-secondary: #334155;
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+            --border: rgba(59,130,246,0.1);
+            --accent: #3B82F6;
+            --green: #22C55E;
+            --red: #EF4444;
+            --radius: 12px;
         }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: 'Inter', sans-serif;
             background: var(--bg);
             color: var(--text);
             min-height: 100vh;
-            transition: background 0.2s, color 0.2s;
+            padding: 20px;
         }
-
-        /* top bar */
-        .top-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 24px;
-            border-bottom: 1px solid var(--border);
-            background: var(--bg);
-            backdrop-filter: blur(0px);
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        .top-bar h1 {
-            font-size: 18px;
-            font-weight: 700;
-            letter-spacing: -0.2px;
-        }
-
-        .gradient-text {
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
-        .conn-status {
-            font-size: 12px;
-            font-weight: 600;
-            padding: 5px 12px;
-            border-radius: 40px;
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--red);
-            transition: all 0.2s;
-        }
-
-        .conn-status.connected {
-            background: rgba(34, 197, 94, 0.12);
-            color: var(--green);
-        }
-
-        /* Dashboard grid */
-        .dashboard {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            padding: 20px 24px 32px;
-            max-width: 1400px;
+        .container {
+            max-width: 900px;
             margin: 0 auto;
         }
-
+        h1 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #3B82F6, #06B6D4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .status-bar {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+        .dot-green { background: var(--green); }
+        .dot-red { background: var(--red); }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
         .panel {
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 20px;
-            box-shadow: var(--shadow-sm);
-            transition: all 0.1s ease;
+            padding: 16px;
         }
-
         .panel-header {
-            font-weight: 700;
-            font-size: 14px;
-            margin-bottom: 16px;
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 10px;
             padding-bottom: 8px;
             border-bottom: 1px solid var(--border);
             display: flex;
-            align-items: center;
             justify-content: space-between;
+            align-items: center;
         }
-
-        .full-width {
-            grid-column: 1 / -1;
-        }
-
-        .half-width {
-            grid-column: span 1;
-        }
-
-        input,
-        select,
-        textarea {
+        .full { grid-column: 1 / -1; }
+        input, select, button {
             padding: 8px 12px;
-            border: 1.5px solid var(--border-secondary);
-            border-radius: var(--radius-sm);
+            border-radius: 8px;
             font-size: 13px;
             font-family: inherit;
+            border: 1px solid var(--border);
             background: var(--bg);
             color: var(--text);
             outline: none;
-            width: 100%;
-            transition: all 0.15s;
         }
-
-        input:focus,
-        select:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.1);
-        }
-
-        .btn {
-            padding: 8px 16px;
-            border: 1px solid var(--border-secondary);
-            border-radius: 10px;
-            background: var(--bg);
-            color: var(--text);
-            font-size: 12px;
-            font-weight: 600;
+        input:focus, select:focus { border-color: var(--accent); }
+        button {
             cursor: pointer;
-            transition: all 0.18s;
+            font-weight: 600;
             white-space: nowrap;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
         }
-
-        .btn:hover {
-            border-color: var(--accent);
-            background: var(--bg-secondary);
-            transform: translateY(-1px);
-        }
-
         .btn-primary {
-            background: var(--gradient);
+            background: linear-gradient(135deg, #3B82F6, #2563EB);
             color: white;
             border: none;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
-
-        .btn-primary:hover {
-            opacity: 0.92;
-            transform: translateY(-1px);
-            border: none;
-        }
-
-        .btn-sm {
-            padding: 5px 12px;
-            font-size: 11px;
-        }
-
-        .row {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-        }
-
-        /* Chat area — fully functional */
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            max-height: 320px;
-            margin-bottom: 16px;
-            padding-right: 6px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .chat-msg {
-            padding: 10px 14px;
-            border-radius: 16px;
-            font-size: 13px;
-            line-height: 1.45;
-            word-break: break-word;
-            max-width: 90%;
-            animation: fadeSlideUp 0.2s ease;
-        }
-
-        .chat-user {
-            background: rgba(0, 102, 255, 0.08);
-            color: var(--text);
-            align-self: flex-end;
-            margin-left: 20px;
-            border-bottom-right-radius: 4px;
-        }
-
-        .chat-ai {
-            background: var(--bg-secondary);
-            color: var(--text);
-            align-self: flex-start;
-            margin-right: 20px;
-            border-bottom-left-radius: 4px;
-            border: 0.5px solid var(--border-secondary);
-        }
-
-        .chat-system {
-            color: var(--text-muted);
-            font-size: 11px;
-            text-align: center;
-            align-self: center;
-            background: transparent;
-            font-style: italic;
-        }
-
-        @keyframes fadeSlideUp {
-            from {
-                opacity: 0;
-                transform: translateY(6px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .debug-log {
-            flex: 1;
-            overflow-y: auto;
-            max-height: 280px;
+        .btn-sm { padding: 5px 10px; font-size: 11px; }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+        .chat-log {
             background: #0F172A;
-            border-radius: var(--radius-sm);
+            border-radius: var(--radius);
             padding: 12px;
-            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-            font-size: 11px;
-            line-height: 1.6;
-            color: #CBD5E1;
-        }
-
-        .log-line {
-            border-left: 2px solid transparent;
-            padding-left: 8px;
-            margin-bottom: 4px;
-        }
-
-        .log-in {
-            color: #60A5FA;
-            border-left-color: #3B82F6;
-        }
-
-        .log-out {
-            color: #34D399;
-            border-left-color: #10B981;
-        }
-
-        .log-error {
-            color: #F87171;
-            border-left-color: #EF4444;
-        }
-
-        .log-info {
+            height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+            font-family: 'Menlo', monospace;
             color: #94A3B8;
+            line-height: 1.6;
         }
-
-        .upgrade-card {
-            border: 1px solid var(--border-secondary);
-            border-radius: var(--radius-sm);
-            padding: 16px 12px;
-            text-align: center;
-            background: var(--bg);
-            transition: 0.1s;
-        }
-
-        .status-bar {
-            display: flex;
-            gap: 20px;
-            font-size: 11px;
-            color: var(--text-muted);
-            padding-top: 12px;
-            border-top: 1px solid var(--border);
-            margin-top: 8px;
-            flex-wrap: wrap;
-        }
-
-        #sandbox-iframe {
-            display: none;
-        }
-
-        /* responsiveness */
-        @media (max-width: 880px) {
-            .dashboard {
-                grid-template-columns: 1fr;
-                gap: 16px;
-            }
-
-            .half-width {
-                grid-column: 1 / -1;
-            }
-        }
-
-        .input-group {
-            display: flex;
-            gap: 10px;
-            width: 100%;
-        }
-
-        .input-group input {
-            flex: 1;
+        .log-info { color: #94A3B8; }
+        .log-in { color: #60A5FA; }
+        .log-out { color: #34D399; }
+        .log-error { color: #F87171; }
+        .chat-msg { margin-bottom: 6px; }
+        .chat-user { color: #60A5FA; }
+        .chat-ai { color: #34D399; }
+        @media (max-width: 600px) {
+            .grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-<div class="top-bar">
-    <h1><span class="gradient-text">🏄 Surf AI</span> — Test Dashboard</h1>
-    <div style="display:flex;align-items:center;gap:12px;">
-        <span id="conn-status" class="conn-status">🔴 Disconnected</span>
-        <button class="btn btn-sm" id="themeToggle" aria-label="Dark mode">🌙</button>
-    </div>
-</div>
-
-<div class="dashboard">
-    <!-- Auth panel -->
-    <div class="panel half-width">
-        <div class="panel-header">🔐 Auth & Connection</div>
-        <div class="row">
-            <input type="email" id="login-email" placeholder="Email" value="surf@testuser.com">
-            <input type="password" id="login-password" placeholder="Password" value="Test1234!" style="max-width:140px;">
-        </div>
-        <div class="row">
-            <button class="btn btn-primary" id="loginBtn">Login</button>
-            <button class="btn" id="oauthGoogleBtn">Google</button>
-            <button class="btn" id="oauthGithubBtn">GitHub</button>
-            <span id="auth-status" style="font-size:12px;color:var(--text-muted);"></span>
-        </div>
-    </div>
-
-    <!-- Controls -->
-    <div class="panel half-width">
-        <div class="panel-header">🎛️ Voice & Model</div>
-        <div class="row">
-            <select id="model-select">
-                <option value="">Model: Default</option>
-                <option value="gpt-4">GPT-4 Turbo</option>
-                <option value="claude">Claude 3</option>
-            </select>
-            <select id="voice-select">
-                <option value="">Voice: Default</option>
-            </select>
-            <select id="system-prompt">
-                <option value="assistant">Assistant (Helpful)</option>
-                <option value="browser">Browser Automator</option>
-                <option value="workflow">Workflow Expert</option>
-            </select>
-        </div>
-        <div class="row">
-            <button class="btn" id="pttMicBtn">🎤 Push-to-Talk</button>
-            <button class="btn" id="vadMicBtn">🟢 VAD Mode</button>
-            <button class="btn" id="stopMicBtn">⏹ Stop Mic</button>
-            <button class="btn btn-sm" id="statusCmdBtn">📊 Status</button>
-            <button class="btn btn-sm" id="newChatBtn">🔄 New Chat</button>
-            <button class="btn btn-sm" id="exportChatBtn">📥 Export</button>
-        </div>
-    </div>
-
-    <!-- Chat Panel - fully interactive -->
-    <div class="panel half-width" style="display:flex;flex-direction:column;">
-        <div class="panel-header">💬 Live Chat
-            <span id="latency" style="font-size:11px;font-weight:normal;color:var(--text-muted);"></span>
-        </div>
-        <div class="chat-messages" id="chat-messages">
-            <div class="chat-msg chat-system">✨ Ready — login to start chatting</div>
-        </div>
-        <div class="row" style="margin-bottom:0;">
-            <div class="input-group">
-                <input type="text" id="message-input" placeholder="Type a message..." disabled>
-                <button class="btn btn-primary" id="send-btn" disabled>Send</button>
-            </div>
-        </div>
-        <div class="status-bar" style="margin-top:12px;">
-            <span>⏎ Enter to send</span>
+    <div class="container">
+        <h1>
+            <span class="gradient-text">🏄 Surf AI</span> Sandbox Test
+        </h1>
+        
+        <div class="status-bar">
+            <span><span class="status-dot dot-red" id="conn-dot"></span> <span id="conn-text">Disconnected</span></span>
+            <span id="session-status">Session: —</span>
             <span id="msg-count">Messages: 0</span>
-            <span id="voice-count">Voice: 0</span>
+        </div>
+
+        <div class="grid">
+            <!-- Auth -->
+            <div class="panel full">
+                <div class="panel-header">🔐 Auth</div>
+                <div class="row">
+                    <input type="email" id="login-email" placeholder="Email" value="surf@testuser.com" style="flex:1;">
+                    <input type="password" id="login-password" placeholder="Password" value="Test1234!" style="flex:1;">
+                    <button class="btn-primary" onclick="login()">Login</button>
+                    <span id="auth-status" style="font-size:12px;color:var(--text-muted);"></span>
+                </div>
+            </div>
+
+            <!-- Chat -->
+            <div class="panel">
+                <div class="panel-header">💬 Chat</div>
+                <div class="chat-log" id="chat-log"></div>
+                <div class="row" style="margin-top:8px;">
+                    <input type="text" id="message-input" placeholder="Type a message..." disabled style="flex:1;" onkeypress="if(event.key==='Enter')sendText()">
+                    <button class="btn-primary" onclick="sendText()" id="send-btn" disabled>Send</button>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="panel">
+                <div class="panel-header">🎛️ Controls</div>
+                <div class="row">
+                    <select id="model-select"><option value="">Model: Default</option></select>
+                    <select id="voice-select"><option value="">Voice: Default</option></select>
+                </div>
+                <div class="row">
+                    <button onclick="startMic('ptt')">🎤 PTT</button>
+                    <button onclick="startMic('vad')">🟢 VAD</button>
+                    <button onclick="stopMic()">⏹ Stop</button>
+                    <button class="btn-sm" onclick="getStatus()">📊</button>
+                    <button class="btn-sm" onclick="newChat()">🔄 New</button>
+                </div>
+                <div class="row" style="margin-top:8px;">
+                    <label style="font-size:12px;display:flex;align-items:center;gap:6px;">
+                        <input type="checkbox" id="privacy-toggle" onchange="togglePrivacy()"> 🔒 Privacy Mode
+                    </label>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Upgrade panel -->
-    <div class="panel half-width">
-        <div class="panel-header">💎 Upgrade</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div class="upgrade-card">
-                <h3 style="font-size:16px;">Pro</h3>
-                <p style="font-size:24px;font-weight:700;color:var(--accent);">$9/mo</p>
-                <p style="font-size:12px;color:var(--text-muted);">Unlimited messages</p>
-                <button class="btn btn-primary upgrade-pro" style="margin-top:8px;width:100%;">Upgrade</button>
-            </div>
-            <div class="upgrade-card">
-                <h3 style="font-size:16px;">Power</h3>
-                <p style="font-size:24px;font-weight:700;color:var(--accent);">$25/mo</p>
-                <p style="font-size:12px;color:var(--text-muted);">API + custom models</p>
-                <button class="btn btn-primary upgrade-power" style="margin-top:8px;width:100%;">Upgrade</button>
-            </div>
-        </div>
-    </div>
+    <iframe id="sandbox" src="https://sb-sf.vercel.app/" allow="microphone; autoplay" style="display:none;"></iframe>
 
-    <!-- Debug log -->
-    <div class="panel full-width" style="display:flex;flex-direction:column;">
-        <div class="panel-header">🔍 Debug Log
-            <div>
-                <button class="btn btn-sm" id="clearLogBtn">Clear</button>
-                <button class="btn btn-sm" id="copyLogBtn">Copy</button>
-            </div>
-        </div>
-        <div class="debug-log" id="debug-log"></div>
-        <div class="status-bar" style="justify-content:space-between;">
-            <span id="session-id-display">Session: —</span>
-            <span id="sandboxState">⚡ waiting for sandbox</span>
-        </div>
-    </div>
-</div>
-
-<iframe id="sandbox-iframe" src="https://sb-sf.vercel.app/" allow="microphone; autoplay"></iframe>
-
-<script>
-    // ------------------- CONFIG & STATE -------------------
-    const SANDBOX_URL = 'https://sb-sf.vercel.app';
-    let jwt = null;
-    let sessionReady = false;
-    let msgCount = 0;
-    let voiceCount = 0;
-    let sessionId = 'test-session-' + Date.now();
-    let lastRequestTime = 0;
-    let supabaseUrl = '';
-    let supabaseAnon = '';
-
-    const sandboxIframe = document.getElementById('sandbox-iframe');
-    const chatMessagesDiv = document.getElementById('chat-messages');
-    const debugLogDiv = document.getElementById('debug-log');
-    const messageInput = document.getElementById('message-input');
-    const sendBtn = document.getElementById('send-btn');
-    const connStatusSpan = document.getElementById('conn-status');
-    const authStatusSpan = document.getElementById('auth-status');
-    const latencySpan = document.getElementById('latency');
-    const msgCountSpan = document.getElementById('msg-count');
-    const voiceCountSpan = document.getElementById('voice-count');
-    const sessionIdSpan = document.getElementById('session-id-display');
-
-    // Helper: log to debug panel
-    function addLog(msg, type = 'info') {
-        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute:'2-digit', second:'2-digit' });
-        const logLine = document.createElement('div');
-        logLine.className = `log-line log-${type}`;
-        logLine.innerHTML = `[${time}] ${msg}`;
-        debugLogDiv.appendChild(logLine);
-        logLine.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        // console log for dev
-        console.log(`[${type.toUpperCase()}] ${msg}`);
-    }
-
-    function updateConnectionUI(connected) {
-        if (connected) {
-            connStatusSpan.textContent = '🟢 Connected';
-            connStatusSpan.className = 'conn-status connected';
-        } else {
-            connStatusSpan.textContent = '🔴 Disconnected';
-            connStatusSpan.className = 'conn-status';
-        }
-    }
-
-    function updateStatsUI() {
-        msgCountSpan.textContent = `Messages: ${msgCount}`;
-        voiceCountSpan.textContent = `Voice: ${voiceCount}`;
-        sessionIdSpan.textContent = `Session: ${sessionId.substring(0, 22)}`;
-    }
-
-    function enableChatUI() {
-        messageInput.disabled = false;
-        sendBtn.disabled = false;
-        messageInput.placeholder = "Type a message...";
-        addLog('Chat input enabled, ready to send messages', 'info');
-    }
-
-    // Chat display
-    function addMessage(role, text) {
-        const msgDiv = document.createElement('div');
-        msgDiv.className = `chat-msg chat-${role}`;
-        msgDiv.textContent = text;
-        chatMessagesDiv.appendChild(msgDiv);
-        msgDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    function appendToLastAIMessage(token) {
-        const messages = document.querySelectorAll('#chat-messages .chat-ai');
-        if (messages.length > 0) {
-            const lastAi = messages[messages.length - 1];
-            lastAi.textContent += token;
-        } else {
-            addMessage('ai', token);
-        }
-        chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-    }
-
-    function clearChatUI() {
-        chatMessagesDiv.innerHTML = '<div class="chat-msg chat-system">✨ New conversation started</div>';
-        msgCount = 0;
-        voiceCount = 0;
-        updateStatsUI();
-    }
-
-    // Post command to sandbox
-    function postCommand(action, params = {}) {
-        if (!sandboxIframe.contentWindow) {
-            addLog('Sandbox iframe not ready', 'error');
-            return;
-        }
-        const payload = { type: 'extension_command', action, ...params };
-        addLog(`→ ${action} ${Object.keys(params).length ? JSON.stringify(params).substring(0, 80) : ''}`, 'out');
-        sandboxIframe.contentWindow.postMessage(payload, SANDBOX_URL);
-    }
-
-    function sendTextMessage() {
-        const text = messageInput.value.trim();
-        if (!text) return;
-        if (!sessionReady) {
-            addLog('Session not ready — please login first', 'error');
-            addMessage('system', '⚠️ Please login before sending messages');
-            return;
-        }
-        // display user message immediately
-        addMessage('user', text);
-        msgCount++;
-        lastRequestTime = Date.now();
-        updateStatsUI();
-
-        postCommand('sendText', {
-            text: text,
-            system_prompt: document.getElementById('system-prompt').value,
-            session_id: sessionId,
-            model: document.getElementById('model-select').value || undefined
-        });
-        messageInput.value = '';
-        messageInput.focus();
-    }
-
-    function startMic(mode) { postCommand('startMic', { mode }); }
-    function stopMic() { postCommand('stopMic'); }
-    function getStatus() { postCommand('getStatus'); }
-    function newChatSession() {
-        sessionId = 'surf-' + Date.now();
-        clearChatUI();
-        addLog(`🔄 New session created: ${sessionId}`, 'info');
-        if (sessionReady) {
-            addMessage('system', `🆕 Session refreshed (ID: ${sessionId.slice(-6)})`);
-        }
-    }
-    function exportChatLog() {
-        const messagesText = Array.from(document.querySelectorAll('#chat-messages .chat-msg'))
-            .map(el => el.innerText).join('\n');
-        const blob = new Blob([messagesText], { type: 'text/plain' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `surf-chat-${sessionId}.txt`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-        addLog('Chat exported', 'info');
-    }
-
-    // ---------- AUTH (Supabase login) ----------
-    async function performLogin() {
-        if (!supabaseUrl || !supabaseAnon) {
-            addLog('Supabase config missing — sandbox_ready not received yet', 'error');
-            authStatusSpan.textContent = '⏳ Waiting for sandbox...';
-            return;
-        }
-        const email = document.getElementById('login-email').value;
-        const password = document.getElementById('login-password').value;
-        addLog(`Attempt login: ${email}`, 'info');
-        try {
-            const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': supabaseAnon
-                },
-                body: JSON.stringify({ email, password })
-            });
-            if (response.ok) {
-                const data = await response.json();
-                jwt = data.access_token;
-                sandboxIframe.contentWindow.postMessage({ type: 'auth_token', token: jwt, email }, SANDBOX_URL);
-                addLog('JWT sent to sandbox, awaiting session_ready', 'info');
-                authStatusSpan.textContent = '🔑 Token sent...';
-            } else {
-                const errText = await response.text();
-                addLog(`Auth failed (${response.status}): ${errText}`, 'error');
-                authStatusSpan.textContent = '❌ Login failed';
-            }
-        } catch (err) {
-            addLog(`Network/auth error: ${err.message}`, 'error');
-        }
-    }
-
-    function oauthLogin(provider) {
-        addLog(`OAuth with ${provider} — in real app this would redirect`, 'info');
-        addMessage('system', `🔐 OAuth ${provider} login would open popup (demo)`);
-    }
-
-    function upgradePlan(plan) {
-        addLog(`Upgrade requested: ${plan} plan (mock)`, 'info');
-        addMessage('system', `💎 Upgrade to ${plan} — payment flow simulated`);
-    }
-
-    // ---------- POSTMESSAGE HANDLER ----------
-    window.addEventListener('message', (event) => {
-        if (!event.origin.includes('sb-sf.vercel.app')) return;
-        const msg = event.data;
-        if (!msg || typeof msg !== 'object') return;
-        addLog(`← ${msg.type} ${msg.action ? `:${msg.action}` : ''}`, 'in');
-
-        switch (msg.type) {
-            case 'sandbox_ready':
-                updateConnectionUI(true);
-                if (msg.config && msg.config.SUPABASE_URL && msg.config.SUPABASE_ANON_KEY) {
-                    supabaseUrl = msg.config.SUPABASE_URL;
-                    supabaseAnon = msg.config.SUPABASE_ANON_KEY;
-                    addLog('✅ Config loaded from sandbox (Supabase ready)', 'info');
-                    authStatusSpan.textContent = 'Sandbox ready — click Login';
-                } else {
-                    authStatusSpan.textContent = 'Sandbox ready (no config)';
-                }
-                document.getElementById('sandboxState').innerHTML = '✅ sandbox ready';
-                break;
-            case 'token_received':
-                authStatusSpan.textContent = 'Token accepted, waiting session...';
-                break;
-            case 'session_ready':
-                sessionReady = true;
-                authStatusSpan.textContent = '✅ Logged in & session active';
-                enableChatUI();
-                addMessage('system', '🎧 Session ready — start chatting or use voice');
-                addLog('Session ready – full chat functionality', 'info');
-                break;
-            case 'session_expired':
-                sessionReady = false;
-                authStatusSpan.textContent = '⚠️ Session expired, re-login needed';
-                messageInput.disabled = true;
-                sendBtn.disabled = true;
-                addLog('Session expired', 'error');
-                break;
-            case 'response':
-                msgCount++;
-                addMessage('ai', msg.text);
-                if (lastRequestTime) {
-                    const elapsed = Date.now() - lastRequestTime;
-                    latencySpan.textContent = `⏱️ ${elapsed}ms`;
-                    setTimeout(() => { if (latencySpan) latencySpan.textContent = ''; }, 2000);
-                }
-                updateStatsUI();
-                break;
-            case 'response_token':
-                appendToLastAIMessage(msg.token);
-                break;
-            case 'transcript':
-                voiceCount++;
-                addMessage('user', '🎤 ' + msg.text);
-                updateStatsUI();
-                break;
-            case 'vad_status':
-                addLog(`VAD phase: ${msg.phase}`, 'info');
-                break;
-            case 'error':
-                addLog(`ERROR [${msg.code}]: ${msg.message}`, 'error');
-                addMessage('system', `⚠️ ${msg.message}`);
-                break;
-            case 'voices':
-                const voiceSelect = document.getElementById('voice-select');
-                voiceSelect.innerHTML = '<option value="">Voice: Default</option>';
-                if (msg.voices && Array.isArray(msg.voices)) {
-                    msg.voices.forEach(v => {
-                        const id = v.id || v;
-                        const name = v.name || v;
-                        voiceSelect.innerHTML += `<option value="${id}">${name}</option>`;
-                    });
-                }
-                break;
-            case 'models':
-                const modelSelect = document.getElementById('model-select');
-                const currentModel = modelSelect.value;
-                modelSelect.innerHTML = '<option value="">Model: Default</option>';
-                if (msg.models && Array.isArray(msg.models)) {
-                    msg.models.forEach(m => {
-                        const mid = m.id || m.name;
-                        const mname = m.name || mid;
-                        modelSelect.innerHTML += `<option value="${mid}">${mname}</option>`;
-                    });
-                    if (currentModel && [...modelSelect.options].some(opt => opt.value === currentModel))
-                        modelSelect.value = currentModel;
-                }
-                break;
-            case 'sandbox_status':
-                addLog(`Sandbox active: ${msg.isActive}, sessionReady: ${msg.sessionReady}`, 'info');
-                break;
-            default:
-                // ignore unknown
-                break;
-        }
-    });
-
-    // ---------- Event Listeners & DOM ready ----------
-    document.addEventListener('DOMContentLoaded', () => {
-        addLog('Dashboard loaded, sandbox iframe will connect', 'info');
-        updateStatsUI();
-
-        // Buttons wiring
-        document.getElementById('loginBtn').addEventListener('click', performLogin);
-        document.getElementById('oauthGoogleBtn').addEventListener('click', () => oauthLogin('Google'));
-        document.getElementById('oauthGithubBtn').addEventListener('click', () => oauthLogin('GitHub'));
-        document.getElementById('pttMicBtn').addEventListener('click', () => startMic('ptt'));
-        document.getElementById('vadMicBtn').addEventListener('click', () => startMic('vad'));
-        document.getElementById('stopMicBtn').addEventListener('click', stopMic);
-        document.getElementById('statusCmdBtn').addEventListener('click', getStatus);
-        document.getElementById('newChatBtn').addEventListener('click', newChatSession);
-        document.getElementById('exportChatBtn').addEventListener('click', exportChatLog);
-        document.getElementById('clearLogBtn').addEventListener('click', () => { debugLogDiv.innerHTML = ''; addLog('Debug log cleared', 'info'); });
-        document.getElementById('copyLogBtn').addEventListener('click', () => {
-            navigator.clipboard.writeText(debugLogDiv.innerText);
-            addLog('Log copied to clipboard', 'info');
-        });
-        // upgrade buttons
-        document.querySelector('.upgrade-pro')?.addEventListener('click', () => upgradePlan('Pro'));
-        document.querySelector('.upgrade-power')?.addEventListener('click', () => upgradePlan('Power'));
-
-        sendBtn.addEventListener('click', sendTextMessage);
-        messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !messageInput.disabled) {
-                e.preventDefault();
-                sendTextMessage();
-            }
-        });
-
-        const themeBtn = document.getElementById('themeToggle');
-        themeBtn.addEventListener('click', () => {
-            document.body.classList.toggle('dark');
-            themeBtn.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
-        });
-    });
-</script>
+    <script src="test.js"></script>
 </body>
 </html>
