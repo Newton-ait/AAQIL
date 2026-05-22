@@ -104,6 +104,8 @@ async function login() {
             jwt = (await r.json()).access_token;
             document.getElementById('sandbox').contentWindow.postMessage({ type: 'auth_token', token: jwt }, SANDBOX_URL);
             log('✅ JWT sent', 'info');
+    document.getElementById('message-input').disabled = false;
+    document.getElementById('send-btn').disabled = false;
     enableChat();
         } else {
             log('Auth failed', 'error');
