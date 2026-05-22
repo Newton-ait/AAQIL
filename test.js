@@ -195,6 +195,8 @@ async function login() {
             jwt = data.access_token;
             document.getElementById('sandbox').contentWindow.postMessage({ type: 'auth_token', token: jwt }, SANDBOX_URL);
             log('JWT sent to sandbox', 'system');
+    // Enable chat after JWT sent
+    setTimeout(() => { enableChat(); }, 1000);
             document.getElementById('user-email').textContent = email;
         } else {
             log('Auth failed', 'error');
@@ -247,7 +249,16 @@ window.addEventListener('message', (e) => {
     
     if (msg?.type === 'token_received') {
         log('Token confirmed', 'system');
+        console.log('token_received - enabling chat');
         enableChat();
+        // Also force enable after 1 second as fallback
+        setTimeout(() => {
+            if (messageInput.disabled) {
+                console.log('Force enabling chat');
+                messageInput.disabled = false;
+                sendBtn.disabled = false;
+            }
+        }, 500);
     }
     
     if (msg?.type === 'stt_mode_changed') {
