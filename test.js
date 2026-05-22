@@ -352,3 +352,36 @@ window.getStatus = getStatus;
 window.togglePrivacy = togglePrivacy;
 window.sendText = sendText;
 window.login = login;
+
+
+// FORCE ENABLE CHAT - Direct approach
+setTimeout(function() {
+    console.log('🔧 FORCE ENABLING CHAT');
+    var input = document.getElementById('message-input');
+    var btn = document.getElementById('send-btn');
+    if (input) {
+        input.disabled = false;
+        btn.disabled = false;
+        console.log('✅ Chat force enabled');
+    } else {
+        console.log('❌ Elements not found, retrying...');
+        setTimeout(function() {
+            var input2 = document.getElementById('message-input');
+            if (input2) {
+                input2.disabled = false;
+                document.getElementById('send-btn').disabled = false;
+                console.log('✅ Chat force enabled (retry)');
+            }
+        }, 1000);
+    }
+}, 500);
+
+// Also enable on any click
+document.body.addEventListener('click', function() {
+    var input = document.getElementById('message-input');
+    if (input && input.disabled) {
+        input.disabled = false;
+        document.getElementById('send-btn').disabled = false;
+        console.log('✅ Chat enabled on click');
+    }
+});
