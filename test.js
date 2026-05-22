@@ -105,7 +105,7 @@ window.addEventListener('message', (e) => {
     
     if (msg?.type === 'token_received') {
         log('✅ Token confirmed by sandbox', 'info');
-        enableChat();
+        setTimeout(() => enableChat(), 100);
         saveSession();
     }
     
