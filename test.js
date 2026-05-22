@@ -121,4 +121,14 @@ function enableChat() {
 }
 
 log('Test page loaded - waiting for sandbox...', 'info');
+
+// Request config from sandbox if not received
+setTimeout(() => {
+    if (!supabaseUrl) {
+        console.log('Requesting config from sandbox...');
+        const iframe = document.getElementById('sandbox');
+        iframe?.contentWindow.postMessage({ type: 'get_config' }, '*');
+    }
+}, 1000);
+
 updateStats();
