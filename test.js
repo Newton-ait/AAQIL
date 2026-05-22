@@ -242,3 +242,14 @@ setTimeout(() => {
         postCommand('setSTTMode', { mode: 'local' });
     }
 }, 1000);
+
+// Force enable chat after page load
+setTimeout(() => {
+    const input = document.getElementById('message-input');
+    const btn = document.getElementById('send-btn');
+    if (input) {
+        input.disabled = false;
+        btn.disabled = false;
+        console.log('Chat force-enabled');
+    }
+}, 2000);
