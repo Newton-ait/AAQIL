@@ -1,196 +1,181 @@
-// Surf AI — Sandbox Test Page (Full Featured)
+// Surf AI — Sandbox Test Page (Complete Working Version)
+
 const SANDBOX_URL = 'https://sb-sf.vercel.app';
 let supabaseUrl = '', supabaseAnon = '', jwt = null;
 let msgCount = 0, sessionId = 'test-' + Date.now();
 
+// DOM Elements
+const chatLog = document.getElementById('chat-log');
+const messageInput = document.getElementById('message-input');
+const sendBtn = document.getElementById('send-btn');
+const connDot = document.getElementById('conn-dot');
+const connText = document.getElementById('conn-text');
+const msgCountSpan = document.getElementById('msg-count');
+const authStatus = document.getElementById('auth-status');
+const voiceLed = document.getElementById('voice-led');
+const voiceStatusText = document.getElementById('voice-status-text');
+const sttBadge = document.getElementById('stt-badge');
+const privacyToggle = document.getElementById('privacy-toggle');
+
 // Load saved preferences
 const savedMode = localStorage.getItem('sttMode') || 'cloud';
-const savedVoice = localStorage.getItem('voice') || 'en-US-AriaNeural';
 
-// DOM elements
-const log = (msg, type = 'info') => {
-    const el = document.getElementById('chat-log');
+// Log message to chat
+function log(msg, type = 'system') {
+    const div = document.createElement('div');
+    div.className = `message ${type}`;
     const time = new Date().toLocaleTimeString();
-    const icon = type === 'ai' ? '🤖' : type === 'user' ? '👤' : type === 'error' ? '❌' : '📝';
-    el.innerHTML += `<div class="chat-msg log-${type}">${icon} [${time}] ${msg}</div>`;
-    el.scrollTop = el.scrollHeight;
-};
+    let icon = '';
+    if (type === 'user') icon = '👤 ';
+    else if (type === 'ai') icon = '🤖 ';
+    else if (type === 'error') icon = '❌ ';
+    else icon = '📝 ';
+    div.innerHTML = `<span style="font-size: 10px; opacity: 0.6;">[${time}]</span> ${icon}${msg}`;
+    chatLog.appendChild(div);
+    div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
 
 // Update connection UI
 function updateConnection(connected) {
-    const dot = document.getElementById('conn-dot');
-    const text = document.getElementById('conn-text');
-    if (dot) dot.className = 'status-dot ' + (connected ? 'dot-green' : 'dot-red');
-    if (text) text.textContent = connected ? 'Connected' : 'Disconnected';
-}
-
-// Save session to localStorage
-function saveSession() {
-    if (jwt) {
-        localStorage.setItem('surf_jwt', jwt);
-        localStorage.setItem('surf_session_id', sessionId);
-        localStorage.setItem('surf_msg_count', msgCount);
+    if (connected) {
+        connDot.className = 'status-dot dot-green';
+        connText.textContent = 'Connected';
+    } else {
+        connDot.className = 'status-dot dot-red';
+        connText.textContent = 'Disconnected';
     }
 }
 
-// Restore session
-function restoreSession() {
-    const savedJwt = localStorage.getItem('surf_jwt');
-    const savedSessionId = localStorage.getItem('surf_session_id');
-    const savedMsgCount = localStorage.getItem('surf_msg_count');
-    
-    if (savedJwt && savedSessionId) {
-        jwt = savedJwt;
-        sessionId = savedSessionId;
-        msgCount = parseInt(savedMsgCount) || 0;
-        updateStats();
-        log('Session restored', 'info');
-        
-        // Re-send JWT to sandbox
-        const iframe = document.getElementById('sandbox');
-        if (iframe && iframe.contentWindow) {
-            iframe.contentWindow.postMessage({ type: 'auth_token', token: jwt }, SANDBOX_URL);
-            log('JWT resent to sandbox', 'info');
-        }
-        enableChat();
-        return true;
-    }
-    return false;
+// Update stats
+function updateStats() {
+    msgCountSpan.textContent = msgCount;
 }
 
-// Save STT mode preference
-function saveSTTMode(mode) {
-    localStorage.setItem('sttMode', mode);
-    log(`STT mode saved: ${mode}`, 'info');
+// Enable chat
+function enableChat() {
+    messageInput.disabled = false;
+    sendBtn.disabled = false;
+    log('Chat ready - type a message or use voice', 'system');
 }
 
-// Message handler
-window.addEventListener('message', (e) => {
-    console.log('📨 Test page received:', e.origin, e.data);
-    const msg = e.data;
-    
-    if (msg?.type === 'sandbox_ready') {
-        console.log('✅ Sandbox ready!');
-        updateConnection(true);
-        document.getElementById('auth-status').textContent = 'Sandbox ready';
-        if (msg.config) {
-            supabaseUrl = msg.config.SUPABASE_URL;
-            supabaseAnon = msg.config.SUPABASE_ANON_KEY;
-            log('Config loaded from sandbox', 'info');
-        }
-        // Restore session after sandbox is ready
-        setTimeout(() => restoreSession(), 500);
-    }
-    
-    if (msg?.type === 'response') {
-        msgCount++;
-        // Format AI response nicely
-        let responseText = msg.text;
-        // Try to parse as JSON for structured responses
-        try {
-            const parsed = JSON.parse(msg.text);
-            if (parsed.response) responseText = parsed.response;
-            if (parsed.message) responseText = parsed.message;
-        } catch(e) {}
-        log(responseText, 'ai');
-        updateStats();
-        saveSession();
-    }
-    
-    if (msg?.type === 'transcript') {
-        msgCount++;
-        log(msg.text, 'user');
-        updateStats();
-    }
-    
-    if (msg?.type === 'token_received') {
-        log('✅ Token confirmed by sandbox', 'info');
-        setTimeout(() => enableChat(), 100);
-        saveSession();
-    }
-    
-    if (msg?.type === 'stt_mode_changed') {
-        document.getElementById('privacy-toggle').checked = msg.mode === 'local';
-        saveSTTMode(msg.mode);
-        log(`Privacy mode: ${msg.mode === 'local' ? 'Local (on-device)' : 'Cloud'}`, 'info');
-    }
-    
-    if (msg?.type === 'stt_error') {
-        log(`STT Error: ${msg.message}. Falling back to cloud.`, 'error');
-        if (msg.fallback === 'cloud') {
-            document.getElementById('privacy-toggle').checked = false;
-            saveSTTMode('cloud');
-        }
-    }
-    
-    if (msg?.type === 'download_progress') {
-        log(`📥 Downloading privacy model: ${msg.percent}%`, 'info');
-    }
-    
-    if (msg?.type === 'download_complete') {
-        log('✅ Privacy mode ready (local STT)', 'info');
-    }
-    
-    if (msg?.type === 'error') {
-        log(`ERROR: ${msg.message}`, 'error');
-        if (msg.code === 403) {
-            log('Try logging in again', 'error');
-        }
-    }
-    
-    if (msg?.type === 'vad') {
-        const status = msg.speaking ? '🔴 Speaking...' : '⚪ Listening';
-        document.getElementById('vad-status').textContent = status;
-    }
-});
-
+// Send command to sandbox
 function postCommand(action, params = {}) {
     const iframe = document.getElementById('sandbox');
     if (iframe && iframe.contentWindow) {
         iframe.contentWindow.postMessage({ type: 'extension_command', action, ...params }, SANDBOX_URL);
-        log(`→ ${action}`, 'out');
-    } else {
-        log('Sandbox not ready', 'error');
     }
 }
 
+// Send text message
 function sendText() {
-    const input = document.getElementById('message-input');
-    const text = input.value.trim();
+    const text = messageInput.value.trim();
     if (!text) return;
     log(text, 'user');
     msgCount++;
-    postCommand('sendText', {
-        text,
-        session_id: sessionId,
-        model: document.getElementById('model-select').value || undefined,
-        voice: document.getElementById('voice-select').value || undefined
-    });
-    input.value = '';
+    postCommand('sendText', { text, session_id: sessionId });
+    messageInput.value = '';
     updateStats();
-    saveSession();
 }
 
-function startMic(mode) { 
-    postCommand('startMic', { mode });
-    log(`🎤 Starting microphone (${mode.toUpperCase()} mode)...`, 'info');
+// Quick message buttons
+function sendQuick(text) {
+    messageInput.value = text;
+    sendText();
 }
-function stopMic() { postCommand('stopMic'); log('⏹️ Microphone stopped', 'info'); }
-function getStatus() { postCommand('getStatus'); }
-function togglePrivacy() {
-    const mode = document.getElementById('privacy-toggle').checked ? 'local' : 'cloud';
-    postCommand('setSTTMode', { mode });
-    saveSTTMode(mode);
+
+// Clear chat
+function clearChat() {
+    chatLog.innerHTML = '';
+    msgCount = 0;
+    updateStats();
+    log('Chat cleared', 'system');
 }
+
+// Export chat
+function exportChat() {
+    const messages = Array.from(chatLog.children).map(msg => msg.innerText);
+    const blob = new Blob([messages.join('\n\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-${sessionId}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    log('Chat exported', 'system');
+}
+
+// New session
 function newChat() {
     sessionId = 'test-' + Date.now();
     msgCount = 0;
-    document.getElementById('chat-log').innerHTML = '';
+    chatLog.innerHTML = '';
     updateStats();
-    log('🔄 New session started', 'info');
-    saveSession();
+    log('New session started', 'system');
 }
 
+// Voice controls
+function startMic(mode) {
+    postCommand('startMic', { mode });
+    log(`Starting microphone (${mode.toUpperCase()} mode)...`, 'system');
+}
+function stopMic() { 
+    postCommand('stopMic'); 
+    log('Microphone stopped', 'system');
+}
+function getStatus() { 
+    postCommand('getStatus'); 
+}
+
+// Privacy toggle
+function togglePrivacy() {
+    const mode = privacyToggle.checked ? 'local' : 'cloud';
+    postCommand('setSTTMode', { mode });
+    if (mode === 'local') {
+        sttBadge.className = 'stt-badge local';
+        sttBadge.innerHTML = '🔒 Local Mode';
+    } else {
+        sttBadge.className = 'stt-badge cloud';
+        sttBadge.innerHTML = '☁️ Cloud Mode';
+    }
+    localStorage.setItem('sttMode', mode);
+    log(`STT mode saved: ${mode}`, 'system');
+}
+
+// File upload
+async function uploadFile(file) {
+    if (!file || !jwt) {
+        log('Please login first', 'error');
+        return;
+    }
+    log(`Uploading: ${file.name}`, 'system');
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const response = await fetch('https://surf-router.aitdevlabs.workers.dev/upload-file', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${jwt}`,
+                'X-Sandbox-Origin': 'https://sb-sf.vercel.app'
+            },
+            body: formData
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.response) {
+                log(`File processed: ${data.response}`, 'ai');
+            }
+        } else {
+            log(`Upload failed: ${response.status}`, 'error');
+        }
+    } catch (e) {
+        log(`Upload error: ${e.message}`, 'error');
+    }
+}
+
+// Login
 async function login() {
     if (!supabaseUrl) {
         log('Waiting for sandbox config...', 'error');
@@ -198,7 +183,7 @@ async function login() {
     }
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
-    log(`Logging in as: ${email}`, 'info');
+    log(`Logging in as: ${email}`, 'system');
     try {
         const r = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
             method: 'POST',
@@ -209,47 +194,150 @@ async function login() {
             const data = await r.json();
             jwt = data.access_token;
             document.getElementById('sandbox').contentWindow.postMessage({ type: 'auth_token', token: jwt }, SANDBOX_URL);
-            log('✅ JWT sent to sandbox', 'info');
-            saveSession();
+            log('JWT sent to sandbox', 'system');
+            document.getElementById('user-email').textContent = email;
         } else {
-            const error = await r.text();
-            log(`Auth failed: ${error}`, 'error');
+            log('Auth failed', 'error');
         }
     } catch (e) { 
         log(`Auth error: ${e.message}`, 'error'); 
     }
 }
 
-function enableChat() {
-    document.getElementById('message-input').disabled = false;
-    document.getElementById('send-btn').disabled = false;
-    log('Chat ready - type a message or use voice', 'info');
+// Voice indicator update
+function updateVoiceIndicator(speaking, mode) {
+    if (speaking) {
+        voiceLed.className = 'voice-led speaking';
+        voiceStatusText.textContent = '🔴 Speaking...';
+    } else if (mode === 'listening') {
+        voiceLed.className = 'voice-led listening';
+        voiceStatusText.textContent = '🟢 Listening...';
+    } else {
+        voiceLed.className = 'voice-led idle';
+        voiceStatusText.textContent = 'Ready';
+    }
 }
 
-function updateStats() {
-    document.getElementById('session-status').textContent = 'Session: ' + sessionId;
-    document.getElementById('msg-count').textContent = 'Messages: ' + msgCount;
+// Message handler
+window.addEventListener('message', (e) => {
+    console.log('📨 Received:', e.origin, e.data);
+    const msg = e.data;
+    
+    if (msg?.type === 'sandbox_ready') {
+        log('Sandbox ready', 'system');
+        updateConnection(true);
+        authStatus.textContent = 'Sandbox ready';
+        if (msg.config) {
+            supabaseUrl = msg.config.SUPABASE_URL;
+            supabaseAnon = msg.config.SUPABASE_ANON_KEY;
+        }
+    }
+    
+    if (msg?.type === 'response') {
+        msgCount++;
+        log(msg.text, 'ai');
+        updateStats();
+    }
+    
+    if (msg?.type === 'transcript') {
+        msgCount++;
+        log(msg.text, 'user');
+        updateStats();
+    }
+    
+    if (msg?.type === 'token_received') {
+        log('Token confirmed', 'system');
+        enableChat();
+    }
+    
+    if (msg?.type === 'stt_mode_changed') {
+        privacyToggle.checked = msg.mode === 'local';
+        if (msg.mode === 'local') {
+            sttBadge.className = 'stt-badge local';
+            sttBadge.innerHTML = '🔒 Local Mode';
+        } else {
+            sttBadge.className = 'stt-badge cloud';
+            sttBadge.innerHTML = '☁️ Cloud Mode';
+        }
+    }
+    
+    if (msg?.type === 'vad') {
+        updateVoiceIndicator(msg.speaking, msg.speaking ? 'speaking' : 'listening');
+    }
+    
+    if (msg?.type === 'error') {
+        log(`Error: ${msg.message}`, 'error');
+    }
+});
+
+// Initialize upload area
+function initUpload() {
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('file-input');
+    
+    if (uploadArea) {
+        uploadArea.addEventListener('click', () => fileInput?.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file) uploadFile(file);
+        });
+    }
+    if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) uploadFile(e.target.files[0]);
+        });
+    }
 }
 
-// Initialize UI
-log('Test page loaded - waiting for sandbox...', 'info');
+// Theme toggle
+function initTheme() {
+    const themeSelect = document.getElementById('theme-select');
+    if (themeSelect) {
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        themeSelect.value = savedTheme;
+        document.body.className = savedTheme;
+        themeSelect.addEventListener('change', () => {
+            const theme = themeSelect.value;
+            document.body.className = theme;
+            localStorage.setItem('theme', theme);
+        });
+    }
+}
+
+// Voice select
+function initVoice() {
+    const voiceSelect = document.getElementById('voice-select');
+    if (voiceSelect) {
+        voiceSelect.addEventListener('change', () => {
+            postCommand('set_voice', { voice: voiceSelect.value });
+        });
+    }
+}
+
+// Initialize
+log('Test page loaded', 'system');
 updateStats();
+initUpload();
+initTheme();
+initVoice();
 
-// Set saved STT mode on load
-setTimeout(() => {
-    if (savedMode === 'local') {
-        document.getElementById('privacy-toggle').checked = true;
-        postCommand('setSTTMode', { mode: 'local' });
-    }
-}, 1000);
-
-// Force enable chat after page load
-setTimeout(() => {
-    const input = document.getElementById('message-input');
-    const btn = document.getElementById('send-btn');
-    if (input) {
-        input.disabled = false;
-        btn.disabled = false;
-        console.log('Chat force-enabled');
-    }
-}, 2000);
+// Make functions global for HTML buttons
+window.sendQuick = sendQuick;
+window.clearChat = clearChat;
+window.exportChat = exportChat;
+window.newChat = newChat;
+window.startMic = startMic;
+window.stopMic = stopMic;
+window.getStatus = getStatus;
+window.togglePrivacy = togglePrivacy;
+window.sendText = sendText;
+window.login = login;
