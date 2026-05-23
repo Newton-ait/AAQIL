@@ -142,6 +142,8 @@ function togglePrivacy() {
 }
 
 // File upload
+
+// File upload - route through sandbox iframe
 async function uploadFile(file) {
     if (!file || !jwt) {
         log('Please login first', 'error');
@@ -149,31 +151,19 @@ async function uploadFile(file) {
     }
     log(`Uploading: ${file.name}`, 'system');
     
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    try {
-        const response = await fetch('https://surf-router.aitdevlabs.workers.dev/upload-file', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${jwt}`,
-                'X-Sandbox-Origin': 'https://sb-sf.vercel.app'
-            },
-            body: formData
+    // Send to sandbox via postMessage
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64 = e.target.result.split(',')[1];
+        postCommand('uploadFile', {
+            filename: file.name,
+            content: base64,
+            type: file.type
         });
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.response) {
-                log(`File processed: ${data.response}`, 'ai');
-            }
-        } else {
-            log(`Upload failed: ${response.status}`, 'error');
-        }
-    } catch (e) {
-        log(`Upload error: ${e.message}`, 'error');
-    }
+    };
+    reader.readAsDataURL(file);
 }
+
 
 // Login
 async function login() {
