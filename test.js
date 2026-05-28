@@ -68,6 +68,7 @@ function postCommand(action, params = {}) {
 
 // Send text message
 function sendText() {
+    const sessionId = localStorage.getItem('surf_session_id') || 'session-' + Date.now();
     const text = messageInput.value.trim();
     if (!text) return;
     log(text, 'user');
@@ -186,6 +187,15 @@ async function login() {
             jwt = data.access_token;
             document.getElementById('sandbox').contentWindow.postMessage({ type: 'auth_token', token: jwt }, SANDBOX_URL);
             log('JWT sent to sandbox', 'system');
+    
+// Generate persistent session ID
+let sessionId = localStorage.getItem('surf_session_id');
+if (!sessionId) {
+    sessionId = 'session-' + Date.now() + '-' + Math.random().toString(36).substr(2, 8);
+    localStorage.setItem('surf_session_id', sessionId);
+}
+console.log('📌 Session ID:', sessionId);
+
     // Enable chat after JWT sent
     setTimeout(() => { enableChat(); }, 1000);
             document.getElementById('user-email').textContent = email;
