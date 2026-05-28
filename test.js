@@ -80,6 +80,7 @@ function sendText() {
 
 // Quick message buttons
 function sendQuick(text) {
+    const sessionId = localStorage.getItem('surf_session_id') || 'session-' + Date.now();
     messageInput.value = text;
     sendText();
 }
