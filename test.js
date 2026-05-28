@@ -177,7 +177,8 @@ async function login() {
     try {
         const r = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'apikey': supabaseAnon },
+            headers: { 'Content-Type': 'application/json',
+                'X-Sandbox-Origin': 'https://sb-sf.vercel.app', 'apikey': supabaseAnon },
             body: JSON.stringify({ email, password })
         });
         if (r.ok) {
