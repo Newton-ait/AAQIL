@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VAD Test - Voice Activity Detection</title>
+    <title>VAD Test - WebSocket Voice</title>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -12,10 +13,7 @@
             color: #00ff9d;
             padding: 20px;
         }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
+        .container { max-width: 800px; margin: 0 auto; }
         h1 { margin-bottom: 20px; }
         .card {
             background: #0d1117;
@@ -28,8 +26,9 @@
             display: flex;
             gap: 10px;
             margin-bottom: 15px;
+            flex-wrap: wrap;
         }
-        input {
+        input, select {
             padding: 10px;
             border-radius: 8px;
             background: #0a0f0f;
@@ -59,16 +58,17 @@
         .vad-led.idle { background: #64748b; }
         .vad-led.listening { background: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
         .vad-led.speaking { background: #22c55e; box-shadow: 0 0 10px #22c55e; animation: pulse 0.3s infinite; }
+        .vad-led.connecting { background: #3b82f6; box-shadow: 0 0 10px #3b82f6; animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
         .energy-bar { width: 100%; height: 30px; background: #1a2332; border-radius: 15px; overflow: hidden; margin: 10px 0; }
         .energy-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #22c55e, #3b82f6); transition: width 0.05s; }
-        .stats { display: flex; gap: 20px; margin-top: 15px; font-size: 12px; color: #64748b; }
+        .stats { display: flex; gap: 20px; margin-top: 15px; font-size: 12px; color: #64748b; flex-wrap: wrap; }
         .transcript-box {
             background: #0a0f0f;
             border: 1px solid #2a3a4a;
             border-radius: 8px;
             padding: 15px;
-            min-height: 100px;
+            min-height: 120px;
             font-size: 14px;
             margin-top: 15px;
         }
@@ -77,33 +77,34 @@
             border: 1px solid #2a3a4a;
             border-radius: 8px;
             padding: 10px;
-            height: 200px;
+            height: 250px;
             overflow-y: auto;
             font-size: 11px;
             margin-top: 15px;
         }
-        .log-entry { margin: 3px 0; }
+        .log-entry { margin: 3px 0; border-left: 2px solid #3b82f6; padding-left: 8px; }
         .status-badge {
             display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
+            padding: 4px 12px;
+            border-radius: 20px;
             font-size: 11px;
-            margin-left: 10px;
+            font-weight: bold;
         }
         .status-connected { background: #22c55e; color: #0a0f0f; }
         .status-disconnected { background: #ef4444; color: white; }
+        .status-connecting { background: #f59e0b; color: #0a0f0f; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎤 VAD Test - Voice Activity Detection</h1>
+        <h1>🎤 VAD Test - WebSocket Voice</h1>
         
         <!-- Auth Card -->
         <div class="card">
             <div class="auth-row">
                 <input type="email" id="email" placeholder="Email" value="surf@testuser.com">
                 <input type="password" id="password" placeholder="Password" value="Test1234!">
-                <button class="btn-primary" id="login-btn">🔐 Login</button>
+                <button class="btn-primary" id="login-btn">🔐 Login & Connect</button>
                 <span id="auth-status" class="status-badge status-disconnected">Disconnected</span>
             </div>
         </div>
@@ -113,6 +114,7 @@
             <div class="vad-indicator">
                 <div class="vad-led idle" id="vad-led"></div>
                 <span class="vad-status-text" id="vad-status">Ready</span>
+                <span id="session-id" style="font-size: 10px; color: #64748b;"></span>
             </div>
             <div class="energy-bar">
                 <div class="energy-fill" id="energy-fill"></div>
@@ -121,18 +123,21 @@
                 <span>🔊 Volume: <span id="volume-value">0%</span></span>
                 <span>🎤 Frames: <span id="frame-count">0</span></span>
                 <span>⏱️ Duration: <span id="duration">0s</span></span>
+                <span>📡 Socket: <span id="socket-status">Disconnected</span></span>
             </div>
             <div class="transcript-box" id="transcript">
-                <span style="color:#64748b">🎤 Speak to see transcription...</span>
+                <span style="color:#64748b">🎤 Speak to see real-time transcription...</span>
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <button class="btn-primary" id="start-vad">🎤 Start VAD</button>
-                <button class="btn-danger" id="stop-vad">⏹️ Stop</button>
+            <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+                <button class="btn-primary" id="start-vad">🎤 Start Voice</button>
+                <button class="btn-danger" id="stop-vad">⏹️ Stop Voice</button>
                 <button class="btn-secondary" id="clear-log">🗑️ Clear</button>
+                <button class="btn-secondary" id="disconnect-btn">🔌 Disconnect</button>
             </div>
             <div class="stats" style="margin-top: 10px;">
-                <span>🎙️ Threshold: <input type="range" id="threshold" min="0" max="100" value="30"></span>
+                <span>🎙️ Threshold: <input type="range" id="threshold" min="0" max="100" value="30" style="width: 150px;"></span>
                 <span id="threshold-value">0.30</span>
+                <span>🔊 Silence timeout: <span id="silence-timeout">2.0</span>s</span>
             </div>
         </div>
 
@@ -150,29 +155,35 @@
         const volumeSpan = document.getElementById('volume-value');
         const frameCountSpan = document.getElementById('frame-count');
         const durationSpan = document.getElementById('duration');
+        const socketStatusSpan = document.getElementById('socket-status');
+        const sessionIdSpan = document.getElementById('session-id');
         const transcriptDiv = document.getElementById('transcript');
         const logDiv = document.getElementById('log');
         const startBtn = document.getElementById('start-vad');
         const stopBtn = document.getElementById('stop-vad');
         const clearBtn = document.getElementById('clear-log');
+        const disconnectBtn = document.getElementById('disconnect-btn');
         const thresholdSlider = document.getElementById('threshold');
         const thresholdSpan = document.getElementById('threshold-value');
 
-        let jwt = null;
-        let mediaStream = null;
-        let audioContext = null;
-        let sourceNode = null;
-        let processorNode = null;
-        let isRunning = false;
-        let frameCount = 0;
-        let startTime = null;
-        let isSpeaking = false;
-        let silenceFrames = 0;
-        let vadThreshold = 0.3;
-        let audioBuffer = [];
-
+        // Configuration
+        const GATEWAY_URL = 'https://surf-router.aitdevlabs.workers.dev';
         const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
         const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
+
+        // State
+        let jwt = null;
+        let socket = null;
+        let mediaStream = null;
+        let mediaRecorder = null;
+        let isVoiceActive = false;
+        let frameCount = 0;
+        let startTime = null;
+        let vadThreshold = 0.3;
+        let silenceTimeout = 2000;
+        let lastSpeechTime = 0;
+        let isSpeaking = false;
+        let audioChunks = [];
 
         function addLog(msg, type = 'info') {
             const time = new Date().toLocaleTimeString();
@@ -183,119 +194,98 @@
             logDiv.scrollTop = logDiv.scrollHeight;
         }
 
-        async function login() {
+        function updateTranscript(text, isFinal = false) {
+            const prefix = isFinal ? '🎤 You:' : '📝 Partial:';
+            transcriptDiv.innerHTML = `<span style="color:#22c55e">${prefix} "${text}"</span>`;
+        }
+
+        function updateSocketStatus(connected) {
+            socketStatusSpan.textContent = connected ? 'Connected' : 'Disconnected';
+            socketStatusSpan.style.color = connected ? '#22c55e' : '#ef4444';
+        }
+
+        async function loginAndConnect() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             addLog(`🔐 Logging in as ${email}...`);
             
             try {
+                // Login to Supabase
                 const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
                 });
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    jwt = data.access_token;
-                    localStorage.setItem('surf_jwt', jwt);
+                if (!response.ok) throw new Error(`Login failed: ${response.status}`);
+                const data = await response.json();
+                jwt = data.access_token;
+                localStorage.setItem('surf_jwt', jwt);
+                addLog('✅ Login successful!');
+                
+                // Connect WebSocket
+                addLog('🔌 Connecting WebSocket to Gateway...');
+                authStatus.className = 'status-badge status-connecting';
+                authStatus.textContent = 'Connecting...';
+                
+                socket = io(GATEWAY_URL, {
+                    transports: ['websocket'],
+                    extraHeaders: { 'X-Sandbox-Origin': 'https://sb-sf.vercel.app' }
+                });
+                
+                socket.on('connect', () => {
+                    addLog('✅ WebSocket connected!');
+                    updateSocketStatus(true);
+                    socket.emit('authenticate', { token: jwt });
+                });
+                
+                socket.on('authenticated', (data) => {
+                    addLog(`✅ Authenticated! Session: ${data.session_id}`);
+                    sessionIdSpan.textContent = `Session: ${data.session_id.substring(0, 8)}...`;
                     authStatus.className = 'status-badge status-connected';
                     authStatus.textContent = 'Connected';
                     vadCard.style.display = 'block';
-                    addLog('✅ Login successful! JWT obtained');
-                } else {
-                    addLog(`❌ Login failed: ${response.status}`);
-                }
-            } catch (err) {
-                addLog(`❌ Login error: ${err.message}`);
-            }
-        }
-
-        async function sendToGateway(text) {
-            if (!jwt) {
-                addLog('❌ Not authenticated. Please login first.');
-                return;
-            }
-            
-            addLog(`📤 Sending to Gateway: "${text}"`);
-            transcriptDiv.innerHTML = `<span style="color:#22c55e">🎤 You said: "${text}"</span>`;
-            
-            try {
-                const response = await fetch('https://surf-router.aitdevlabs.workers.dev/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${jwt}`,
-                        'X-Sandbox-Origin': 'https://sb-sf.vercel.app'
-                    },
-                    body: JSON.stringify({ text: text, voice: 'en-US-AriaNeural' })
                 });
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    addLog(`✅ Response: ${data.response.substring(0, 100)}...`);
-                    transcriptDiv.innerHTML += `<div style="color:#3b82f6; margin-top:8px">🤖 ${data.response}</div>`;
-                } else {
-                    addLog(`❌ Gateway error: ${response.status}`);
-                }
-            } catch (err) {
-                addLog(`❌ Network error: ${err.message}`);
-            }
-        }
-
-        function processAudio(inputData) {
-            let energy = 0;
-            for (let i = 0; i < inputData.length; i++) {
-                energy += Math.abs(inputData[i]);
-            }
-            energy = energy / inputData.length;
-            
-            frameCount++;
-            if (startTime) {
-                durationSpan.textContent = ((Date.now() - startTime) / 1000).toFixed(1);
-            }
-            frameCountSpan.textContent = frameCount;
-            
-            const isSpeechDetected = energy > vadThreshold;
-            
-            if (isSpeechDetected && !isSpeaking) {
-                isSpeaking = true;
-                silenceFrames = 0;
-                audioBuffer = [];
-                addLog(`🎤 SPEECH STARTED`);
-                vadLed.className = 'vad-led speaking';
-                vadStatusSpan.textContent = '🔴 SPEAKING';
-            } else if (!isSpeechDetected && isSpeaking) {
-                silenceFrames++;
-                if (silenceFrames > 15) {
-                    isSpeaking = false;
-                    addLog(`🔇 SPEECH ENDED`);
+                socket.on('session_ready', (data) => {
+                    addLog(`✅ Voice session ready`);
                     vadLed.className = 'vad-led idle';
-                    vadStatusSpan.textContent = '⚪ IDLE';
-                    
-                    // Send accumulated text (simulated - real VAD would send audio)
-                    const simulatedText = "Test speech detected";
-                    sendToGateway(simulatedText);
-                }
-            }
-            
-            const percent = Math.min(100, energy * 100);
-            energyFill.style.width = `${percent}%`;
-            volumeSpan.textContent = `${Math.round(percent)}%`;
-            
-            if (isSpeaking) {
-                vadLed.className = 'vad-led speaking';
-                vadStatusSpan.textContent = '🔴 SPEAKING';
-            } else if (energy > vadThreshold * 0.5) {
-                vadLed.className = 'vad-led listening';
-                vadStatusSpan.textContent = '🟡 LISTENING';
+                    vadStatusSpan.textContent = 'Ready';
+                });
+                
+                socket.on('transcript', (data) => {
+                    updateTranscript(data.text, data.is_final);
+                    if (data.is_final) {
+                        addLog(`📝 Transcript: "${data.text}"`);
+                    }
+                });
+                
+                socket.on('response', (data) => {
+                    addLog(`🤖 AI: ${data.text.substring(0, 150)}...`);
+                    transcriptDiv.innerHTML += `<div style="color:#3b82f6; margin-top:8px">🤖 ${data.text}</div>`;
+                });
+                
+                socket.on('error', (data) => {
+                    addLog(`❌ Socket error: ${JSON.stringify(data)}`);
+                });
+                
+                socket.on('disconnect', () => {
+                    addLog('🔌 WebSocket disconnected');
+                    updateSocketStatus(false);
+                    authStatus.className = 'status-badge status-disconnected';
+                    authStatus.textContent = 'Disconnected';
+                });
+                
+            } catch (err) {
+                addLog(`❌ Error: ${err.message}`);
+                authStatus.className = 'status-badge status-disconnected';
+                authStatus.textContent = 'Failed';
             }
         }
 
-        async function startVAD() {
-            if (isRunning) return;
-            if (!jwt) {
-                addLog('❌ Please login first');
+        async function startVoice() {
+            if (!socket || !socket.connected) {
+                addLog('❌ WebSocket not connected. Please login first.');
                 return;
             }
             
@@ -303,57 +293,149 @@
             
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia({
-                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 16000
+                    }
                 });
                 
                 addLog('✅ Microphone access granted');
                 
-                audioContext = new AudioContext({ sampleRate: 16000 });
-                sourceNode = audioContext.createMediaStreamSource(mediaStream);
-                processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+                // Use MediaRecorder for audio streaming
+                mediaRecorder = new MediaRecorder(mediaStream, {
+                    mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+                });
                 
-                processorNode.onaudioprocess = (event) => {
-                    if (!isRunning) return;
-                    processAudio(event.inputBuffer.getChannelData(0));
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0 && socket && socket.connected) {
+                        audioChunks.push(event.data);
+                    }
                 };
                 
-                sourceNode.connect(processorNode);
-                processorNode.connect(audioContext.destination);
+                mediaRecorder.onstop = () => {
+                    if (audioChunks.length > 0 && socket && socket.connected) {
+                        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            const base64 = reader.result.split(',')[1];
+                            socket.emit('audio_data', { audio: base64, format: 'webm' });
+                            addLog(`📤 Sent audio chunk (${audioChunks.length} chunks)`);
+                        };
+                        reader.readAsDataURL(blob);
+                        audioChunks = [];
+                    }
+                };
                 
-                if (audioContext.state === 'suspended') {
-                    await audioContext.resume();
+                // Send audio every 1 second
+                mediaRecorder.start(1000);
+                isVoiceActive = true;
+                startTime = Date.now();
+                
+                // VAD simulation
+                const audioContext = new AudioContext();
+                const source = audioContext.createMediaStreamSource(mediaStream);
+                const analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+                
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                
+                function updateVAD() {
+                    if (!isVoiceActive) return;
+                    
+                    analyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for (let i = 0; i < dataArray.length; i++) {
+                        sum += dataArray[i];
+                    }
+                    const avg = sum / dataArray.length;
+                    const energy = avg / 255;
+                    
+                    frameCount++;
+                    frameCountSpan.textContent = frameCount;
+                    durationSpan.textContent = ((Date.now() - startTime) / 1000).toFixed(1);
+                    
+                    const percent = Math.min(100, energy * 100);
+                    energyFill.style.width = `${percent}%`;
+                    volumeSpan.textContent = `${Math.round(percent)}%`;
+                    
+                    const isSpeechDetected = energy > vadThreshold;
+                    
+                    if (isSpeechDetected && !isSpeaking) {
+                        isSpeaking = true;
+                        vadLed.className = 'vad-led speaking';
+                        vadStatusSpan.textContent = '🔴 SPEAKING';
+                        addLog(`🎤 Speech detected`);
+                    } else if (!isSpeechDetected && isSpeaking) {
+                        isSpeaking = false;
+                        vadLed.className = 'vad-led listening';
+                        vadStatusSpan.textContent = '🟡 LISTENING';
+                        addLog(`🔇 Speech ended`);
+                    } else if (isSpeechDetected) {
+                        vadLed.className = 'vad-led speaking';
+                        vadStatusSpan.textContent = '🔴 SPEAKING';
+                    } else if (energy > vadThreshold * 0.5) {
+                        vadLed.className = 'vad-led listening';
+                        vadStatusSpan.textContent = '🟡 LISTENING';
+                    }
+                    
+                    requestAnimationFrame(updateVAD);
                 }
                 
-                isRunning = true;
-                startTime = Date.now();
-                frameCount = 0;
-                isSpeaking = false;
-                silenceFrames = 0;
-                audioBuffer = [];
+                updateVAD();
                 
                 startBtn.disabled = true;
                 stopBtn.disabled = false;
-                addLog('✅ VAD started - speak into your microphone');
+                addLog('✅ Voice active - speaking will send audio to Gateway');
+                
+                // Emit start_voice event
+                socket.emit('start_voice', { voice: 'en-US-AriaNeural' });
                 
             } catch (err) {
                 addLog(`❌ Error: ${err.message}`);
             }
         }
 
-        function stopVAD() {
-            if (!isRunning) return;
+        function stopVoice() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
             
-            if (processorNode) processorNode.disconnect();
-            if (sourceNode) sourceNode.disconnect();
-            if (audioContext) audioContext.close();
-            if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+            isVoiceActive = false;
+            isSpeaking = false;
             
-            isRunning = false;
+            if (socket && socket.connected) {
+                socket.emit('stop_voice');
+            }
+            
             startBtn.disabled = false;
             stopBtn.disabled = true;
-            addLog('⏹️ VAD stopped');
             vadLed.className = 'vad-led idle';
-            vadStatusSpan.textContent = '⚪ IDLE';
+            vadStatusSpan.textContent = 'Stopped';
+            addLog('⏹️ Voice stopped');
+        }
+
+        function disconnect() {
+            stopVoice();
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+            vadCard.style.display = 'none';
+            authStatus.className = 'status-badge status-disconnected';
+            authStatus.textContent = 'Disconnected';
+            addLog('🔌 Disconnected from Gateway');
+        }
+
+        function clearLog() {
+            logDiv.innerHTML = '';
+            addLog('Log cleared');
         }
 
         thresholdSlider.addEventListener('input', (e) => {
@@ -361,13 +443,14 @@
             thresholdSpan.textContent = vadThreshold.toFixed(2);
         });
 
-        loginBtn.addEventListener('click', login);
-        startBtn.addEventListener('click', startVAD);
-        stopBtn.addEventListener('click', stopVAD);
-        clearBtn.addEventListener('click', () => { logDiv.innerHTML = ''; addLog('Log cleared'); });
+        loginBtn.addEventListener('click', loginAndConnect);
+        startBtn.addEventListener('click', startVoice);
+        stopBtn.addEventListener('click', stopVoice);
+        clearBtn.addEventListener('click', clearLog);
+        disconnectBtn.addEventListener('click', disconnect);
         
-        addLog('VAD Test Page Ready');
-        addLog('Please login first using test credentials');
+        addLog('VAD WebSocket Test Page Ready');
+        addLog('Click "Login & Connect" to start');
     </script>
 </body>
 </html>
