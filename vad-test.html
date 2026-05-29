@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VAD Test - WebSocket Voice</title>
+    <title>VAD Test - Fixed Audio Streaming</title>
     <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -22,12 +22,7 @@
             padding: 20px;
             margin-bottom: 20px;
         }
-        .auth-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
+        .auth-row { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
         input, select {
             padding: 10px;
             border-radius: 8px;
@@ -97,9 +92,8 @@
 </head>
 <body>
     <div class="container">
-        <h1>🎤 VAD Test - WebSocket Voice</h1>
+        <h1>🎤 VAD Test - Fixed Audio Streaming</h1>
         
-        <!-- Auth Card -->
         <div class="card">
             <div class="auth-row">
                 <input type="email" id="email" placeholder="Email" value="surf@testuser.com">
@@ -109,7 +103,6 @@
             </div>
         </div>
 
-        <!-- VAD Card -->
         <div class="card" id="vad-card" style="display: none;">
             <div class="vad-indicator">
                 <div class="vad-led idle" id="vad-led"></div>
@@ -121,12 +114,11 @@
             </div>
             <div class="stats">
                 <span>🔊 Volume: <span id="volume-value">0%</span></span>
-                <span>🎤 Frames: <span id="frame-count">0</span></span>
-                <span>⏱️ Duration: <span id="duration">0s</span></span>
+                <span>🎤 Chunks Sent: <span id="chunk-count">0</span></span>
                 <span>📡 Socket: <span id="socket-status">Disconnected</span></span>
             </div>
             <div class="transcript-box" id="transcript">
-                <span style="color:#64748b">🎤 Speak to see real-time transcription...</span>
+                <span style="color:#64748b">🎤 Speak to see transcription...</span>
             </div>
             <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
                 <button class="btn-primary" id="start-vad">🎤 Start Voice</button>
@@ -135,9 +127,8 @@
                 <button class="btn-secondary" id="disconnect-btn">🔌 Disconnect</button>
             </div>
             <div class="stats" style="margin-top: 10px;">
-                <span>🎙️ Threshold: <input type="range" id="threshold" min="0" max="100" value="30" style="width: 150px;"></span>
-                <span id="threshold-value">0.30</span>
-                <span>🔊 Silence timeout: <span id="silence-timeout">2.0</span>s</span>
+                <span>🎙️ Threshold: <input type="range" id="threshold" min="0" max="100" value="20" style="width: 150px;"></span>
+                <span id="threshold-value">0.20</span>
             </div>
         </div>
 
@@ -145,48 +136,17 @@
     </div>
 
     <script>
-        // DOM elements
-        const loginBtn = document.getElementById('login-btn');
-        const authStatus = document.getElementById('auth-status');
-        const vadCard = document.getElementById('vad-card');
-        const vadLed = document.getElementById('vad-led');
-        const vadStatusSpan = document.getElementById('vad-status');
-        const energyFill = document.getElementById('energy-fill');
-        const volumeSpan = document.getElementById('volume-value');
-        const frameCountSpan = document.getElementById('frame-count');
-        const durationSpan = document.getElementById('duration');
-        const socketStatusSpan = document.getElementById('socket-status');
-        const sessionIdSpan = document.getElementById('session-id');
-        const transcriptDiv = document.getElementById('transcript');
-        const logDiv = document.getElementById('log');
-        const startBtn = document.getElementById('start-vad');
-        const stopBtn = document.getElementById('stop-vad');
-        const clearBtn = document.getElementById('clear-log');
-        const disconnectBtn = document.getElementById('disconnect-btn');
-        const thresholdSlider = document.getElementById('threshold');
-        const thresholdSpan = document.getElementById('threshold-value');
-
-        // Configuration
         const GATEWAY_URL = 'https://surf-router.aitdevlabs.workers.dev';
         const SUPABASE_URL = 'https://ljksgzttnufecxohwtwm.supabase.co';
         const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxqa3NnenR0bnVmZWN4b2h3dHdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTc1NzQsImV4cCI6MjA5MTc3MzU3NH0.jSnVFEe6w-fUA39iD7o9BP0EygB7yejofuU4GUbK6Bk';
 
-        // State
-        let jwt = null;
-        let socket = null;
-        let mediaStream = null;
-        let mediaRecorder = null;
-        let isVoiceActive = false;
-        let frameCount = 0;
-        let startTime = null;
-        let vadThreshold = 0.3;
-        let silenceTimeout = 2000;
-        let lastSpeechTime = 0;
-        let isSpeaking = false;
-        let audioChunks = [];
+        let jwt = null, socket = null, mediaStream = null, audioContext = null;
+        let isVoiceActive = false, chunkCount = 0, vadThreshold = 0.2;
+        let lastSendTime = 0;
 
-        function addLog(msg, type = 'info') {
+        function addLog(msg) {
             const time = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('log');
             const entry = document.createElement('div');
             entry.className = 'log-entry';
             entry.innerHTML = `<span style="color:#64748b">[${time}]</span> ${msg}`;
@@ -194,39 +154,25 @@
             logDiv.scrollTop = logDiv.scrollHeight;
         }
 
-        function updateTranscript(text, isFinal = false) {
-            const prefix = isFinal ? '🎤 You:' : '📝 Partial:';
-            transcriptDiv.innerHTML = `<span style="color:#22c55e">${prefix} "${text}"</span>`;
-        }
-
-        function updateSocketStatus(connected) {
-            socketStatusSpan.textContent = connected ? 'Connected' : 'Disconnected';
-            socketStatusSpan.style.color = connected ? '#22c55e' : '#ef4444';
-        }
-
         async function loginAndConnect() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            addLog(`🔐 Logging in as ${email}...`);
+            addLog(`🔐 Logging in...`);
             
             try {
-                // Login to Supabase
                 const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
                     method: 'POST',
                     headers: { 'apikey': SUPABASE_ANON, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
                 });
-                
-                if (!response.ok) throw new Error(`Login failed: ${response.status}`);
+                if (!response.ok) throw new Error(`Login failed`);
                 const data = await response.json();
                 jwt = data.access_token;
-                localStorage.setItem('surf_jwt', jwt);
-                addLog('✅ Login successful!');
+                addLog(`✅ Login successful`);
                 
-                // Connect WebSocket
-                addLog('🔌 Connecting WebSocket to Gateway...');
-                authStatus.className = 'status-badge status-connecting';
-                authStatus.textContent = 'Connecting...';
+                addLog(`🔌 Connecting WebSocket...`);
+                document.getElementById('auth-status').className = 'status-badge status-connecting';
+                document.getElementById('auth-status').textContent = 'Connecting...';
                 
                 socket = io(GATEWAY_URL, {
                     transports: ['websocket'],
@@ -234,223 +180,168 @@
                 });
                 
                 socket.on('connect', () => {
-                    addLog('✅ WebSocket connected!');
-                    updateSocketStatus(true);
+                    addLog(`✅ WebSocket connected`);
+                    document.getElementById('socket-status').textContent = 'Connected';
                     socket.emit('authenticate', { token: jwt });
                 });
                 
                 socket.on('authenticated', (data) => {
-                    addLog(`✅ Authenticated! Session: ${data.session_id}`);
-                    sessionIdSpan.textContent = `Session: ${data.session_id.substring(0, 8)}...`;
-                    authStatus.className = 'status-badge status-connected';
-                    authStatus.textContent = 'Connected';
-                    vadCard.style.display = 'block';
+                    addLog(`✅ Authenticated! Session: ${data.session_id?.substring(0, 8)}`);
+                    document.getElementById('session-id').textContent = `Session: ${data.session_id?.substring(0, 8)}...`;
+                    document.getElementById('auth-status').className = 'status-badge status-connected';
+                    document.getElementById('auth-status').textContent = 'Connected';
+                    document.getElementById('vad-card').style.display = 'block';
                 });
                 
-                socket.on('session_ready', (data) => {
+                socket.on('session_ready', () => {
                     addLog(`✅ Voice session ready`);
-                    vadLed.className = 'vad-led idle';
-                    vadStatusSpan.textContent = 'Ready';
                 });
                 
                 socket.on('transcript', (data) => {
-                    updateTranscript(data.text, data.is_final);
-                    if (data.is_final) {
-                        addLog(`📝 Transcript: "${data.text}"`);
-                    }
+                    const prefix = data.is_final ? '🎤' : '📝';
+                    document.getElementById('transcript').innerHTML = `<span style="color:#22c55e">${prefix} "${data.text}"</span>`;
+                    if (data.is_final) addLog(`📝 Transcript: "${data.text}"`);
                 });
                 
                 socket.on('response', (data) => {
-                    addLog(`🤖 AI: ${data.text.substring(0, 150)}...`);
+                    addLog(`🤖 AI: ${data.text.substring(0, 100)}`);
+                    const transcriptDiv = document.getElementById('transcript');
                     transcriptDiv.innerHTML += `<div style="color:#3b82f6; margin-top:8px">🤖 ${data.text}</div>`;
                 });
                 
-                socket.on('error', (data) => {
-                    addLog(`❌ Socket error: ${JSON.stringify(data)}`);
-                });
-                
-                socket.on('disconnect', () => {
-                    addLog('🔌 WebSocket disconnected');
-                    updateSocketStatus(false);
-                    authStatus.className = 'status-badge status-disconnected';
-                    authStatus.textContent = 'Disconnected';
-                });
+                socket.on('error', (data) => addLog(`❌ Error: ${JSON.stringify(data)}`));
+                socket.on('disconnect', () => addLog(`🔌 Disconnected`));
                 
             } catch (err) {
-                addLog(`❌ Error: ${err.message}`);
-                authStatus.className = 'status-badge status-disconnected';
-                authStatus.textContent = 'Failed';
+                addLog(`❌ ${err.message}`);
             }
         }
 
         async function startVoice() {
-            if (!socket || !socket.connected) {
-                addLog('❌ WebSocket not connected. Please login first.');
-                return;
-            }
+            if (!socket?.connected) { addLog(`❌ WebSocket not connected`); return; }
             
-            addLog('🎤 Requesting microphone access...');
-            
+            addLog(`🎤 Requesting microphone...`);
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true,
-                        sampleRate: 16000
-                    }
+                    audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 }
                 });
+                addLog(`✅ Microphone granted`);
                 
-                addLog('✅ Microphone access granted');
-                
-                // Use MediaRecorder for audio streaming
-                mediaRecorder = new MediaRecorder(mediaStream, {
-                    mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-                });
-                
-                mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0 && socket && socket.connected) {
-                        audioChunks.push(event.data);
-                    }
-                };
-                
-                mediaRecorder.onstop = () => {
-                    if (audioChunks.length > 0 && socket && socket.connected) {
-                        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            const base64 = reader.result.split(',')[1];
-                            socket.emit('audio_data', { audio: base64, format: 'webm' });
-                            addLog(`📤 Sent audio chunk (${audioChunks.length} chunks)`);
-                        };
-                        reader.readAsDataURL(blob);
-                        audioChunks = [];
-                    }
-                };
-                
-                // Send audio every 1 second
-                mediaRecorder.start(1000);
-                isVoiceActive = true;
-                startTime = Date.now();
-                
-                // VAD simulation
-                const audioContext = new AudioContext();
+                audioContext = new AudioContext({ sampleRate: 16000 });
                 const source = audioContext.createMediaStreamSource(mediaStream);
+                const processor = audioContext.createScriptProcessor(4096, 1, 1);
                 const analyser = audioContext.createAnalyser();
                 analyser.fftSize = 256;
                 source.connect(analyser);
+                source.connect(processor);
+                processor.connect(audioContext.destination);
                 
                 const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                let speaking = false;
+                let audioBuffer = [];
                 
-                function updateVAD() {
+                processor.onaudioprocess = (event) => {
                     if (!isVoiceActive) return;
-                    
-                    analyser.getByteFrequencyData(dataArray);
-                    let sum = 0;
-                    for (let i = 0; i < dataArray.length; i++) {
-                        sum += dataArray[i];
-                    }
-                    const avg = sum / dataArray.length;
-                    const energy = avg / 255;
-                    
-                    frameCount++;
-                    frameCountSpan.textContent = frameCount;
-                    durationSpan.textContent = ((Date.now() - startTime) / 1000).toFixed(1);
+                    const inputData = event.inputBuffer.getChannelData(0);
+                    let energy = 0;
+                    for (let i = 0; i < inputData.length; i++) energy += Math.abs(inputData[i]);
+                    energy /= inputData.length;
                     
                     const percent = Math.min(100, energy * 100);
-                    energyFill.style.width = `${percent}%`;
-                    volumeSpan.textContent = `${Math.round(percent)}%`;
+                    document.getElementById('energy-fill').style.width = `${percent}%`;
+                    document.getElementById('volume-value').textContent = `${Math.round(percent)}%`;
                     
-                    const isSpeechDetected = energy > vadThreshold;
+                    const isSpeech = energy > vadThreshold;
+                    const led = document.getElementById('vad-led');
+                    const status = document.getElementById('vad-status');
                     
-                    if (isSpeechDetected && !isSpeaking) {
-                        isSpeaking = true;
-                        vadLed.className = 'vad-led speaking';
-                        vadStatusSpan.textContent = '🔴 SPEAKING';
-                        addLog(`🎤 Speech detected`);
-                    } else if (!isSpeechDetected && isSpeaking) {
-                        isSpeaking = false;
-                        vadLed.className = 'vad-led listening';
-                        vadStatusSpan.textContent = '🟡 LISTENING';
-                        addLog(`🔇 Speech ended`);
-                    } else if (isSpeechDetected) {
-                        vadLed.className = 'vad-led speaking';
-                        vadStatusSpan.textContent = '🔴 SPEAKING';
+                    if (isSpeech && !speaking) {
+                        speaking = true;
+                        led.className = 'vad-led speaking';
+                        status.textContent = '🔴 SPEAKING';
+                        addLog(`🎤 Speech started`);
+                    } else if (!isSpeech && speaking) {
+                        speaking = false;
+                        led.className = 'vad-led listening';
+                        status.textContent = '🟡 LISTENING';
+                        addLog(`🔇 Speech ended, sending audio...`);
+                        if (audioBuffer.length > 0) {
+                            sendAudioToGateway(audioBuffer);
+                            audioBuffer = [];
+                        }
+                    } else if (isSpeech) {
+                        led.className = 'vad-led speaking';
+                        status.textContent = '🔴 SPEAKING';
+                        audioBuffer.push(...inputData);
                     } else if (energy > vadThreshold * 0.5) {
-                        vadLed.className = 'vad-led listening';
-                        vadStatusSpan.textContent = '🟡 LISTENING';
+                        led.className = 'vad-led listening';
+                        status.textContent = '🟡 LISTENING';
+                    } else {
+                        led.className = 'vad-led idle';
+                        status.textContent = '⚪ IDLE';
                     }
-                    
-                    requestAnimationFrame(updateVAD);
-                }
+                };
                 
-                updateVAD();
+                if (audioContext.state === 'suspended') await audioContext.resume();
+                isVoiceActive = true;
+                chunkCount = 0;
+                document.getElementById('start-vad').disabled = true;
+                document.getElementById('stop-vad').disabled = false;
                 
-                startBtn.disabled = true;
-                stopBtn.disabled = false;
-                addLog('✅ Voice active - speaking will send audio to Gateway');
-                
-                // Emit start_voice event
                 socket.emit('start_voice', { voice: 'en-US-AriaNeural' });
+                addLog(`✅ Voice active - speak now!`);
                 
             } catch (err) {
-                addLog(`❌ Error: ${err.message}`);
+                addLog(`❌ Mic error: ${err.message}`);
             }
+        }
+        
+        function sendAudioToGateway(audioData) {
+            if (!socket?.connected) return;
+            const float32Array = new Float32Array(audioData);
+            const int16Array = new Int16Array(float32Array.length);
+            for (let i = 0; i < float32Array.length; i++) {
+                int16Array[i] = Math.max(-32768, Math.min(32767, Math.floor(float32Array[i] * 32767)));
+            }
+            const base64 = btoa(String.fromCharCode.apply(null, new Uint8Array(int16Array.buffer)));
+            socket.emit('audio_data', { audio: base64, format: 'pcm_int16', sample_rate: 16000 });
+            chunkCount++;
+            document.getElementById('chunk-count').textContent = chunkCount;
+            addLog(`📤 Sent audio chunk (${(audioData.length / 16000).toFixed(2)}s)`);
         }
 
         function stopVoice() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-            }
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(track => track.stop());
-                mediaStream = null;
-            }
-            
             isVoiceActive = false;
-            isSpeaking = false;
-            
-            if (socket && socket.connected) {
-                socket.emit('stop_voice');
-            }
-            
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
-            vadLed.className = 'vad-led idle';
-            vadStatusSpan.textContent = 'Stopped';
-            addLog('⏹️ Voice stopped');
+            if (audioContext) audioContext.close();
+            if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+            if (socket?.connected) socket.emit('stop_voice');
+            document.getElementById('start-vad').disabled = false;
+            document.getElementById('stop-vad').disabled = true;
+            document.getElementById('vad-led').className = 'vad-led idle';
+            document.getElementById('vad-status').textContent = 'Stopped';
+            addLog(`⏹️ Voice stopped`);
         }
 
         function disconnect() {
             stopVoice();
-            if (socket) {
-                socket.disconnect();
-                socket = null;
-            }
-            vadCard.style.display = 'none';
-            authStatus.className = 'status-badge status-disconnected';
-            authStatus.textContent = 'Disconnected';
-            addLog('🔌 Disconnected from Gateway');
+            if (socket) socket.disconnect();
+            document.getElementById('vad-card').style.display = 'none';
+            document.getElementById('auth-status').className = 'status-badge status-disconnected';
+            document.getElementById('auth-status').textContent = 'Disconnected';
+            addLog(`🔌 Disconnected`);
         }
 
-        function clearLog() {
-            logDiv.innerHTML = '';
-            addLog('Log cleared');
-        }
-
-        thresholdSlider.addEventListener('input', (e) => {
+        document.getElementById('login-btn').onclick = loginAndConnect;
+        document.getElementById('start-vad').onclick = startVoice;
+        document.getElementById('stop-vad').onclick = stopVoice;
+        document.getElementById('clear-log').onclick = () => { document.getElementById('log').innerHTML = ''; addLog('Log cleared'); };
+        document.getElementById('disconnect-btn').onclick = disconnect;
+        document.getElementById('threshold').oninput = (e) => {
             vadThreshold = e.target.value / 100;
-            thresholdSpan.textContent = vadThreshold.toFixed(2);
-        });
-
-        loginBtn.addEventListener('click', loginAndConnect);
-        startBtn.addEventListener('click', startVoice);
-        stopBtn.addEventListener('click', stopVoice);
-        clearBtn.addEventListener('click', clearLog);
-        disconnectBtn.addEventListener('click', disconnect);
+            document.getElementById('threshold-value').textContent = vadThreshold.toFixed(2);
+        };
         
-        addLog('VAD WebSocket Test Page Ready');
-        addLog('Click "Login & Connect" to start');
+        addLog('VAD Test Ready - Click Login & Connect');
     </script>
 </body>
 </html>
